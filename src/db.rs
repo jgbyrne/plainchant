@@ -1,5 +1,6 @@
 use crate::site;
 
+#[derive(Debug)]
 pub struct Thread {
     pub original: site::Original,
     pub replies : Vec<site::Reply>,
@@ -16,7 +17,7 @@ pub fn static_err(msg: &'static str) -> DatabaseErr {
     }
 }
 
-trait Database {
+pub trait Database {
     fn get_boards(&self) -> Vec<site::Board>;
     fn get_board(&self, board_id: u64) -> Result<site::Board, DatabaseErr>;
     fn get_catalog(&self, board_id: u64) -> Result<site::Catalog, DatabaseErr>;

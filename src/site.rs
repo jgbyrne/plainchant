@@ -9,6 +9,7 @@ pub trait Post {
     fn file_name(&self) -> Option<&str>;
 }
 
+#[derive(Debug)]
 pub struct Original {
     board_id  : u64,
     post_num  : u64,
@@ -23,6 +24,27 @@ pub struct Original {
     img_replies : u16,
 }
 
+impl Original {
+    pub fn new(board_id: u64, post_num: u64, time: u64, ip: String, body: String,
+           poster: Option<String>, file_id: Option<String>, file_name: Option<String>,
+           title: Option<String>, replies: u16, img_replies: u16 ) -> Original {
+        Original {
+            board_id,
+            post_num,
+            time,
+            ip,
+            body,
+            poster,
+            file_id,
+            file_name,
+            title,
+            replies,
+            img_replies,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct Reply {
     board_id  : u64,
     post_num  : u64,
@@ -33,6 +55,24 @@ pub struct Reply {
     file_id   : Option<String>,
     file_name : Option<String>,
     orig_num    : u64,
+}
+
+impl Reply {
+    pub fn new(board_id: u64, post_num: u64, time: u64, ip: String, body: String,
+           poster: Option<String>, file_id: Option<String>, file_name: Option<String>,
+           orig_num: u64 ) -> Reply {
+        Reply {
+            board_id,
+            post_num,
+            time,
+            ip,
+            body,
+            poster,
+            file_id,
+            file_name,
+            orig_num,
+        }
+    }
 }
 
 impl Original {
@@ -107,6 +147,7 @@ macro_rules! impl_post {
 
 impl_post!(Original, Reply);
 
+#[derive(Debug)]
 pub struct Board {
     pub id    : u64,
     pub url   : String,
