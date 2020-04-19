@@ -154,6 +154,7 @@ pub struct Board {
     pub title : String,
 }
 
+#[derive(Debug)]
 pub struct Catalog {
     pub board_id : u64,
     pub time     : u64,

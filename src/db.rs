@@ -24,5 +24,5 @@ pub trait Database {
     fn get_thread(&self, board_id: u64, post_num: u64) -> Result<Thread, DatabaseErr>;
     fn get_original(&self, board_id: u64, post_num: u64) -> Result<site::Original, DatabaseErr>;
     fn get_reply(&self, board_id: u64, post_num: u64) -> Result<site::Reply, DatabaseErr>;
-    fn get_post(&self, board_id: u64, post_num: u64) -> Result<Box<site::Post>, DatabaseErr>;
+    fn get_post(&self, board_id: u64, post_num: u64) -> Result<Box<dyn site::Post>, DatabaseErr>;
 }

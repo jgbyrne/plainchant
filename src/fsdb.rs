@@ -1,8 +1,10 @@
 use crate::db;
 use crate::site;
+use crate::util;
 use std::path::{Path, PathBuf};
-use std::fs::{File, read_to_string, read_dir};
+use std::fs::{read_to_string, read_dir};
 use std::ffi::{OsString};
+use walkdir::WalkDir;
 
 #[derive(Debug)]
 pub struct FSDatabase {
@@ -37,7 +39,7 @@ impl<'init> FSDatabase {
         Ok(FSDatabase { root: root_path, boards })
     }
 
-    pub fn get_reply(&self, board_id: u64, orig_num: u64, post_num: u64) -> Result<site::Reply, db::DatabaseErr> {
+    pub fn get_thread_reply(&self, board_id: u64, orig_num: u64, post_num: u64) -> Result<site::Reply, db::DatabaseErr> {
         let reply_path = self.root.join(board_id.to_string()).join(orig_num.to_string()).join(post_num.to_string());
         let mut post_str = match read_to_string(reply_path) {
             Ok(post_str) => post_str,
@@ -88,7 +90,42 @@ impl db::Database for FSDatabase {
         Err(db::static_err("No such board!"))
     }
 
-    fn get_catalog(&self, board_id: u64) -> Result<site::Catalog, db::DatabaseErr> { Err(db::static_err("Unimpl!")) }
+    fn get_catalog(&self, board_id: u64) -> Result<site::Catalog, db::DatabaseErr> {
+        let time = util::timestamp();
+        let mut originals = vec![];
+        // Hadouken!
+        for entry in WalkDir::new(self.root.join(board_id.to_string())) {
+            match entry {
+                Ok(entry) => {
+                    let e_path = entry.path();
+                    if entry.depth() == 1 && e_path.is_dir() {
+                        match e_path.file_name() {
+                            Some(name) => match name.to_str() {
+                                Some(name_str) => {
+                                    match name_str.parse::<u64>() {
+                                        Ok(orig_num) => {
+                                            originals.push(
+                                                self.get_original(board_id, orig_num)?);
+                                        },
+                                        Err(_) => {
+                                            return Err(db::static_err(
+                                                    "Could not parse directory name"));
+                                        },
+                                    }
+                                },
+                                None => continue,
+                            },
+                            None => continue,
+                        }
+                    }
+                },
+                Err(entry) => {
+                    continue;
+                }
+            }
+        }
+        Ok(site::Catalog { board_id, time, originals })
+    }
     
     fn get_thread(&self, board_id: u64, post_num: u64) -> Result<db::Thread, db::DatabaseErr> {
         let thread_dir = self.root.join(board_id.to_string()).join(post_num.to_string());
@@ -116,7 +153,7 @@ impl db::Database for FSDatabase {
                             Err(parse_err) => { return Err(
                                     db::static_err("Could not parse filename")); },
                         };
-                        replies.push(self.get_reply(board_id, post_num, reply_num)?);
+                        replies.push(self.get_thread_reply(board_id, post_num, reply_num)?);
                     }
                 },
                 Err(_) => return Err(db::static_err("Could not read thread dir entry")),
@@ -126,8 +163,9 @@ impl db::Database for FSDatabase {
     }
 
     fn get_original(&self, board_id: u64, post_num: u64) -> Result<site::Original, db::DatabaseErr> {
-        let orig_path = self.root.join(board_id.to_string()).join(post_num.to_string()).join(post_num.to_string());
-        println!("{:?}", orig_path);
+        let orig_path = self.root.join(board_id.to_string())
+                                 .join(post_num.to_string())
+                                 .join(post_num.to_string());
         let mut post_str = match read_to_string(orig_path) {
             Ok(post_str) => post_str,
             Err(read_err) => { return Err(db::static_err("Could not retrieve original post"));  },
@@ -168,12 +206,39 @@ impl db::Database for FSDatabase {
         }
     }
 
-    fn get_reply(&self, board_id: u64, post_num: u64) -> Result<site::Reply, db::DatabaseErr> { Err(db::static_err("Unimpl!")) }
-    fn get_post(&self, board_id: u64, post_num: u64) -> Result<Box<site::Post>,             db::DatabaseErr> { Err(db::static_err("Unimpl!")) }
+    fn get_reply(&self, board_id: u64, post_num: u64) -> Result<site::Reply, db::DatabaseErr> { 
+        let post_filename = OsString::from(post_num.to_string());
+        for entry in WalkDir::new(self.root.join(board_id.to_string())) {
+            match entry {
+                Ok(entry) => {
+                    if entry.depth() == 2 {
+                        let e_path = entry.path();
+                        if e_path.is_file() && entry.file_name() == post_filename {
+                            let thread_filename = e_path.parent().unwrap().file_name().unwrap();
+                            let thread_str = thread_filename.to_string_lossy();
+                            match thread_str.parse::<u64>() {
+                                Ok(thread_num) =>
+                                    return Ok(self.get_thread_reply(board_id, thread_num, post_num)?),
+                                Err(_) =>
+                                    return Err(db::static_err("Could not parse thread directory to number")),
+                            }
+                        }
+                    }
+                },
+                Err(_) => {},
+            }
+        }
+        Err(db::static_err("Could not find reply"))
+    }
+    
+    fn get_post(&self, board_id: u64, post_num: u64) -> Result<Box<dyn site::Post>, db::DatabaseErr> {
+        match self.get_original(board_id, post_num) {
+            Ok(orig) => return Ok(Box::new(orig) as Box<dyn site::Post>),
+            Err(_) => match self.get_reply(board_id, post_num) {
+                Ok(reply) => return Ok(Box::new(reply) as Box<dyn site::Post>),
+                Err(e) => Err(e),
+            }
+        }
+    }
 
 }
-
-
-
-
-
