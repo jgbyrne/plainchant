@@ -1,0 +1,56 @@
+.header {
+
+}
+
+body {
+    background-color: #f7efef;
+    font-family: "Source Serif", "serif";
+    font-size: 13pt;
+}
+
+.board-title {
+    font-family: "Liberation Serif", "serif";
+    text-align: center;
+}
+
+.content {
+    margin-left: 50px;
+    margin-right: 50px;
+}
+
+.preview {
+    width: 180px;
+    max-width: 180px;
+    text-align: center;
+    vertical-align: top;
+    display: inline-block;
+}
+
+.thumbnail-frame {
+    height: 180px;
+    max-height: 180px;
+    max-width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.thumbnail {
+    max-width: 95%;
+    max-height: 95%;
+    box-shadow: 3px 3px rgba(0.3,0.3,0.3,0.3);
+}
+
+.counts {
+    font-size: 11pt;
+    font-family: "Linux Libertine O", "Linux Libertine", "Times New Roman", "serif";
+}
+
+.count {
+    font-weight: bold;
+    font-size: 12pt;
+}
+
+.post-title {
+    font-weight: bold;
+}

@@ -84,6 +84,14 @@ impl Original {
             None
         }
     }
+
+    pub fn replies(&self) -> u16 {
+        self.replies
+    }
+
+    pub fn img_replies(&self) -> u16 {
+        self.img_replies
+    }
 }
 
 impl Reply {
