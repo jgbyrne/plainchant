@@ -21,29 +21,29 @@ pub struct SiteTemplates {
 //    pub thread_tmpl : template::Template,
 }
 
-pub struct Pages<'db, DB: db::Database> {
-    database: &'db DB,
+pub struct Pages {
     pages: HashMap<PageRef, Page>,
     templates: SiteTemplates,
     render_freq: u64,
+    board_urls: HashMap<String, u64>,
 }
 
-impl<'db, DB: db::Database> Pages<'db, DB> {
-    pub fn render(&mut self, pr: &PageRef) -> Result<&Page, util::PlainchantErr> {
+impl Pages {
+    pub fn render<DB: db::Database>(&mut self, database: &DB, pr: &PageRef) -> Result<&Page, util::PlainchantErr> {
         match pr {
             PageRef::Catalog(board_id) => { 
-                match self.database.get_board(*board_id) {
+                match database.get_board(*board_id) {
                     Ok(board) => {
                         let mut values = HashMap::new();
                         values.insert(String::from("board_url"), String::from(board.url));
                         values.insert(String::from("board_title"), String::from(board.title));
 
                         let mut originals = vec![];
-                        let cat = self.database.get_catalog(board.id)?;
+                        let cat = database.get_catalog(board.id)?;
                         for orig in cat.originals {
 
                             values.insert(format!("original.{}.file_url", orig.post_num()),
-                                          String::from("yellow-loveless.jpg"));
+                                          String::from("/static/yellow-loveless.jpg"));
 
                             values.insert(format!("original.{}.replies", orig.post_num()),
                                           orig.replies().to_string());
@@ -82,10 +82,10 @@ impl<'db, DB: db::Database> Pages<'db, DB> {
         }
     }
 
-    pub fn page_exists(&self, pr: &PageRef) -> bool {
+    pub fn page_exists<DB: db::Database>(&self, database: &DB, pr: &PageRef) -> bool {
         match pr {
             PageRef::Catalog(board_id) => {
-                match self.database.get_board(*board_id) {
+                match database.get_board(*board_id) {
                     Ok(_) => true,
                     Err(_) => false,
                 }
@@ -96,17 +96,17 @@ impl<'db, DB: db::Database> Pages<'db, DB> {
         }
     }
 
-    pub fn get_page(&mut self, pr: &PageRef) -> Result<&Page, util::PlainchantErr> {
+    pub fn get_page<DB: db::Database>(&mut self, database: &DB, pr: &PageRef) -> Result<&Page, util::PlainchantErr> {
         match self.pages.get(pr) {
             Some(page) =>  {
                let now = util::timestamp();
                if now - page.render_time > self.render_freq {
-                   return self.render(pr);
+                   return self.render(database, pr);
                }
             },
             None => {
-                if self.page_exists(pr) {
-                    return self.render(pr);
+                if self.page_exists(database, pr) {
+                    return self.render(database, pr);
                 }
                 else {
                     return Err(util::PlainchantErr {
@@ -119,14 +119,24 @@ impl<'db, DB: db::Database> Pages<'db, DB> {
         // Borrow checker makes us get again >:-(
         Ok(self.pages.get(pr).unwrap())
     }
-    
-    pub fn new(database: &'db DB, templates: SiteTemplates, render_freq: u64) -> Result<Pages<'db, DB>, util::PlainchantErr> {
+
+    pub fn board_url_to_id(&self, url: &str) -> Option<&u64> {
+        self.board_urls.get(url)
+    }
+
+    pub fn new<DB: db::Database>(database: &DB, templates: SiteTemplates, render_freq: u64) -> Result<Pages, util::PlainchantErr> {
         let mut pages = HashMap::new();
+        
+        let mut board_urls = HashMap::new();
+        for board in database.get_boards() {
+            board_urls.insert(board.url.clone(), board.id);
+        }
+
         Ok(Pages {
-            database,
             pages,
             templates,
             render_freq,
+            board_urls,
         })
     }
 }

@@ -5,6 +5,7 @@ use db::Database;
 mod pages;
 mod fsdb;
 mod template;
+mod server;
 use std::collections::HashMap;
 
 fn main() {
@@ -41,6 +42,7 @@ fn main() {
         catalog_tmpl: template::Template::from_file("templates/catalog.html.tmpl").unwrap(),
     };
     let mut pages = pages::Pages::new(&db, templates, 2).unwrap();
-    let page = pages.get_page(&pages::PageRef::Catalog(1234)).unwrap();
-    println!("{}", page.page_text);
+    //let page = pages.get_page(&pages::PageRef::Catalog(1234)).unwrap();
+
+    server::serve(pages, db, [127, 0, 0, 1], 3030);
 }
