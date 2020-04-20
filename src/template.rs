@@ -1,3 +1,4 @@
+use crate::util;
 use std::fs;
 use std::mem;
 use std::collections::HashMap;
@@ -28,13 +29,11 @@ pub struct Template {
     chunks: Vec<Chunk>,
 }
 
-#[derive(Debug)]
-pub struct TemplateErr {
-    msg: String,
-}
-
-pub fn static_err(msg: &'static str) -> TemplateErr {
-    TemplateErr { msg: msg.to_string() }
+pub fn static_err(msg: &'static str) -> util::PlainchantErr {
+    util::PlainchantErr { 
+        origin: util::ErrOrigin::Template,
+        msg: msg.to_string()
+    }
 }
 
 impl Template {
@@ -99,7 +98,7 @@ impl Template {
         buf
     }
 
-    pub fn from_string(string: String) -> Result<Template, TemplateErr> {
+    pub fn from_string(string: String) -> Result<Template, util::PlainchantErr> {
         let mut chunks = vec![];
         let mut buf = String::new();
         let mut state = '+';
@@ -166,7 +165,7 @@ impl Template {
         Ok(Template { chunks })
     }
 
-    pub fn from_file(path: &str) -> Result<Template, TemplateErr> {
+    pub fn from_file(path: &str) -> Result<Template, util::PlainchantErr> {
         match fs::read_to_string(path) {
             Ok(s) => Template::from_string(s),
             Err(_) => Err(static_err("Could not read from template file")),

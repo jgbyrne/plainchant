@@ -13,7 +13,7 @@ pub struct FSDatabase {
 }
 
 impl<'init> FSDatabase {
-    pub fn from_root(root: &'init str) -> Result<FSDatabase, db::DatabaseErr> {
+    pub fn from_root(root: &'init str) -> Result<FSDatabase, util::PlainchantErr> {
         let root_path = Path::new(&root).to_path_buf();
         let mut boards_path = root_path.join("boards");
         let mut boards_str = match read_to_string(boards_path) {
@@ -39,7 +39,7 @@ impl<'init> FSDatabase {
         Ok(FSDatabase { root: root_path, boards })
     }
 
-    pub fn get_thread_reply(&self, board_id: u64, orig_num: u64, post_num: u64) -> Result<site::Reply, db::DatabaseErr> {
+    pub fn get_thread_reply(&self, board_id: u64, orig_num: u64, post_num: u64) -> Result<site::Reply, util::PlainchantErr> {
         let reply_path = self.root.join(board_id.to_string()).join(orig_num.to_string()).join(post_num.to_string());
         let mut post_str = match read_to_string(reply_path) {
             Ok(post_str) => post_str,
@@ -81,7 +81,7 @@ impl db::Database for FSDatabase {
             .map(|b| site::Board { id: b.0, url: b.1.clone(), title: b.2.clone() } ).collect()
     }
 
-    fn get_board(&self, board_id: u64) -> Result<site::Board, db::DatabaseErr> {
+    fn get_board(&self, board_id: u64) -> Result<site::Board, util::PlainchantErr> {
         for b in &self.boards {
             if b.0 == board_id {
                 return Ok(site::Board { id: b.0, url: b.1.clone(), title: b.2.clone() });
@@ -90,7 +90,7 @@ impl db::Database for FSDatabase {
         Err(db::static_err("No such board!"))
     }
 
-    fn get_catalog(&self, board_id: u64) -> Result<site::Catalog, db::DatabaseErr> {
+    fn get_catalog(&self, board_id: u64) -> Result<site::Catalog, util::PlainchantErr> {
         let time = util::timestamp();
         let mut originals = vec![];
         // Hadouken!
@@ -127,7 +127,7 @@ impl db::Database for FSDatabase {
         Ok(site::Catalog { board_id, time, originals })
     }
     
-    fn get_thread(&self, board_id: u64, post_num: u64) -> Result<db::Thread, db::DatabaseErr> {
+    fn get_thread(&self, board_id: u64, post_num: u64) -> Result<db::Thread, util::PlainchantErr> {
         let thread_dir = self.root.join(board_id.to_string()).join(post_num.to_string());
         let dir_iter = match read_dir(thread_dir) {
             Ok(entries) => entries,
@@ -162,7 +162,7 @@ impl db::Database for FSDatabase {
         Ok(db::Thread { original, replies } )
     }
 
-    fn get_original(&self, board_id: u64, post_num: u64) -> Result<site::Original, db::DatabaseErr> {
+    fn get_original(&self, board_id: u64, post_num: u64) -> Result<site::Original, util::PlainchantErr> {
         let orig_path = self.root.join(board_id.to_string())
                                  .join(post_num.to_string())
                                  .join(post_num.to_string());
@@ -206,7 +206,7 @@ impl db::Database for FSDatabase {
         }
     }
 
-    fn get_reply(&self, board_id: u64, post_num: u64) -> Result<site::Reply, db::DatabaseErr> { 
+    fn get_reply(&self, board_id: u64, post_num: u64) -> Result<site::Reply, util::PlainchantErr> { 
         let post_filename = OsString::from(post_num.to_string());
         for entry in WalkDir::new(self.root.join(board_id.to_string())) {
             match entry {
@@ -231,7 +231,7 @@ impl db::Database for FSDatabase {
         Err(db::static_err("Could not find reply"))
     }
     
-    fn get_post(&self, board_id: u64, post_num: u64) -> Result<Box<dyn site::Post>, db::DatabaseErr> {
+    fn get_post(&self, board_id: u64, post_num: u64) -> Result<Box<dyn site::Post>, util::PlainchantErr> {
         match self.get_original(board_id, post_num) {
             Ok(orig) => return Ok(Box::new(orig) as Box<dyn site::Post>),
             Err(_) => match self.get_reply(board_id, post_num) {

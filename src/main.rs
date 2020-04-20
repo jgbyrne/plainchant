@@ -36,8 +36,11 @@ fn main() {
     println!("{}", tmpl.render(&data));
     */
     let db = fsdb::FSDatabase::from_root("./fstest").unwrap();
-    let mut pages = pages::Pages::new(&db).unwrap();
-    pages.render_catalogs();
+
+    let templates = pages::SiteTemplates {
+        catalog_tmpl: template::Template::from_file("templates/catalog.html.tmpl").unwrap(),
+    };
+    let mut pages = pages::Pages::new(&db, templates, 2).unwrap();
     let page = pages.get_page(&pages::PageRef::Catalog(1234)).unwrap();
     println!("{}", page.page_text);
 }
