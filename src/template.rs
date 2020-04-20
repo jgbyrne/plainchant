@@ -66,7 +66,11 @@ impl Template {
                             }
                         },
                         None => {
-                            buf.push_str(data.values.get(name).unwrap_or(&empty_str));
+                            match name.as_str() {
+                                "$TIME" => buf.push_str(&util::timestamp().to_string()),
+                                "$PLAINCHANT" => buf.push_str(&format!("Plainchant v{}", env!("CARGO_PKG_VERSION"))),
+                                _ => buf.push_str(data.values.get(name).unwrap_or(&empty_str)),
+                            }
                         },
                     }
                 },

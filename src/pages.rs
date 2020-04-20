@@ -65,8 +65,8 @@ impl Pages {
                         let page_text = self.templates.catalog_tmpl.render(&render_data);
                         let page = Page { page_ref: *pr,
                                           render_time: util::timestamp(), page_text };
-                        let page_entry = self.pages.entry(*pr).or_insert(page);
-                        Ok(page_entry)
+                        self.pages.insert(*pr, page);
+                        Ok(self.pages.get(pr).unwrap())
                     },
                     Err(e) => {
                         Err(e)
