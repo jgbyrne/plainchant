@@ -7,7 +7,7 @@ use std::collections::HashMap;
 #[derive(Hash, PartialEq, Eq, Clone, Copy)]
 pub enum PageRef {
     Catalog(u64),
-    Thread(u64),
+    Thread(u64, u64),
 }
 
 pub struct Page {
@@ -18,7 +18,7 @@ pub struct Page {
 
 pub struct SiteTemplates {
     pub catalog_tmpl : template::Template,
-//    pub thread_tmpl : template::Template,
+    pub thread_tmpl : template::Template,
 }
 
 pub struct Pages {
@@ -32,52 +32,93 @@ impl Pages {
     pub fn render<DB: db::Database>(&mut self, database: &DB, pr: &PageRef) -> Result<&Page, util::PlainchantErr> {
         match pr {
             PageRef::Catalog(board_id) => { 
-                match database.get_board(*board_id) {
-                    Ok(board) => {
-                        let mut values = HashMap::new();
-                        values.insert(String::from("board_url"), String::from(board.url));
-                        values.insert(String::from("board_title"), String::from(board.title));
+                let board = database.get_board(*board_id)?; 
+                let mut values = HashMap::new();
+                values.insert(String::from("board_url"), String::from(board.url));
+                values.insert(String::from("board_title"), String::from(board.title));
 
-                        let mut originals = vec![];
-                        let cat = database.get_catalog(board.id)?;
-                        for orig in cat.originals {
+                let mut originals = vec![];
+                let cat = database.get_catalog(board.id)?;
+                for orig in cat.originals {
 
-                            values.insert(format!("original.{}.file_url", orig.post_num()),
-                                          String::from("/static/yellow-loveless.jpg"));
+                    values.insert(format!("original.{}.file_url", orig.post_num()),
+                                  String::from("/static/yellow-loveless.jpg"));
 
-                            values.insert(format!("original.{}.replies", orig.post_num()),
-                                          orig.replies().to_string());
+                    values.insert(format!("original.{}.replies", orig.post_num()),
+                                  orig.replies().to_string());
 
-                            values.insert(format!("original.{}.img_replies", orig.post_num()),
-                                          orig.img_replies().to_string());
+                    values.insert(format!("original.{}.img_replies", orig.post_num()),
+                                  orig.img_replies().to_string());
+                
+                    values.insert(format!("original.{}.post_num", orig.post_num()),
+                                  orig.post_num().to_string());
 
-                            values.insert(format!("original.{}.post_title", orig.post_num()),
-                                          orig.title().unwrap_or("").to_string());
+                    values.insert(format!("original.{}.post_title", orig.post_num()),
+                                  orig.title().unwrap_or("").to_string());
 
-                            values.insert(format!("original.{}.post_body", orig.post_num()),
-                                          orig.body().to_string());
+                    values.insert(format!("original.{}.post_body", orig.post_num()),
+                                  orig.body().to_string());
 
-                            originals.push(orig.post_num().to_string());
-                        }
-                        let mut collections = HashMap::new();
-                        collections.insert("original".to_string(), originals);
-                        let render_data = template::Data::new(values, collections);
-                        let page_text = self.templates.catalog_tmpl.render(&render_data);
-                        let page = Page { page_ref: *pr,
-                                          render_time: util::timestamp(), page_text };
-                        self.pages.insert(*pr, page);
-                        Ok(self.pages.get(pr).unwrap())
-                    },
-                    Err(e) => {
-                        Err(e)
-                    },
+                    originals.push(orig.post_num().to_string());
+                }
+                let mut collections = HashMap::new();
+                collections.insert("original".to_string(), originals);
+                let render_data = template::Data::new(values, collections);
+                let page_text = self.templates.catalog_tmpl.render(&render_data);
+                let page = Page { page_ref: *pr,
+                                  render_time: util::timestamp(), page_text };
+                self.pages.insert(*pr, page);
+                Ok(self.pages.get(pr).unwrap())
+            },
+            PageRef::Thread(board_id, orig_num) => {
+                let board = database.get_board(*board_id)?; 
+                let thread = database.get_thread(*board_id, *orig_num)?;
+
+                let mut values = HashMap::new();
+                values.insert(String::from("board_url"), String::from(board.url));
+                values.insert(String::from("board_title"), String::from(board.title));
+
+                values.insert(String::from("replies"), thread.original.replies().to_string());
+                values.insert(String::from("img_replies"), thread.original.img_replies().to_string());
+
+                values.insert(String::from("orig_file_url"), String::from("/static/yellow-loveless.jpg"));
+                values.insert(String::from("orig_title"), thread.original.title().unwrap_or("").to_string());
+                values.insert(String::from("orig_poster"), thread.original
+                                                                 .poster().unwrap_or("").to_string());
+                values.insert(String::from("orig_time"), thread.original.time().to_string());
+                values.insert(String::from("orig_post_num"), thread.original.post_num().to_string());
+                values.insert(String::from("orig_post_body"), thread.original.body().to_string());
+
+                let mut replies = vec![];
+                for reply in thread.replies {
+
+                    values.insert(format!("reply.{}.file_url", reply.post_num()),
+                                  String::from("/static/yellow-loveless.jpg"));
+
+                    values.insert(format!("reply.{}.poster", reply.post_num()),
+                                  reply.poster().unwrap_or("Anonymous").to_string());
+
+                    values.insert(format!("reply.{}.time", reply.post_num()),
+                                  reply.time().to_string());
+
+                    values.insert(format!("reply.{}.post_num", reply.post_num()),
+                                  reply.post_num().to_string());
+
+                    values.insert(format!("reply.{}.post_body", reply.post_num()),
+                                  reply.body().to_string());
+
+                    replies.push(reply.post_num().to_string());
                 }
 
+                let mut collections = HashMap::new();
+                collections.insert("reply".to_string(), replies);
 
-           
-            },
-            PageRef::Thread(orig_num) => {
-                unimplemented!();
+                let render_data = template::Data::new(values, collections);
+                let page_text = self.templates.thread_tmpl.render(&render_data);
+                let page = Page { page_ref: *pr,
+                                  render_time: util::timestamp(), page_text };
+                self.pages.insert(*pr, page);
+                Ok(self.pages.get(pr).unwrap())
             },
         }
     }
@@ -90,8 +131,11 @@ impl Pages {
                     Err(_) => false,
                 }
             },
-            PageRef::Thread(orig_num) => {
-                unimplemented!();
+            PageRef::Thread(board_id, orig_num) => {
+                match database.get_thread(*board_id, *orig_num) {
+                    Ok(_) => true,
+                    Err(_) => false,
+                }
             },
         }
     }

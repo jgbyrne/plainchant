@@ -43,56 +43,78 @@ impl Template {
         let mut cptr = 0;
         let mut ptrs: HashMap<String, usize> = HashMap::new();
         let mut ctrs: HashMap<String, usize> = HashMap::new();
+        let mut skip: Option<String> = None;
         loop {
             if cptr >= self.chunks.len() {
                 break;
             }
             let chunk = &self.chunks[cptr];
             match chunk {
-                Chunk::Fragment(s) => buf.push_str(&s),
+                Chunk::Fragment(s) => if skip.is_none() { buf.push_str(&s) },
                 Chunk::Placeholder(name, obj) => {
-                    match obj {
-                        Some(obj_name) => {
-                            if let Some(obj_ctr) = ctrs.get(obj_name) {
-                                if let Some(obj_col) = data.collections.get(obj_name) {
-                                    let obj = &obj_col[*obj_ctr];
-                                    let mut valpath = String::from(obj_name);
-                                    valpath.push('.');
-                                    valpath.push_str(&obj);
-                                    valpath.push('.');
-                                    valpath.push_str(name);
-                                    buf.push_str(data.values.get(&valpath).unwrap_or(&empty_str));
-                                };
-                            }
-                        },
-                        None => {
-                            match name.as_str() {
-                                "$TIME" => buf.push_str(&util::timestamp().to_string()),
-                                "$PLAINCHANT" => buf.push_str(&format!("Plainchant v{}", env!("CARGO_PKG_VERSION"))),
-                                _ => buf.push_str(data.values.get(name).unwrap_or(&empty_str)),
-                            }
-                        },
+                    if skip.is_none() {
+                        match obj {
+                            Some(obj_name) => {
+                                if let Some(obj_ctr) = ctrs.get(obj_name) {
+                                    if let Some(obj_col) = data.collections.get(obj_name) {
+                                        let obj = &obj_col[*obj_ctr];
+                                        let mut valpath = String::from(obj_name);
+                                        valpath.push('.');
+                                        valpath.push_str(&obj);
+                                        valpath.push('.');
+                                        valpath.push_str(name);
+                                        buf.push_str(data.values.get(&valpath).unwrap_or(&empty_str));
+                                    };
+                                }
+                            },
+                            None => {
+                                match name.as_str() {
+                                    "$TIME" => buf.push_str(&util::timestamp().to_string()),
+                                    "$PLAINCHANT" => buf.push_str(&format!("Plainchant v{}", env!("CARGO_PKG_VERSION"))),
+                                    _ => buf.push_str(data.values.get(name).unwrap_or(&empty_str)),
+                                }
+                            },
+                        }
                     }
                 },
                 Chunk::Control(obj) => {
                     match ptrs.get(obj) {
                         Some(start_ptr) => {
-                            if *start_ptr != cptr {
-                                let mut ctr = *ctrs.get(obj).unwrap();
-                                ctr += 1;
-                                if ctr == data.collections.get(obj).unwrap().len() {
-                                    ptrs.remove(obj);
-                                    ctrs.remove(obj);
-                                }
-                                else {
-                                    ctrs.insert(String::from(obj), ctr);
-                                    cptr = *start_ptr;
+                            if skip.is_none() {
+                                if *start_ptr != cptr {
+                                    let mut ctr = *ctrs.get(obj).unwrap();
+                                    ctr += 1;
+                                    if ctr == data.collections.get(obj).unwrap().len() {
+                                        ptrs.remove(obj);
+                                        ctrs.remove(obj);
+                                    }
+                                    else {
+                                        ctrs.insert(String::from(obj), ctr);
+                                        cptr = *start_ptr;
+                                    }
                                 }
                             }
                         },
                         None =>  {
-                            ptrs.insert(String::from(obj), cptr);
-                            ctrs.insert(String::from(obj), 0);
+                            if let Some(ref s) = skip {
+                                if s == obj {
+                                    skip = None; 
+                                }
+                            }
+                            else {
+                                match data.collections.get(obj) {
+                                    Some(col) => {
+                                        if col.len() == 0 {
+                                            skip = Some(obj.clone());
+                                        }
+                                        else {
+                                            ptrs.insert(String::from(obj), cptr);
+                                            ctrs.insert(String::from(obj), 0);
+                                        }
+                                    },
+                                    None => {},
+                                }
+                            }
                         },
                     }
                 },

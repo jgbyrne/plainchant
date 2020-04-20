@@ -2,6 +2,7 @@
 <html lang="en">
     <head>
         <meta charset="utf-8"/>
+        <link rel = "stylesheet" href="/static/global.css">
         <link rel = "stylesheet" href="/static/catalog.css">
     </head>
     <body>
@@ -15,14 +16,16 @@
             {%original%}
                 <div class="preview">
                     <div class="thumbnail-frame">
-                        <img class="thumbnail" src="{{original.file_url}}"></img>
+                        <a href="/{{board_url}}/thread/{{original.post_num}}">
+                            <img class="thumbnail" src="{{original.file_url}}"></img>
+                        </a>
                     </div>
                     <div class="counts">
                         R: <span class="count">{{original.replies}}</span> / I: <span class="count">{{original.img_replies}}</span>
                     </div>
-                    <div class="text">
-                        <span class="post-title">{{original.post_title}}</span>
-                        <span class="post-body">{{original.post_body}}</span>
+                    <div class="preview-text">
+                        <span class="preview-title">{{original.post_title}}</span>
+                        <span class="preview-body">{{original.post_body}}</span>
                     </div>
                 </div>
             {%original%}
