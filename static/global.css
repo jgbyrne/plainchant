@@ -1,0 +1,20 @@
+.header {
+
+}
+
+body {
+    background-color: #f7efef;
+    font-family: "Source Serif", "serif";
+    font-size: 13pt;
+}
+
+.board-title {
+    font-family: "Liberation Serif", "serif";
+    text-align: center;
+}
+
+hr {
+    margin: 5px;
+}
+
+

@@ -1,18 +1,3 @@
-.header {
-
-}
-
-body {
-    background-color: #f7efef;
-    font-family: "Source Serif", "serif";
-    font-size: 13pt;
-}
-
-.board-title {
-    font-family: "Liberation Serif", "serif";
-    text-align: center;
-}
-
 .content {
     margin-left: 50px;
     margin-right: 50px;
