@@ -1,5 +1,6 @@
 pub trait Post {
     fn board_id(&self) -> u64;
+    fn set_post_num(&mut self, post_num: u64) -> ();
     fn post_num(&self) -> u64;
     fn time(&self) -> u64;
     fn ip(&self) -> &str;
@@ -115,6 +116,10 @@ macro_rules! impl_post {
 
             fn post_num(&self) -> u64 {
                 self.post_num 
+            }
+
+            fn set_post_num(&mut self, post_num: u64) {
+                self.post_num = post_num
             }
 
             fn time(&self) -> u64 {

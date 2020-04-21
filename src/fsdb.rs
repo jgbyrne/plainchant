@@ -1,22 +1,25 @@
 use crate::db;
+use crate::site::Post;
 use crate::site;
 use crate::util;
 use std::path::{Path, PathBuf};
-use std::fs::{read_to_string, read_dir};
+use std::io::Write;
+use std::fs::{File, read_to_string, read_dir, create_dir};
 use std::ffi::{OsString};
 use walkdir::WalkDir;
 
 #[derive(Debug)]
 pub struct FSDatabase {
     root: PathBuf,
-    boards: Vec<(u64, String, String)>,
+    boards_path: PathBuf,
+    boards: Vec<(u64, String, String, u64)>,
 }
 
 impl<'init> FSDatabase {
     pub fn from_root(root: &'init str) -> Result<FSDatabase, util::PlainchantErr> {
         let root_path = Path::new(&root).to_path_buf();
-        let mut boards_path = root_path.join("boards");
-        let mut boards_str = match read_to_string(boards_path) {
+        let boards_path = root_path.join("boards");
+        let mut boards_str = match read_to_string(&boards_path) {
             Ok(boards_str) => boards_str,
             Err(read_err) => { return Err(db::static_err("Could not read"));  },
         };
@@ -24,19 +27,52 @@ impl<'init> FSDatabase {
         let mut boards = vec![];
         for line in boards_str.lines() {
             let parts = line.split(",").collect::<Vec<&str>>();
-            if parts.len() == 3 {
+            if parts.len() == 4 {
                 let id = match parts[0].parse::<u64>() {
                     Ok(id) => id,
-                    Err(parse_err) => { return Err(db::static_err("Could not parse")); },
+                    Err(parse_err) => { return Err(db::static_err("Could not parse board id")); },
                 };
-                boards.push((id, parts[1].to_string(), parts[2].to_string()));
+                let next_post_num = match parts[3].parse::<u64>() {
+                    Ok(num) => num,
+                    Err(parse_err) => { return Err(db::static_err("Could not parse next post_num")); },
+                };
+                boards.push((id, parts[1].to_string(), parts[2].to_string(), next_post_num));
             }
             else {
                 return Err(db::static_err("Too many parts"));
             }
         }
 
-        Ok(FSDatabase { root: root_path, boards })
+        Ok(FSDatabase { root: root_path, boards_path, boards })
+    }
+
+    pub fn write_boards_file(&self) -> Result<(), util::PlainchantErr> {
+        let mut boards_str = String::new();
+        for board in self.boards.iter() {
+            boards_str.push_str(
+                &format!("{},{},{},{}\n", board.0, board.1, board.2, board.3)
+                );
+        }
+        if let Ok(mut file) = File::create(&self.boards_path) {
+            match file.write_all(boards_str.as_bytes()) {
+                Ok(_) => Ok(()),
+                Err(_) => Err(db::static_err("Could not write to boards file")),
+            }
+        }
+        else {
+            Err(db::static_err("Could not open boards file for writing"))
+        }
+    }
+
+    pub fn use_next_post_num(&mut self, board_id: u64) -> Result<u64, util::PlainchantErr> {
+        for mut board in self.boards.iter_mut() {
+            if board.0 == board_id {
+                let next = board.3;
+                board.3 += 1;
+                return Ok(next);
+            }
+        }
+        Err(db::static_err("No such board"))
     }
 
     pub fn get_thread_reply(&self, board_id: u64, orig_num: u64, post_num: u64) -> Result<site::Reply, util::PlainchantErr> {
@@ -213,6 +249,46 @@ impl db::Database for FSDatabase {
         }
     }
 
+    fn create_original(&mut self, mut orig: site::Original) -> Result<u64, util::PlainchantErr> {
+        // Create thread directory
+        let board_path = self.root.join(orig.board_id().to_string());
+        if !board_path.exists() {
+            return Err(db::static_err("No such board"));  
+        }
+        let post_num = self.use_next_post_num(orig.board_id())?;
+        orig.set_post_num(post_num);
+        let thread_path = board_path.join(post_num.to_string());
+        if thread_path.exists() {
+            return Err(db::static_err("Thread already exists"));
+        }
+        let dir_creation = create_dir(&thread_path);
+        if !dir_creation.is_ok() {
+            return Err(db::static_err("Could not create thread directory"));
+        }
+
+        // Compose post file
+        let mut data = String::new();
+        data.push_str(&format!("{}\n", orig.time()));
+        data.push_str(&format!("{}\n", orig.bump_time()));
+        data.push_str(&format!("{}\n", orig.ip()));
+        data.push_str(&format!("{}\n", orig.poster().unwrap_or("")));
+        data.push_str(&format!("{}\n", orig.title().unwrap_or("")));
+        data.push_str(&orig.body());
+
+        // Write post file to disk
+        if let Ok(mut file) = File::create(thread_path.join(orig.post_num().to_string())) {
+            if file.write_all(data.as_bytes()).is_err() {
+                return Err(db::static_err("Error writing post file"));
+            }
+        }
+        else {
+            return Err(db::static_err("Unable to create post file"));
+        }
+
+        self.write_boards_file()?;
+        Ok(post_num)
+    }
+
     fn get_reply(&self, board_id: u64, post_num: u64) -> Result<site::Reply, util::PlainchantErr> { 
         let post_filename = OsString::from(post_num.to_string());
         for entry in WalkDir::new(self.root.join(board_id.to_string())) {
@@ -236,6 +312,37 @@ impl db::Database for FSDatabase {
             }
         }
         Err(db::static_err("Could not find reply"))
+    }
+
+    fn create_reply(&mut self, mut reply: site::Reply) -> Result<u64, util::PlainchantErr> {
+        let post_num = self.use_next_post_num(reply.board_id())?;
+        reply.set_post_num(post_num);
+
+        let thread_path = self.root.join(reply.board_id().to_string())
+                                   .join(post_num.to_string());
+        if !thread_path.exists() {
+            return Err(db::static_err("Thread does not exist"));
+        }
+        
+        // Compose post file
+        let mut data = String::new();
+        data.push_str(&format!("{}\n", reply.time()));
+        data.push_str(&format!("{}\n", reply.ip()));
+        data.push_str(&format!("{}\n", reply.poster().unwrap_or("")));
+        data.push_str(&reply.body());
+
+        // Write post file to disk
+        if let Ok(mut file) = File::create(thread_path.join(reply.post_num().to_string())) {
+            if file.write_all(data.as_bytes()).is_err() {
+                return Err(db::static_err("Error writing post file"));
+            }
+        }
+        else {
+            return Err(db::static_err("Unable to create post file"));
+        }
+        
+        self.write_boards_file()?;
+        Ok(post_num)
     }
     
     fn get_post(&self, board_id: u64, post_num: u64) -> Result<Box<dyn site::Post>, util::PlainchantErr> {

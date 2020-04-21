@@ -22,4 +22,7 @@ pub trait Database {
     fn get_original(&self, board_id: u64, post_num: u64) -> Result<site::Original, util::PlainchantErr>;
     fn get_reply(&self, board_id: u64, post_num: u64) -> Result<site::Reply, util::PlainchantErr>;
     fn get_post(&self, board_id: u64, post_num: u64) -> Result<Box<dyn site::Post>, util::PlainchantErr>;
+
+    fn create_original(&mut self, orig: site::Original) -> Result<u64, util::PlainchantErr>;
+    fn create_reply(&mut self, reply: site::Reply) -> Result<u64, util::PlainchantErr>;
 }
