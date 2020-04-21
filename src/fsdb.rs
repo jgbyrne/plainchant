@@ -124,6 +124,7 @@ impl db::Database for FSDatabase {
                 }
             }
         }
+        originals.sort_unstable_by_key(|orig| u64::max_value() - orig.bump_time());
         Ok(site::Catalog { board_id, time, originals })
     }
     
@@ -180,12 +181,17 @@ impl db::Database for FSDatabase {
                 Err(parse_err) => { return Err(db::static_err("Could not parse timestamp")); },
             };
 
-            let poster = match lines[2] {
+            let bump_time = match lines[1].parse::<u64>() {
+                Ok(ts) => ts,
+                Err(parse_err) => { return Err(db::static_err("Could not parse bump time")); },
+            };
+
+            let poster = match lines[3] {
                  "" => None,
                  name @ _  => Some(name.to_string()),
             };
 
-            let title = match lines[3] {
+            let title = match lines[4] {
                  "" => None,
                  t @ _  => Some(t.to_string()),
             };
@@ -194,12 +200,13 @@ impl db::Database for FSDatabase {
                 board_id,
                 post_num,
                 timestamp,
-                lines[1].to_string(),
-                lines[4..].join("\n"),
+                lines[2].to_string(),   // ip
+                lines[5..].join("\n"),  // body
                 poster,
                 None,
                 None,
                 title,
+                bump_time,
                 0,
                 0,
             ))

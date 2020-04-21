@@ -19,5 +19,5 @@ fn main() {
     };
 
     let mut pages = pages::Pages::new(&db, templates, 1).unwrap();
-    server::serve(pages, db, [127, 0, 0, 1], 3030);
+    server::serve(pages, db, [192, 168, 1, 81], 8080);
 }

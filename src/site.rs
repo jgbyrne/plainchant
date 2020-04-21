@@ -20,6 +20,7 @@ pub struct Original {
     file_id   : Option<String>,
     file_name : Option<String>,
     title       : Option<String>,
+    bump_time   : u64,
     replies     : u16,
     img_replies : u16,
 }
@@ -27,7 +28,7 @@ pub struct Original {
 impl Original {
     pub fn new(board_id: u64, post_num: u64, time: u64, ip: String, body: String,
            poster: Option<String>, file_id: Option<String>, file_name: Option<String>,
-           title: Option<String>, replies: u16, img_replies: u16 ) -> Original {
+           title: Option<String>, bump_time: u64, replies: u16, img_replies: u16 ) -> Original {
         Original {
             board_id,
             post_num,
@@ -38,6 +39,7 @@ impl Original {
             file_id,
             file_name,
             title,
+            bump_time,
             replies,
             img_replies,
         }
@@ -83,6 +85,10 @@ impl Original {
         else {
             None
         }
+    }
+
+    pub fn bump_time(&self) -> u64 {
+        self.bump_time
     }
 
     pub fn replies(&self) -> u16 {
