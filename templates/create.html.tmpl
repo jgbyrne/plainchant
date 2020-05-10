@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8"/>
+        <link rel = "stylesheet" href="/static/global.css">
+        <link rel = "stylesheet" href="/static/create.css">
+    </head>
+    <body>
+        <div class="header">
+            <div class="board-title">
+                <h1>/{{board_url}}/ - {{board_title}}</h1>
+            </div>
+        </div>
+        <hr/>
+        <div class="content">
+            <form class="post-form" action="./submit" method="POST" enctype="multipart/form-data">
+                <div class="form-field">
+                    <div class="field-label"><label for="name">Name</label></div>
+                    <div class="field-input">
+                        <input name="name" type="text" placeholder="Anonymous">
+                    </div>
+                </div>
+                <div class="form-field">
+                    <div class="field-label"><label for="title">Subject</label></div>
+                    <div class="field-input">
+                        <input name="title" type="text">
+                    </div>
+                </div>
+                <div class="form-field">
+                    <div class="field-label"><label for="body">Comment</label></div>
+                    <div class="field-input">
+                        <textarea name="body" type="text" cols="48" rows="5"></textarea>
+                    </div>
+                </div>
+                <div class="form-field">
+                    <div class="field-label"><label for="file">File</label></div>
+                    <div class="field-input">
+                        <input name="file" type="file"></input>
+                    </div>
+                </div>
+                <div class="form-field form-submit">
+                    <input type="submit" value="Post">
+                </div>
+            </form>
+        </div>
+        <hr/>
+        <small>{{$PLAINCHANT}}  ({{$TIME}})</small>
+    </body>
+</html>

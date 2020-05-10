@@ -16,6 +16,8 @@ fn main() {
             template::Template::from_file("templates/catalog.html.tmpl").unwrap(),
         thread_tmpl:
             template::Template::from_file("templates/thread.html.tmpl").unwrap(),
+        create_tmpl:
+            template::Template::from_file("templates/create.html.tmpl").unwrap(),
     };
 
     let mut pages = pages::Pages::new(&db, templates, 1).unwrap();

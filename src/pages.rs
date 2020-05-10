@@ -8,6 +8,7 @@ use std::collections::HashMap;
 pub enum PageRef {
     Catalog(u64),
     Thread(u64, u64),
+    Create(u64),
 }
 
 pub struct Page {
@@ -19,6 +20,7 @@ pub struct Page {
 pub struct SiteTemplates {
     pub catalog_tmpl : template::Template,
     pub thread_tmpl : template::Template,
+    pub create_tmpl : template::Template,
 }
 
 pub struct Pages {
@@ -120,6 +122,20 @@ impl Pages {
                 self.pages.insert(*pr, page);
                 Ok(self.pages.get(pr).unwrap())
             },
+            PageRef::Create(board_id) => {
+                let board = database.get_board(*board_id)?; 
+                let mut values = HashMap::new();
+                values.insert(String::from("board_url"), String::from(board.url));
+                values.insert(String::from("board_title"), String::from(board.title));
+
+                let mut collections = HashMap::new();
+                let render_data = template::Data::new(values, collections);
+                let page_text = self.templates.create_tmpl.render(&render_data);
+                let page = Page { page_ref: *pr,
+                                  render_time: util::timestamp(), page_text };
+                self.pages.insert(*pr, page);
+                Ok(self.pages.get(pr).unwrap())
+            },
         }
     }
 
@@ -133,6 +149,12 @@ impl Pages {
             },
             PageRef::Thread(board_id, orig_num) => {
                 match database.get_thread(*board_id, *orig_num) {
+                    Ok(_) => true,
+                    Err(_) => false,
+                }
+            },
+            PageRef::Create(board_id) => {
+                match database.get_board(*board_id) {
                     Ok(_) => true,
                     Err(_) => false,
                 }
