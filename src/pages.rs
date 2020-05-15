@@ -86,7 +86,7 @@ impl Pages {
                 values.insert(String::from("orig_file_url"), String::from("/static/yellow-loveless.jpg"));
                 values.insert(String::from("orig_title"), thread.original.title().unwrap_or("").to_string());
                 values.insert(String::from("orig_poster"), thread.original
-                                                                 .poster().unwrap_or("").to_string());
+                                                                 .poster().unwrap_or("Anonymous").to_string());
                 values.insert(String::from("orig_time"), thread.original.time().to_string());
                 values.insert(String::from("orig_post_num"), thread.original.post_num().to_string());
                 values.insert(String::from("orig_post_body"), thread.original.body().to_string());

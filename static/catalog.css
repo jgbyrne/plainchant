@@ -13,6 +13,21 @@
     display: inline-block;
 }
 
+
+.preview-text {
+    max-width: 100%;
+    word-wrap: break-word;
+}
+
+/*
+.preview-text>span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline;
+    width: 100%;
+}
+*/
+
 .thumbnail-frame {
     height: 180px;
     max-height: 180px;
