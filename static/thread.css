@@ -4,21 +4,6 @@
     min-height: 80%;
 }
 
-.controls {
-    display: inline-block;
-    width: 100%;
-    font-family: "Linux Libertine O", "Linux Libertine", "Times New Roman", "serif";
-}
-
-.nav {
-    float: left;
-    padding-left: 20px;
-}
-
-.nav-link {
-    font-weight: bold;
-}
-
 .counts {
     float: right;
     padding-right: 20px;
