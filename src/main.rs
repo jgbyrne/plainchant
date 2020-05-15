@@ -3,6 +3,7 @@ mod site;
 mod db;
 use db::Database;
 mod pages;
+mod actions;
 mod fsdb;
 mod template;
 mod server;
@@ -21,5 +22,6 @@ fn main() {
     };
 
     let mut pages = pages::Pages::new(&db, templates, 1).unwrap();
-    server::serve(pages, db, [192, 168, 1, 81], 8080);
+    let mut actions = actions::Actions::new();
+    server::serve(pages, actions, db, [192, 168, 1, 81], 8080);
 }
