@@ -255,12 +255,15 @@ impl db::Database for FSDatabase {
         if !board_path.exists() {
             return Err(db::static_err("No such board"));  
         }
+
         let post_num = self.use_next_post_num(orig.board_id())?;
         orig.set_post_num(post_num);
+
         let thread_path = board_path.join(post_num.to_string());
         if thread_path.exists() {
             return Err(db::static_err("Thread already exists"));
         }
+
         let dir_creation = create_dir(&thread_path);
         if !dir_creation.is_ok() {
             return Err(db::static_err("Could not create thread directory"));
