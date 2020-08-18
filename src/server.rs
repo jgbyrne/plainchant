@@ -68,6 +68,7 @@ async fn create_submit<DB: 'static + db::Database+Sync+Send>
         }
     }
     let mut actions = a.lock().unwrap();
+
     actions.submit_original(&mut *db.lock().unwrap(),
                             board_id, "0.0.0.0".to_string(),
                             body.unwrap(),
