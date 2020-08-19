@@ -37,9 +37,11 @@ async fn part_string(part: multipart::Part, buf_size: usize) -> Option<String> {
 }
 
 // Handle multipart POST submission of new thread
-async fn create_submit<DB: 'static + db::Database+Sync+Send>
+async fn create_submit<DB: 'static + db::Database+Sync+Send,
+                       FR: 'static + fr::FileRack+Sync+Send>
                       (board: String, mut data: multipart::FormData,
-                       p: Pages, a: Actions, db: Arc<Mutex<DB>>) -> Result<impl warp::Reply, Infallible> {
+                       p: Pages, a: Actions,
+                       db: Arc<Mutex<DB>>, fr: Arc<Mutex<FR>>) -> Result<impl warp::Reply, Infallible> {
     let board_id = {
         let mut pages = p.lock().unwrap();
         match pages.board_url_to_id(&board) {
@@ -71,11 +73,13 @@ async fn create_submit<DB: 'static + db::Database+Sync+Send>
     }
     let mut actions = a.lock().unwrap();
 
+    let file_id = actions.upload_file(&mut *fr.lock().unwrap(), file.unwrap().freeze()).unwrap();
+
     actions.submit_original(&mut *db.lock().unwrap(),
                             board_id, "0.0.0.0".to_string(),
                             body.unwrap(),
                             Some(name.unwrap()),
-                            "yellow_loveless".to_string(),
+                            file_id,
                             "yellow_loveless.png".to_string(),
                             Some(title.unwrap())
                             );
@@ -184,18 +188,21 @@ pub async fn serve<DB: 'static + db::Database+Sync+Send,
     // Serve submit action
     let submit = warp::path!(String / "submit")
                        .and(warp::multipart::form())
-                       .and(pages.clone()).and(actions.clone()).and(database.clone())
+                       .and(pages.clone()).and(actions.clone())
+                       .and(database.clone()).and(file_rack.clone())
                        .and_then(create_submit);
 
     // Serve rack files
     let files = warp::path!("files" / String)
                       .and(file_rack.clone())
                       .map(| file_id: String, fr: Arc<Mutex<FR>> | {
+
         let file_rack = &(*fr.lock().unwrap());
-        match file_rack.get_file(file_id) {
+        match file_rack.get_file(&file_id) {
             Ok(file) => Response::builder().body(file),
             Err(err) => Response::builder().status(404).body(Bytes::from("Not Found")),
         }
+
     });
 
     // Serve static resources
