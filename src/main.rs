@@ -1,10 +1,16 @@
 mod util;
 mod site;
+
 mod db;
 use db::Database;
+
+mod fr;
+use fr::FileRack;
+
 mod pages;
 mod actions;
 mod fsdb;
+mod fsfr;
 mod template;
 mod server;
 use std::collections::HashMap;
@@ -12,6 +18,9 @@ use std::collections::HashMap;
 fn main() {
     // Load database - this needs to be db::Database - we use the filesystem
     let db = fsdb::FSDatabase::from_root("./fstest").unwrap();
+
+    // Load file rack - this needs to be fr::FileRack - we use the filesystem
+    let fr = fsfr::FSFileRack::from_dir("./fstest/rack").unwrap();
 
     // Load templates from template files 
     let templates = pages::SiteTemplates {
@@ -28,5 +37,5 @@ fn main() {
     let mut actions = actions::Actions::new();
 
     // Serve the site using the pages, actions, and database
-    server::serve(pages, actions, db, [0, 0, 0, 0], 8080);
+    server::serve(pages, actions, db, fr, [0, 0, 0, 0], 8088);
 }

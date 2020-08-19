@@ -4,6 +4,7 @@ use chrono::Utc;
 #[derive(Debug)]
 pub enum ErrOrigin {
     Database,
+    FileRack,
     Template,
     Web(u16),
 }

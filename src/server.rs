@@ -1,8 +1,10 @@
 use crate::db;
+use crate::fr;
 use crate::pages;
 use crate::actions;
 use crate::util;
 use std::convert::Infallible;
+use warp::hyper::Body;
 use warp::{http::Uri, Filter};
 use warp::multipart;
 use warp::reply::Reply;
@@ -10,7 +12,7 @@ use warp::http::Response;
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 use futures::StreamExt;
-use bytes::{BytesMut, BufMut, buf::Buf};
+use bytes::{Bytes, BytesMut, BufMut, buf::Buf};
 use std::ascii;
 
 type Pages = Arc<Mutex<pages::Pages>>;
@@ -85,9 +87,11 @@ async fn create_submit<DB: 'static + db::Database+Sync+Send>
 // Main server method - using tokio runtime
 
 #[tokio::main]
-pub async fn serve<DB: 'static + db::Database+Sync+Send>(pages: pages::Pages,
+pub async fn serve<DB: 'static + db::Database+Sync+Send,
+                   FR: 'static + fr::FileRack+Sync+Send>(pages: pages::Pages,
                                                          actions: actions::Actions,
                                                          database: DB,
+                                                         file_rack: FR,
                                                          ip: [u8; 4], port: u16) {
 
     // Wrap pages in Arc<Mutex<>> and move into a filter
@@ -101,6 +105,10 @@ pub async fn serve<DB: 'static + db::Database+Sync+Send>(pages: pages::Pages,
     // Wrap database in Arc<Mutex<>> and move into a filter
     let database = Arc::new(Mutex::new(database));
     let database = warp::any().map(move || database.clone());
+
+    // Wrap file rack in Arc<Mutex<>> and move into a filter
+    let file_rack = Arc::new(Mutex::new(file_rack));
+    let file_rack = warp::any().map(move || file_rack.clone());
 
     // Serve catalog pages
     let catalog = warp::path!(String / "catalog")
@@ -179,11 +187,23 @@ pub async fn serve<DB: 'static + db::Database+Sync+Send>(pages: pages::Pages,
                        .and(pages.clone()).and(actions.clone()).and(database.clone())
                        .and_then(create_submit);
 
+    // Serve rack files
+    let files = warp::path!("files" / String)
+                      .and(file_rack.clone())
+                      .map(| file_id: String, fr: Arc<Mutex<FR>> | {
+        let file_rack = &(*fr.lock().unwrap());
+        match file_rack.get_file(file_id) {
+            Ok(file) => Response::builder().body(file),
+            Err(err) => Response::builder().status(404).body(Bytes::from("Not Found")),
+        }
+    });
+
     // Serve static resources
     let stat = warp::path("static").and(warp::fs::dir("./static"));
 
     // Bundle routes together and run
     let routes = warp::get().and(stat
+                                 .or(files)
                                  .or(catalog)
                                  .or(thread)
                                  .or(create))

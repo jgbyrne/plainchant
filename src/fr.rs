@@ -1,10 +1,17 @@
 use crate::site;
 use crate::util;
 
-use std::io;
+use bytes::Bytes;
+
+pub fn static_err(msg: &'static str) -> util::PlainchantErr {
+    util::PlainchantErr {
+        origin: util::ErrOrigin::FileRack,
+        msg: String::from(msg),
+    }
+}
 
 pub trait FileRack {
-    fn store_file(&self, file_id: String, file: io::Bytes)Result<(), util::PlanchantError>;
-    fn get_file(&self, file_id: String) -> io::Bytes;
-    fn delete_file(&self, file_id: String) -> Result<(), util::PlanchantError>;
+    fn store_file(&self, file_id: String, file: Bytes) -> Result<(), util::PlainchantErr>;
+    fn get_file(&self, file_id: String) -> Result<Bytes, util::PlainchantErr>;
+    fn delete_file(&self, file_id: String) -> Result<(), util::PlainchantErr>;
 }

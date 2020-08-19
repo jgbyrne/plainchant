@@ -101,10 +101,10 @@ impl<'init> FSDatabase {
                 post_num,
                 timestamp,
                 lines[1].to_string(),
-                lines[3..].join("\n"),
+                lines[5..].join("\n"),
                 poster,
-                None,
-                None,
+                Some(lines[3].to_string()), // file ID
+                Some(lines[4].to_string()), // file name
                 orig_num,
             ))
         }
@@ -237,10 +237,10 @@ impl db::Database for FSDatabase {
                 post_num,
                 timestamp,
                 lines[2].to_string(),   // ip
-                lines[5..].join("\n"),  // body
+                lines[7..].join("\n"),  // body
                 poster,
-                None,
-                None,
+                Some(lines[5].to_string()), // file ID
+                Some(lines[6].to_string()), // file name
                 title,
                 bump_time,
                 0,
@@ -276,6 +276,8 @@ impl db::Database for FSDatabase {
         data.push_str(&format!("{}\n", orig.ip()));
         data.push_str(&format!("{}\n", orig.poster().unwrap_or("")));
         data.push_str(&format!("{}\n", orig.title().unwrap_or("")));
+        data.push_str(&format!("{}\n", orig.file_id().unwrap_or("")));
+        data.push_str(&format!("{}\n", orig.file_name().unwrap_or("")));
         data.push_str(&orig.body());
 
         // Write post file to disk
@@ -332,6 +334,8 @@ impl db::Database for FSDatabase {
         data.push_str(&format!("{}\n", reply.time()));
         data.push_str(&format!("{}\n", reply.ip()));
         data.push_str(&format!("{}\n", reply.poster().unwrap_or("")));
+        data.push_str(&format!("{}\n", reply.file_id().unwrap_or("")));
+        data.push_str(&format!("{}\n", reply.file_name().unwrap_or("")));
         data.push_str(&reply.body());
 
         // Write post file to disk

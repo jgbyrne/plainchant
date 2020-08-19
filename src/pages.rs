@@ -44,7 +44,7 @@ impl Pages {
                 for orig in cat.originals {
 
                     values.insert(format!("original.{}.file_url", orig.post_num()),
-                                  String::from("/static/yellow-loveless.jpg"));
+                                  format!("/files/{}", orig.file_id().unwrap_or("")));
 
                     values.insert(format!("original.{}.replies", orig.post_num()),
                                   orig.replies().to_string());
@@ -83,7 +83,7 @@ impl Pages {
                 values.insert(String::from("replies"), thread.original.replies().to_string());
                 values.insert(String::from("img_replies"), thread.original.img_replies().to_string());
 
-                values.insert(String::from("orig_file_url"), String::from("/static/yellow-loveless.jpg"));
+                values.insert(String::from("orig_file_url"), format!("/files/{}", thread.original.file_id().unwrap_or("")));
                 values.insert(String::from("orig_title"), thread.original.title().unwrap_or("").to_string());
                 values.insert(String::from("orig_poster"), thread.original
                                                                  .poster().unwrap_or("Anonymous").to_string());
@@ -95,7 +95,7 @@ impl Pages {
                 for reply in thread.replies {
 
                     values.insert(format!("reply.{}.file_url", reply.post_num()),
-                                  String::from("/static/yellow-loveless.jpg"));
+                                  format!("/files/{}", reply.file_id().unwrap_or("")));
 
                     values.insert(format!("reply.{}.poster", reply.post_num()),
                                   reply.poster().unwrap_or("Anonymous").to_string());
