@@ -29,3 +29,7 @@ This software is not yet functional.
 ### Technologies
 
 Plainchant is implemented in Rust. Web functionality is provided by Warp, while templating is achieved with an inbuilt engine. The intention is to support Postgres as a backend database.
+
+-----
+
+*Disclaimer: This is a technical project intended to replicate to some extent the functionality and aesthetics of internet imageboard websites. There are many such sites, of which some, including 4chan and 8chan, have gained notoriety for distasteful content. The existence of this project does not imply my agreement, tacit or overt, with anything shared on any such site. Obviously.*
