@@ -263,9 +263,10 @@ pub async fn serve<DB: 'static + db::Database+Sync+Send,
                       .and(file_rack.clone())
                       .map(| file_id: String, fr: Arc<Mutex<FR>> | {
 
-        let file_rack = &(*fr.lock().unwrap());
+        let mut file_rack = &mut (*fr.lock().unwrap());
         match file_rack.get_file(&file_id) {
-            Ok(file) => Response::builder().body(file),
+            Ok(file) => Response::builder().header("Cache-Control", "public, max-age=604800, immutable")
+                                           .body(file),
             Err(err) => Response::builder().status(404).body(Bytes::from("Not Found")),
         }
 

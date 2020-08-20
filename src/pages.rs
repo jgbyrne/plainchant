@@ -58,8 +58,10 @@ impl Pages {
                     values.insert(format!("original.{}.post_title", orig.post_num()),
                                   orig.title().unwrap_or("").to_string());
 
+                    let mut cat_desc = orig.body().to_string();
+                    cat_desc.truncate(128);
                     values.insert(format!("original.{}.post_body", orig.post_num()),
-                                  orig.body().to_string());
+                                  cat_desc);
 
                     originals.push(orig.post_num().to_string());
                 }
@@ -96,6 +98,10 @@ impl Pages {
 
                     values.insert(format!("reply.{}.file_url", reply.post_num()),
                                   format!("/files/{}", reply.file_id().unwrap_or("")));
+
+                    values.insert(format!("reply.{}.frame_class", reply.post_num()),
+                                      match reply.file_id() { Some(_) => String::from("post-image-frame"),
+                                                              None    => String::from("post-imageless-frame")});
 
                     values.insert(format!("reply.{}.poster", reply.post_num()),
                                   reply.poster().unwrap_or("Anonymous").to_string());

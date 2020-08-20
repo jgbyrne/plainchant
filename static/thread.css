@@ -25,13 +25,20 @@
     background-color: #f7efef;
     border: none;
     display: flex;
+    flex-direction: column;
 }
 
 .post-image-frame {
     max-width: 150px;
     display: inline-block;
     vertical-align: top;
-    padding-right: 5px;
+    padding: 5px 20px 5px 5px;
+    float: left;
+    display: block;
+}
+
+.post-imageless-frame {
+    display: none;
 }
 
 .orig-post-image-frame {
@@ -55,7 +62,8 @@
 }
 
 .info-line {
-    padding-left: 5px;
+    padding-bottom: 7px;
+    display: inline-block;
 }
 
 .post-title {
@@ -74,9 +82,13 @@
 
 .post-body {
     padding-left: 5px;
-    margin-top: 8px;
+    padding-top: 5px;
+    margin-top: 0px;
     margin-bottom: 8px;
+    float: none;
     white-space: pre-line;
+    max-width: 1500px;
+    font-size: 16px;
 }
 
 .reply-form {

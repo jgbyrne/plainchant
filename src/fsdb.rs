@@ -96,6 +96,11 @@ impl<'init> FSDatabase {
                  name @ _  => Some(name.to_string()),
             };
 
+            let file_id = match lines[3] {
+                "" => None,
+                file_id @ _ => Some(file_id.to_string()),
+            };
+
             Ok(site::Reply::new(
                 board_id,
                 post_num,
@@ -103,7 +108,7 @@ impl<'init> FSDatabase {
                 lines[1].to_string(),
                 lines[5..].join("\n"),
                 poster,
-                Some(lines[3].to_string()), // file ID
+                file_id,
                 Some(lines[4].to_string()), // file name
                 orig_num,
             ))

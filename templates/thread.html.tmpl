@@ -23,26 +23,27 @@
         </div>
         <hr/>
         <div class="content">
+
             <div class="post orig">
-                <div class="post-image-frame orig-post-image-frame">
-                    <img class="post-image orig-post-image" src="{{orig_file_url}}"></img>
-                </div>
+	        <div class="info-line">
+	   	    <span class="post-title">{{orig_title}}</span> :
+		    <span class="post-nick">{{orig_poster}}</span> :
+		    <span class="post-time">{{orig_time}}</span> :
+		    <span class="post-num">No.{{orig_post_num}}</span>
+	        </div>
                 <div class="post-text">
-                    <div class="info-line">
-                        <span class="post-title">{{orig_title}}</span> :
-                        <span class="post-nick">{{orig_poster}}</span> :
-                        <span class="post-time">{{orig_time}}</span> :
-                        <span class="post-num">No.{{orig_post_num}}</span>
+	            <div class="post-image-frame orig-post-image-frame">
+                        <img class="post-image orig-post-image" src="{{orig_file_url}}"></img>
                     </div>
                     <p class="post-body">{{orig_post_body}}</p>
                 </div>
             </div>
             {%reply%}
             <div class="post reply">
-                <div class="post-image-frame">
-                    <img class="post-image" src="{{reply.file_url}}"></img>
-                </div>
                 <div class="post-text">
+		    <div class="{{reply.frame_class}}"> <!-- class = post-image-frame || post-imageless-frame -->
+		         <img class="post-image" src="{{reply.file_url}}"></img>
+		    </div>
                     <div class="info-line">
                         <span class="post-nick">{{reply.poster}}</span> :
                         <span class="post-time">{{reply.time}}</span> :
