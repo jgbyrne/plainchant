@@ -2,10 +2,8 @@ mod util;
 mod site;
 
 mod db;
-use db::Database;
 
 mod fr;
-use fr::FileRack;
 
 mod pages;
 mod actions;
@@ -13,7 +11,6 @@ mod fsdb;
 mod fsfr;
 mod template;
 mod server;
-use std::collections::HashMap;
 
 fn main() {
     // Load database - this needs to be db::Database - we use the filesystem
@@ -33,8 +30,8 @@ fn main() {
     };
 
     // Create structs for pages and actions
-    let mut pages = pages::Pages::new(&db, templates, 1).unwrap();
-    let mut actions = actions::Actions::new();
+    let pages = pages::Pages::new(&db, templates, 1).unwrap();
+    let actions = actions::Actions::new();
 
     // Serve the site using the pages, actions, and database
     server::serve(pages, actions, db, fr, [0, 0, 0, 0], 8088);

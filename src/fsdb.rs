@@ -19,9 +19,9 @@ impl<'init> FSDatabase {
     pub fn from_root(root: &'init str) -> Result<FSDatabase, util::PlainchantErr> {
         let root_path = Path::new(&root).to_path_buf();
         let boards_path = root_path.join("boards");
-        let mut boards_str = match read_to_string(&boards_path) {
+        let boards_str = match read_to_string(&boards_path) {
             Ok(boards_str) => boards_str,
-            Err(read_err) => { return Err(db::static_err("Could not read"));  },
+            Err(_read_err) => { return Err(db::static_err("Could not read"));  },
         };
 
         let mut boards = vec![];
@@ -30,11 +30,11 @@ impl<'init> FSDatabase {
             if parts.len() == 4 {
                 let id = match parts[0].parse::<u64>() {
                     Ok(id) => id,
-                    Err(parse_err) => { return Err(db::static_err("Could not parse board id")); },
+                    Err(_parse_err) => { return Err(db::static_err("Could not parse board id")); },
                 };
                 let next_post_num = match parts[3].parse::<u64>() {
                     Ok(num) => num,
-                    Err(parse_err) => { return Err(db::static_err("Could not parse next post_num")); },
+                    Err(_parse_err) => { return Err(db::static_err("Could not parse next post_num")); },
                 };
                 boards.push((id, parts[1].to_string(), parts[2].to_string(), next_post_num));
             }
@@ -77,9 +77,9 @@ impl<'init> FSDatabase {
 
     pub fn get_thread_reply(&self, board_id: u64, orig_num: u64, post_num: u64) -> Result<site::Reply, util::PlainchantErr> {
         let reply_path = self.root.join(board_id.to_string()).join(orig_num.to_string()).join(post_num.to_string());
-        let mut post_str = match read_to_string(reply_path) {
+        let post_str = match read_to_string(reply_path) {
             Ok(post_str) => post_str,
-            Err(read_err) => { return Err(db::static_err("Could not retrieve reply post"));  },
+            Err(_read_err) => { return Err(db::static_err("Could not retrieve reply post"));  },
         };
         let lines = post_str.lines().collect::<Vec<&str>>();
         if lines.len() < 4 {
@@ -88,7 +88,7 @@ impl<'init> FSDatabase {
         else {
             let timestamp = match lines[0].parse::<u64>() {
                 Ok(ts) => ts,
-                Err(parse_err) => { return Err(db::static_err("Could not parse timestamp")); },
+                Err(_parse_err) => { return Err(db::static_err("Could not parse timestamp")); },
             };
 
             let poster = match lines[2] {
@@ -160,7 +160,7 @@ impl db::Database for FSDatabase {
                         }
                     }
                 },
-                Err(entry) => {
+                Err(_entry) => {
                     continue;
                 }
             }
@@ -192,7 +192,7 @@ impl db::Database for FSDatabase {
                     if file != orig_filename {
                         let reply_num = match file.parse::<u64>() {
                             Ok(num) => num,
-                            Err(parse_err) => { return Err(
+                            Err(_parse_err) => { return Err(
                                     db::static_err("Could not parse filename")); },
                         };
                         replies.push(self.get_thread_reply(board_id, post_num, reply_num)?);
@@ -208,9 +208,9 @@ impl db::Database for FSDatabase {
         let orig_path = self.root.join(board_id.to_string())
                                  .join(post_num.to_string())
                                  .join(post_num.to_string());
-        let mut post_str = match read_to_string(orig_path) {
+        let post_str = match read_to_string(orig_path) {
             Ok(post_str) => post_str,
-            Err(read_err) => { return Err(db::static_err("Could not retrieve original post"));  },
+            Err(_read_err) => { return Err(db::static_err("Could not retrieve original post"));  },
         };
         let lines = post_str.lines().collect::<Vec<&str>>();
         if lines.len() < 5 {
@@ -219,12 +219,12 @@ impl db::Database for FSDatabase {
         else {
             let timestamp = match lines[0].parse::<u64>() {
                 Ok(ts) => ts,
-                Err(parse_err) => { return Err(db::static_err("Could not parse timestamp")); },
+                Err(_parse_err) => { return Err(db::static_err("Could not parse timestamp")); },
             };
 
             let bump_time = match lines[1].parse::<u64>() {
                 Ok(ts) => ts,
-                Err(parse_err) => { return Err(db::static_err("Could not parse bump time")); },
+                Err(_parse_err) => { return Err(db::static_err("Could not parse bump time")); },
             };
 
             let poster = match lines[3] {

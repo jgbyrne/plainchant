@@ -3,7 +3,7 @@ use crate::util;
 use bytes::Bytes;
 use std::path::{Path, PathBuf};
 use std::fs::File;
-use std::io::{Read, Write, Error};
+use std::io::{Read, Write};
 use std::collections::HashMap;
 
 #[derive(Debug)]
@@ -24,14 +24,17 @@ impl <'init> FSFileRack {
 
 impl fr::FileRack for FSFileRack {
     fn store_file(&mut self, file_id: &str, file: Bytes) -> Result<(), util::PlainchantErr> {
-        let mut f_res = File::create(self.file_dir.join(file_id));
+        let f_res = File::create(self.file_dir.join(file_id));
         match f_res {
             Ok(mut f) => {
-                f.write(&file);
+                if f.write(&file).is_err() {
+                    return Err(fr::static_err("Could not write to requested file"));
+                }
+
                 self.cache.insert(file_id.to_string(), file);
                 Ok(())
             },
-            Err(e) => Err(fr::static_err("Could not open requested write file")),
+            Err(_write_err) => Err(fr::static_err("Could not open requested write file")),
         }
     }
 
@@ -41,16 +44,16 @@ impl fr::FileRack for FSFileRack {
             None => {},
         }
 
-        let mut f_res = File::open(self.file_dir.join(file_id));
+        let f_res = File::open(self.file_dir.join(file_id));
         match f_res {
             Ok(f) => {
                 let bytes_res = f.bytes().collect::<Result<Vec<u8>, std::io::Error>>();
                 match bytes_res {
                     Ok(bytes) => Ok(Bytes::from(bytes)),
-                    Err(e) => Err(fr::static_err("Could not read bytes from requested file")),
+                    Err(_read_err) => Err(fr::static_err("Could not read bytes from requested file")),
                 }
             },
-            Err(e) => Err(fr::static_err("Could not open requested file")),
+            Err(_read_err) => Err(fr::static_err("Could not open requested file")),
         }
     }
 

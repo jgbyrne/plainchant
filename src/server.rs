@@ -2,18 +2,13 @@ use crate::db;
 use crate::fr;
 use crate::pages;
 use crate::actions;
-use crate::util;
 use std::convert::Infallible;
-use warp::hyper::Body;
 use warp::{http::Uri, Filter};
 use warp::multipart;
-use warp::reply::Reply;
 use warp::http::Response;
 use std::sync::{Arc, Mutex};
-use std::collections::HashMap;
 use futures::StreamExt;
-use bytes::{Bytes, BytesMut, BufMut, buf::Buf};
-use std::ascii;
+use bytes::{Bytes, BytesMut, BufMut};
 
 type Pages = Arc<Mutex<pages::Pages>>;
 type Actions = Arc<Mutex<actions::Actions>>;
@@ -53,7 +48,7 @@ async fn create_submit<DB: 'static + db::Database+Sync+Send,
                        p: Pages, a: Actions,
                        db: Arc<Mutex<DB>>, fr: Arc<Mutex<FR>>) -> Result<impl warp::Reply, Infallible> {
     let board_id = {
-        let mut pages = p.lock().unwrap();
+        let pages = p.lock().unwrap();
         match pages.board_url_to_id(&board) {
             Some(b_id) => b_id.clone(),
             None => return Ok(warp::redirect(Uri::from_static("/"))),
@@ -64,7 +59,7 @@ async fn create_submit<DB: 'static + db::Database+Sync+Send,
     let mut title = None;
     let mut body = None;
     let mut file = None;
-    while let Some(Ok(mut part)) = data.next().await {
+    while let Some(Ok(part)) = data.next().await {
        match part.name() {
             "name"  => {
                 name = part_string(part, 4096).await;
@@ -85,7 +80,7 @@ async fn create_submit<DB: 'static + db::Database+Sync+Send,
     
     let file_id = actions.upload_file(&mut *fr.lock().unwrap(), file.unwrap().freeze()).unwrap();
 
-    actions.submit_original(&mut *db.lock().unwrap(),
+    let sub = actions.submit_original(&mut *db.lock().unwrap(),
                             board_id, "0.0.0.0".to_string(),
                             body.unwrap(),
                             Some(name.unwrap()),
@@ -93,8 +88,13 @@ async fn create_submit<DB: 'static + db::Database+Sync+Send,
                             "yellow_loveless.png".to_string(),
                             Some(title.unwrap())
                             );
+    
+    // TODO: Do something smarter here
+    match sub {
+        Ok(_) => Ok(warp::redirect(format!("/{}/catalog", board).parse::<Uri>().unwrap())),
+        Err(_) => Ok(warp::redirect(format!("/{}/catalog", board).parse::<Uri>().unwrap())),
+    }
 
-    Ok(warp::redirect(format!("/{}/catalog", board).parse::<Uri>().unwrap()))
 }
 
 
@@ -104,7 +104,7 @@ async fn create_reply<DB: 'static + db::Database+Sync+Send,
                       p: Pages, a: Actions,
                       db: Arc<Mutex<DB>>, fr: Arc<Mutex<FR>>) -> Result<impl warp::Reply, Infallible> {
     let board_id = {
-        let mut pages = p.lock().unwrap();
+        let pages = p.lock().unwrap();
         match pages.board_url_to_id(&board) {
             Some(b_id) => b_id.clone(),
             None => return Ok(warp::redirect(Uri::from_static("/"))),
@@ -114,7 +114,7 @@ async fn create_reply<DB: 'static + db::Database+Sync+Send,
     let mut name = None;
     let mut body = None;
     let mut file = None;
-    while let Some(Ok(mut part)) = data.next().await {
+    while let Some(Ok(part)) = data.next().await {
        match part.name() {
             "name"  => {
                 name = part_string(part, 4096).await;
@@ -135,7 +135,7 @@ async fn create_reply<DB: 'static + db::Database+Sync+Send,
         None => None,
     };
 
-    actions.submit_reply(&mut *db.lock().unwrap(),
+    let sub = actions.submit_reply(&mut *db.lock().unwrap(),
                          board_id, "0.0.0.0".to_string(),
                          body.unwrap(),
                          Some(name.unwrap()),
@@ -143,7 +143,14 @@ async fn create_reply<DB: 'static + db::Database+Sync+Send,
                          Some("yellow_loveless.png".to_string()),
                          thread);
 
-    Ok(warp::redirect(format!("/{}/thread/{}", board, thread).parse::<Uri>().unwrap()))
+    
+    // TODO: Do something smarter here
+    match sub {
+        Ok(_) => Ok(warp::redirect(format!("/{}/thread/{}", board, thread).parse::<Uri>().unwrap())),
+        Err(_) => Ok(warp::redirect(format!("/{}/thread/{}", board, thread).parse::<Uri>().unwrap())),
+    }
+
+
 }
 
 
@@ -263,11 +270,11 @@ pub async fn serve<DB: 'static + db::Database+Sync+Send,
                       .and(file_rack.clone())
                       .map(| file_id: String, fr: Arc<Mutex<FR>> | {
 
-        let mut file_rack = &mut (*fr.lock().unwrap());
+        let file_rack = &mut (*fr.lock().unwrap());
         match file_rack.get_file(&file_id) {
             Ok(file) => Response::builder().header("Cache-Control", "public, max-age=604800, immutable")
                                            .body(file),
-            Err(err) => Response::builder().status(404).body(Bytes::from("Not Found")),
+            Err(_err) => Response::builder().status(404).body(Bytes::from("Not Found")),
         }
 
     });

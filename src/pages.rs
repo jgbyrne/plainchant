@@ -136,7 +136,7 @@ impl Pages {
                 values.insert(String::from("board_url"), String::from(board.url));
                 values.insert(String::from("board_title"), String::from(board.title));
 
-                let mut collections = HashMap::new();
+                let collections = HashMap::new();
                 let render_data = template::Data::new(values, collections);
                 let page_text = self.templates.create_tmpl.render(&render_data);
                 let page = Page { page_ref: *pr,
@@ -199,7 +199,7 @@ impl Pages {
     }
 
     pub fn new<DB: db::Database>(database: &DB, templates: SiteTemplates, render_freq: u64) -> Result<Pages, util::PlainchantErr> {
-        let mut pages = HashMap::new();
+        let pages = HashMap::new();
         
         let mut board_urls = HashMap::new();
         for board in database.get_boards() {
