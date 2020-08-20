@@ -5,27 +5,3 @@
     max-width: 510px;
     margin: 0 auto;
 }
-
-.form-field {
-    padding: 5px;
-}
-
-.form-field>div {
-    display:inline-block;
-    vertical-align:middle;
-}
-
-.field-label {
-    width: 110px;
-    font-weight: bold;
-}
-
-.form-submit {
-    padding-top: 20px;
-    max-width: 200px;
-    margin: 0 auto;
-    text-align: center;
-}
-.form-submit>input {
-    width: 110px;
-}

@@ -324,7 +324,7 @@ impl db::Database for FSDatabase {
         reply.set_post_num(post_num);
 
         let thread_path = self.root.join(reply.board_id().to_string())
-                                   .join(post_num.to_string());
+                                   .join(reply.orig_num().to_string());
         if !thread_path.exists() {
             return Err(db::static_err("Thread does not exist"));
         }

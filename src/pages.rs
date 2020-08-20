@@ -112,6 +112,8 @@ impl Pages {
                     replies.push(reply.post_num().to_string());
                 }
 
+                replies.sort();
+
                 let mut collections = HashMap::new();
                 collections.insert("reply".to_string(), replies);
 

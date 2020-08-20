@@ -52,4 +52,24 @@ impl Actions {
                                            0);
         database.create_original(original)
     }
+
+    pub fn submit_reply<DB: db::Database>(&mut self, database: &mut DB,
+                                          board_id: u64, ip: String, body: String,
+                                          poster: Option<String>, file_id: Option<String>,
+                                          file_name: Option<String>, orig_num: u64)
+                                          -> Result<u64, util::PlainchantErr> {
+
+        let cur_time = util::timestamp();
+        let reply    = site::Reply::new(board_id,
+                                        0, // post_num
+                                        cur_time,
+                                        ip,
+                                        body,
+                                        poster,
+                                        file_id,
+                                        file_name,
+                                        orig_num);
+        database.create_reply(reply)
+    }
+
 }

@@ -24,12 +24,22 @@ async fn part_buffer(part: multipart::Part, buf_size: usize) -> Option<BytesMut>
     while let Some(Ok(buf)) = chunks.next().await {
         buffer.put(buf); 
     }
-    Some(buffer)
+    if buffer.len() == 0 {
+        None
+    }
+    else {
+        Some(buffer)
+    }
 }
 
 // Process multipart bytestream into String
 async fn part_string(part: multipart::Part, buf_size: usize) -> Option<String> {
-    let buffer = part_buffer(part, buf_size).await?;
+    let buffer = part_buffer(part, buf_size).await;
+    let buffer = match buffer {
+        Some(bytes) => bytes,
+        None => return Some(String::from("")),
+    };
+
     match std::str::from_utf8(&buffer[..]) {
         Ok(s) => Some(String::from(s)),
         Err(_) => None,
@@ -72,7 +82,7 @@ async fn create_submit<DB: 'static + db::Database+Sync+Send,
         }
     }
     let mut actions = a.lock().unwrap();
-
+    
     let file_id = actions.upload_file(&mut *fr.lock().unwrap(), file.unwrap().freeze()).unwrap();
 
     actions.submit_original(&mut *db.lock().unwrap(),
@@ -85,6 +95,55 @@ async fn create_submit<DB: 'static + db::Database+Sync+Send,
                             );
 
     Ok(warp::redirect(format!("/{}/catalog", board).parse::<Uri>().unwrap()))
+}
+
+
+async fn create_reply<DB: 'static + db::Database+Sync+Send,
+                      FR: 'static + fr::FileRack+Sync+Send>
+                     (board: String, thread: u64, mut data: multipart::FormData,
+                      p: Pages, a: Actions,
+                      db: Arc<Mutex<DB>>, fr: Arc<Mutex<FR>>) -> Result<impl warp::Reply, Infallible> {
+    let board_id = {
+        let mut pages = p.lock().unwrap();
+        match pages.board_url_to_id(&board) {
+            Some(b_id) => b_id.clone(),
+            None => return Ok(warp::redirect(Uri::from_static("/"))),
+        }
+    };
+    
+    let mut name = None;
+    let mut body = None;
+    let mut file = None;
+    while let Some(Ok(mut part)) = data.next().await {
+       match part.name() {
+            "name"  => {
+                name = part_string(part, 4096).await;
+            },
+            "body"  => {
+                body = part_string(part, 16384).await;
+            },
+            "file"  => {
+                file = part_buffer(part, 524288).await;
+            },
+            _ => {},
+        }
+    }
+    let mut actions = a.lock().unwrap();
+
+    let file_id = match file {
+        Some(bytes) => Some(actions.upload_file(&mut *fr.lock().unwrap(), bytes.freeze()).unwrap()),
+        None => None,
+    };
+
+    actions.submit_reply(&mut *db.lock().unwrap(),
+                         board_id, "0.0.0.0".to_string(),
+                         body.unwrap(),
+                         Some(name.unwrap()),
+                         file_id,
+                         Some("yellow_loveless.png".to_string()),
+                         thread);
+
+    Ok(warp::redirect(format!("/{}/thread/{}", board, thread).parse::<Uri>().unwrap()))
 }
 
 
@@ -191,6 +250,13 @@ pub async fn serve<DB: 'static + db::Database+Sync+Send,
                        .and(pages.clone()).and(actions.clone())
                        .and(database.clone()).and(file_rack.clone())
                        .and_then(create_submit);
+    
+    // Serve reply action
+    let reply  = warp::path!(String / "reply" / u64)
+                       .and(warp::multipart::form())
+                       .and(pages.clone()).and(actions.clone())
+                       .and(database.clone()).and(file_rack.clone())
+                       .and_then(create_reply);
 
     // Serve rack files
     let files = warp::path!("files" / String)
@@ -214,7 +280,7 @@ pub async fn serve<DB: 'static + db::Database+Sync+Send,
                                  .or(catalog)
                                  .or(thread)
                                  .or(create))
-                       .or(warp::post().and(submit));
+                       .or(warp::post().and(submit.or(reply)));
     
     warp::serve(routes).run((ip, port)).await;
 }

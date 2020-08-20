@@ -78,3 +78,24 @@
     margin-bottom: 8px;
     white-space: pre-line;
 }
+
+.reply-form {
+    display: flex;
+    align-items: center;
+    padding-left: 25px;
+}
+
+.field-label {
+    width: 100px;
+    font-weight: normal;
+}
+
+.form-field {
+    padding: 3px;
+}
+
+.form-submit {
+    padding-top: 20px;
+}
+
+

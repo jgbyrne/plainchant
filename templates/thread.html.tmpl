@@ -52,6 +52,34 @@
                 </div>
             </div>
             {%reply%}
+	    <hr/>
+	    <div class="reply-form">
+            <form class="post-form" action="../reply/{{orig_post_num}}" method="POST" enctype="multipart/form-data">
+	    	<h4>Reply to this thread</h4>
+                <div class="form-field">
+                    <div class="field-label"><label for="name">Name</label></div>
+                    <div class="field-input">
+                        <input name="name" type="text" placeholder="Anonymous">
+                    </div>
+                </div>
+                <div class="form-field">
+                    <div class="field-label"><label for="body">Comment</label></div>
+                    <div class="field-input">
+                        <textarea name="body" type="text" cols="48" rows="5"></textarea>
+                    </div>
+                </div>
+                <div class="form-field">
+                    <div class="field-label"><label for="file">File</label></div>
+                    <div class="field-input">
+                        <input name="file" type="file"></input>
+                    </div>
+                </div>
+                <div class="form-field form-submit">
+                    <input type="submit" value="Post">
+                </div>
+            </form>
+	    </div>
+	    <br/>
         </div>
         <hr/>
         <small>{{$PLAINCHANT}}  ({{$TIME}})</small>
