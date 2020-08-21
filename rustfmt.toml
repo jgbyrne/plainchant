@@ -1,10 +1,16 @@
 unstable_features = true
 
+# Alignment
 enum_discrim_align_threshold = 10
 struct_field_align_threshold = 10
 
-fn_params_layout = "Compressed"
+# Indentation
 imports_indent = "Visual"
 indent_style = "Visual"
+
+# Syntax
 match_block_trailing_comma = true
+
+# Whitespace
 newline_style = "Unix"
+preserve_block_start_blank_lines = true
