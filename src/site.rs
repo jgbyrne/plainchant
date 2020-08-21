@@ -12,24 +12,35 @@ pub trait Post {
 
 #[derive(Debug)]
 pub struct Original {
-    board_id  : u64,
-    post_num  : u64,
-    time      : u64,
-    ip        : String,
-    body      : String,
-    poster    : Option<String>,
-    file_id   : Option<String>,
-    file_name : Option<String>,
-    title       : Option<String>,
-    bump_time   : u64,
-    replies     : u16,
-    img_replies : u16,
+    board_id: u64,
+    post_num: u64,
+    time: u64,
+    ip: String,
+    body: String,
+    poster: Option<String>,
+    file_id: Option<String>,
+    file_name: Option<String>,
+    title: Option<String>,
+    bump_time: u64,
+    replies: u16,
+    img_replies: u16,
 }
 
 impl Original {
-    pub fn new(board_id: u64, post_num: u64, time: u64, ip: String, body: String,
-           poster: Option<String>, file_id: Option<String>, file_name: Option<String>,
-           title: Option<String>, bump_time: u64, replies: u16, img_replies: u16 ) -> Original {
+    pub fn new(
+        board_id: u64,
+        post_num: u64,
+        time: u64,
+        ip: String,
+        body: String,
+        poster: Option<String>,
+        file_id: Option<String>,
+        file_name: Option<String>,
+        title: Option<String>,
+        bump_time: u64,
+        replies: u16,
+        img_replies: u16,
+    ) -> Original {
         Original {
             board_id,
             post_num,
@@ -49,21 +60,29 @@ impl Original {
 
 #[derive(Debug)]
 pub struct Reply {
-    board_id  : u64,
-    post_num  : u64,
-    time      : u64,
-    ip        : String,
-    body      : String,
-    poster    : Option<String>,
-    file_id   : Option<String>,
-    file_name : Option<String>,
-    orig_num    : u64,
+    board_id: u64,
+    post_num: u64,
+    time: u64,
+    ip: String,
+    body: String,
+    poster: Option<String>,
+    file_id: Option<String>,
+    file_name: Option<String>,
+    orig_num: u64,
 }
 
 impl Reply {
-    pub fn new(board_id: u64, post_num: u64, time: u64, ip: String, body: String,
-           poster: Option<String>, file_id: Option<String>, file_name: Option<String>,
-           orig_num: u64 ) -> Reply {
+    pub fn new(
+        board_id: u64,
+        post_num: u64,
+        time: u64,
+        ip: String,
+        body: String,
+        poster: Option<String>,
+        file_id: Option<String>,
+        file_name: Option<String>,
+        orig_num: u64,
+    ) -> Reply {
         Reply {
             board_id,
             post_num,
@@ -82,8 +101,7 @@ impl Original {
     pub fn title(&self) -> Option<&str> {
         if let Some(ref t) = self.title {
             Some(t)
-        }
-        else {
+        } else {
             None
         }
     }
@@ -115,7 +133,7 @@ macro_rules! impl_post {
             }
 
             fn post_num(&self) -> u64 {
-                self.post_num 
+                self.post_num
             }
 
             fn set_post_num(&mut self, post_num: u64) {
@@ -151,14 +169,14 @@ macro_rules! impl_post {
                     None
                 }
             }
-            
+
             fn file_name(&self) -> Option<&str> {
                 if let Some(ref f_name) = self.file_name {
                     Some(f_name)
                 }
                 else {
                     None
-                }           
+                }
             }
         })+
     }
@@ -168,14 +186,14 @@ impl_post!(Original, Reply);
 
 #[derive(Debug)]
 pub struct Board {
-    pub id    : u64,
-    pub url   : String,
-    pub title : String,
+    pub id: u64,
+    pub url: String,
+    pub title: String,
 }
 
 #[derive(Debug)]
 pub struct Catalog {
-    pub board_id : u64,
-    pub time     : u64,
+    pub board_id: u64,
+    pub time: u64,
     pub originals: Vec<Original>,
 }

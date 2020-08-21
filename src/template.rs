@@ -1,7 +1,7 @@
 use crate::util;
+use std::collections::HashMap;
 use std::fs;
 use std::mem;
-use std::collections::HashMap;
 
 pub struct Data {
     values: HashMap<String, String>,
@@ -30,9 +30,9 @@ pub struct Template {
 }
 
 pub fn static_err(msg: &'static str) -> util::PlainchantErr {
-    util::PlainchantErr { 
+    util::PlainchantErr {
         origin: util::ErrOrigin::Template,
-        msg: msg.to_string()
+        msg: msg.to_string(),
     }
 }
 
@@ -50,7 +50,11 @@ impl Template {
             }
             let chunk = &self.chunks[cptr];
             match chunk {
-                Chunk::Fragment(s) => if skip.is_none() { buf.push_str(&s) },
+                Chunk::Fragment(s) => {
+                    if skip.is_none() {
+                        buf.push_str(&s)
+                    }
+                }
                 Chunk::Placeholder(name, obj) => {
                     if skip.is_none() {
                         match obj {
@@ -63,59 +67,57 @@ impl Template {
                                         valpath.push_str(&obj);
                                         valpath.push('.');
                                         valpath.push_str(name);
-                                        buf.push_str(data.values.get(&valpath).unwrap_or(&empty_str));
+                                        buf.push_str(
+                                            data.values.get(&valpath).unwrap_or(&empty_str),
+                                        );
                                     };
                                 }
-                            },
-                            None => {
-                                match name.as_str() {
-                                    "$TIME" => buf.push_str(&util::timestamp().to_string()),
-                                    "$PLAINCHANT" => buf.push_str(&format!("Plainchant v{}", env!("CARGO_PKG_VERSION"))),
-                                    _ => buf.push_str(data.values.get(name).unwrap_or(&empty_str)),
-                                }
+                            }
+                            None => match name.as_str() {
+                                "$TIME" => buf.push_str(&util::timestamp().to_string()),
+                                "$PLAINCHANT" => buf.push_str(&format!(
+                                    "Plainchant v{}",
+                                    env!("CARGO_PKG_VERSION")
+                                )),
+                                _ => buf.push_str(data.values.get(name).unwrap_or(&empty_str)),
                             },
                         }
                     }
-                },
-                Chunk::Control(obj) => {
-                    match ptrs.get(obj) {
-                        Some(start_ptr) => {
-                            if skip.is_none() {
-                                if *start_ptr != cptr {
-                                    let mut ctr = *ctrs.get(obj).unwrap();
-                                    ctr += 1;
-                                    if ctr == data.collections.get(obj).unwrap().len() {
-                                        ptrs.remove(obj);
-                                        ctrs.remove(obj);
+                }
+                Chunk::Control(obj) => match ptrs.get(obj) {
+                    Some(start_ptr) => {
+                        if skip.is_none() {
+                            if *start_ptr != cptr {
+                                let mut ctr = *ctrs.get(obj).unwrap();
+                                ctr += 1;
+                                if ctr == data.collections.get(obj).unwrap().len() {
+                                    ptrs.remove(obj);
+                                    ctrs.remove(obj);
+                                } else {
+                                    ctrs.insert(String::from(obj), ctr);
+                                    cptr = *start_ptr;
+                                }
+                            }
+                        }
+                    }
+                    None => {
+                        if let Some(ref s) = skip {
+                            if s == obj {
+                                skip = None;
+                            }
+                        } else {
+                            match data.collections.get(obj) {
+                                Some(col) => {
+                                    if col.len() == 0 {
+                                        skip = Some(obj.clone());
+                                    } else {
+                                        ptrs.insert(String::from(obj), cptr);
+                                        ctrs.insert(String::from(obj), 0);
                                     }
-                                    else {
-                                        ctrs.insert(String::from(obj), ctr);
-                                        cptr = *start_ptr;
-                                    }
                                 }
+                                None => {}
                             }
-                        },
-                        None =>  {
-                            if let Some(ref s) = skip {
-                                if s == obj {
-                                    skip = None; 
-                                }
-                            }
-                            else {
-                                match data.collections.get(obj) {
-                                    Some(col) => {
-                                        if col.len() == 0 {
-                                            skip = Some(obj.clone());
-                                        }
-                                        else {
-                                            ptrs.insert(String::from(obj), cptr);
-                                            ctrs.insert(String::from(obj), 0);
-                                        }
-                                    },
-                                    None => {},
-                                }
-                            }
-                        },
+                        }
                     }
                 },
             }
@@ -130,59 +132,60 @@ impl Template {
         let mut state = '+';
         for c in string.chars() {
             match state {
-                '+' => {
-                    match c {
-                        '{' => state = '{',
-                        _   => buf.push(c),
-                    }
+                '+' => match c {
+                    '{' => state = '{',
+                    _ => buf.push(c),
                 },
                 '{' => {
                     match c {
                         '{' => state = '!',
                         '%' => state = '?',
-                        _   => { buf.push('{'); buf.push(c); state = '+'; },
+                        _ => {
+                            buf.push('{');
+                            buf.push(c);
+                            state = '+';
+                        }
                     }
                     if state != '+' {
-                       let frag = mem::replace(&mut buf, String::new());
-                       chunks.push(Chunk::Fragment(frag));
+                        let frag = mem::replace(&mut buf, String::new());
+                        chunks.push(Chunk::Fragment(frag));
                     }
+                }
+                '!' => match c {
+                    '}' => {
+                        let raw = mem::replace(&mut buf, String::new());
+                        let split = raw.split(".").collect::<Vec<&str>>();
+                        match split.len() {
+                            1 => chunks.push(Chunk::Placeholder(raw, None)),
+                            2 => chunks.push(Chunk::Placeholder(
+                                split[1].to_string(),
+                                Some(split[0].to_string()),
+                            )),
+                            _ => return Err(static_err("Bad syntax")),
+                        }
+                        state = '}';
+                    }
+                    _ => buf.push(c),
                 },
-                '!' => {
-                    match c {
-                        '}' => {
-                            let raw = mem::replace(&mut buf, String::new());
-                            let split = raw.split(".").collect::<Vec<&str>>();
-                            match split.len() {
-                                1 => chunks.push(Chunk::Placeholder(raw, None)),
-                                2 => chunks.push(Chunk::Placeholder(
-                                        split[1].to_string(),
-                                        Some(split[0].to_string()))),
-                                _ => return Err(static_err("Bad syntax")),
-                            }
-                            state = '}';
-                        },
-                        _ => buf.push(c),
+                '?' => match c {
+                    '%' => {
+                        let raw = mem::replace(&mut buf, String::new());
+                        chunks.push(Chunk::Control(raw));
+                        state = '}';
                     }
-                },
-                '?' => {
-                    match c {
-                        '%' => {
-                            let raw = mem::replace(&mut buf, String::new());
-                            chunks.push(Chunk::Control(raw));
-                            state = '}';
-                        },
-                        _ => buf.push(c),
-                    }
+                    _ => buf.push(c),
                 },
                 '}' => {
                     if c != '}' {
                         return Err(static_err("Invalid syntax"));
-                    }
-                    else {
+                    } else {
                         state = '+';
                     }
-                },
-                sc@_ => {println!("Entered invalid state {}", sc); panic!()},
+                }
+                sc @ _ => {
+                    println!("Entered invalid state {}", sc);
+                    panic!()
+                }
             }
         }
         if buf.len() > 0 {

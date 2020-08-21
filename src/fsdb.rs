@@ -1,11 +1,11 @@
 use crate::db;
-use crate::site::Post;
 use crate::site;
+use crate::site::Post;
 use crate::util;
-use std::path::{Path, PathBuf};
+use std::ffi::OsString;
+use std::fs::{create_dir, read_dir, read_to_string, File};
 use std::io::Write;
-use std::fs::{File, read_to_string, read_dir, create_dir};
-use std::ffi::{OsString};
+use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
 #[derive(Debug)]
@@ -21,7 +21,9 @@ impl<'init> FSDatabase {
         let boards_path = root_path.join("boards");
         let boards_str = match read_to_string(&boards_path) {
             Ok(boards_str) => boards_str,
-            Err(_read_err) => { return Err(db::static_err("Could not read"));  },
+            Err(_read_err) => {
+                return Err(db::static_err("Could not read"));
+            }
         };
 
         let mut boards = vec![];
@@ -30,36 +32,48 @@ impl<'init> FSDatabase {
             if parts.len() == 4 {
                 let id = match parts[0].parse::<u64>() {
                     Ok(id) => id,
-                    Err(_parse_err) => { return Err(db::static_err("Could not parse board id")); },
+                    Err(_parse_err) => {
+                        return Err(db::static_err("Could not parse board id"));
+                    }
                 };
                 let next_post_num = match parts[3].parse::<u64>() {
                     Ok(num) => num,
-                    Err(_parse_err) => { return Err(db::static_err("Could not parse next post_num")); },
+                    Err(_parse_err) => {
+                        return Err(db::static_err("Could not parse next post_num"));
+                    }
                 };
-                boards.push((id, parts[1].to_string(), parts[2].to_string(), next_post_num));
-            }
-            else {
+                boards.push((
+                    id,
+                    parts[1].to_string(),
+                    parts[2].to_string(),
+                    next_post_num,
+                ));
+            } else {
                 return Err(db::static_err("Too many parts"));
             }
         }
 
-        Ok(FSDatabase { root: root_path, boards_path, boards })
+        Ok(FSDatabase {
+            root: root_path,
+            boards_path,
+            boards,
+        })
     }
 
     pub fn write_boards_file(&self) -> Result<(), util::PlainchantErr> {
         let mut boards_str = String::new();
         for board in self.boards.iter() {
-            boards_str.push_str(
-                &format!("{},{},{},{}\n", board.0, board.1, board.2, board.3)
-                );
+            boards_str.push_str(&format!(
+                "{},{},{},{}\n",
+                board.0, board.1, board.2, board.3
+            ));
         }
         if let Ok(mut file) = File::create(&self.boards_path) {
             match file.write_all(boards_str.as_bytes()) {
                 Ok(_) => Ok(()),
                 Err(_) => Err(db::static_err("Could not write to boards file")),
             }
-        }
-        else {
+        } else {
             Err(db::static_err("Could not open boards file for writing"))
         }
     }
@@ -75,25 +89,37 @@ impl<'init> FSDatabase {
         Err(db::static_err("No such board"))
     }
 
-    pub fn get_thread_reply(&self, board_id: u64, orig_num: u64, post_num: u64) -> Result<site::Reply, util::PlainchantErr> {
-        let reply_path = self.root.join(board_id.to_string()).join(orig_num.to_string()).join(post_num.to_string());
+    pub fn get_thread_reply(
+        &self,
+        board_id: u64,
+        orig_num: u64,
+        post_num: u64,
+    ) -> Result<site::Reply, util::PlainchantErr> {
+        let reply_path = self
+            .root
+            .join(board_id.to_string())
+            .join(orig_num.to_string())
+            .join(post_num.to_string());
         let post_str = match read_to_string(reply_path) {
             Ok(post_str) => post_str,
-            Err(_read_err) => { return Err(db::static_err("Could not retrieve reply post"));  },
+            Err(_read_err) => {
+                return Err(db::static_err("Could not retrieve reply post"));
+            }
         };
         let lines = post_str.lines().collect::<Vec<&str>>();
         if lines.len() < 4 {
             Err(db::static_err("Could not load reply post"))
-        }
-        else {
+        } else {
             let timestamp = match lines[0].parse::<u64>() {
                 Ok(ts) => ts,
-                Err(_parse_err) => { return Err(db::static_err("Could not parse timestamp")); },
+                Err(_parse_err) => {
+                    return Err(db::static_err("Could not parse timestamp"));
+                }
             };
 
             let poster = match lines[2] {
-                 "" => None,
-                 name @ _  => Some(name.to_string()),
+                "" => None,
+                name @ _ => Some(name.to_string()),
             };
 
             let file_id = match lines[3] {
@@ -118,14 +144,24 @@ impl<'init> FSDatabase {
 
 impl db::Database for FSDatabase {
     fn get_boards(&self) -> Vec<site::Board> {
-        self.boards.iter()
-            .map(|b| site::Board { id: b.0, url: b.1.clone(), title: b.2.clone() } ).collect()
+        self.boards
+            .iter()
+            .map(|b| site::Board {
+                id: b.0,
+                url: b.1.clone(),
+                title: b.2.clone(),
+            })
+            .collect()
     }
 
     fn get_board(&self, board_id: u64) -> Result<site::Board, util::PlainchantErr> {
         for b in &self.boards {
             if b.0 == board_id {
-                return Ok(site::Board { id: b.0, url: b.1.clone(), title: b.2.clone() });
+                return Ok(site::Board {
+                    id: b.0,
+                    url: b.1.clone(),
+                    title: b.2.clone(),
+                });
             }
         }
         Err(db::static_err("No such board!"))
@@ -142,16 +178,14 @@ impl db::Database for FSDatabase {
                     if entry.depth() == 1 && e_path.is_dir() {
                         match e_path.file_name() {
                             Some(name) => match name.to_str() {
-                                Some(name_str) => {
-                                    match name_str.parse::<u64>() {
-                                        Ok(orig_num) => {
-                                            originals.push(
-                                                self.get_original(board_id, orig_num)?);
-                                        },
-                                        Err(_) => {
-                                            return Err(db::static_err(
-                                                    "Could not parse directory name"));
-                                        },
+                                Some(name_str) => match name_str.parse::<u64>() {
+                                    Ok(orig_num) => {
+                                        originals.push(self.get_original(board_id, orig_num)?);
+                                    }
+                                    Err(_) => {
+                                        return Err(db::static_err(
+                                            "Could not parse directory name",
+                                        ));
                                     }
                                 },
                                 None => continue,
@@ -159,18 +193,25 @@ impl db::Database for FSDatabase {
                             None => continue,
                         }
                     }
-                },
+                }
                 Err(_entry) => {
                     continue;
                 }
             }
         }
         originals.sort_unstable_by_key(|orig| u64::max_value() - orig.bump_time());
-        Ok(site::Catalog { board_id, time, originals })
+        Ok(site::Catalog {
+            board_id,
+            time,
+            originals,
+        })
     }
-    
+
     fn get_thread(&self, board_id: u64, post_num: u64) -> Result<db::Thread, util::PlainchantErr> {
-        let thread_dir = self.root.join(board_id.to_string()).join(post_num.to_string());
+        let thread_dir = self
+            .root
+            .join(board_id.to_string())
+            .join(post_num.to_string());
         let dir_iter = match read_dir(thread_dir) {
             Ok(entries) => entries,
             Err(_) => return Err(db::static_err("Could not read thread directory")),
@@ -192,57 +233,69 @@ impl db::Database for FSDatabase {
                     if file != orig_filename {
                         let reply_num = match file.parse::<u64>() {
                             Ok(num) => num,
-                            Err(_parse_err) => { return Err(
-                                    db::static_err("Could not parse filename")); },
+                            Err(_parse_err) => {
+                                return Err(db::static_err("Could not parse filename"));
+                            }
                         };
                         replies.push(self.get_thread_reply(board_id, post_num, reply_num)?);
                     }
-                },
+                }
                 Err(_) => return Err(db::static_err("Could not read thread dir entry")),
             }
         }
-        Ok(db::Thread { original, replies } )
+        Ok(db::Thread { original, replies })
     }
 
-    fn get_original(&self, board_id: u64, post_num: u64) -> Result<site::Original, util::PlainchantErr> {
-        let orig_path = self.root.join(board_id.to_string())
-                                 .join(post_num.to_string())
-                                 .join(post_num.to_string());
+    fn get_original(
+        &self,
+        board_id: u64,
+        post_num: u64,
+    ) -> Result<site::Original, util::PlainchantErr> {
+        let orig_path = self
+            .root
+            .join(board_id.to_string())
+            .join(post_num.to_string())
+            .join(post_num.to_string());
         let post_str = match read_to_string(orig_path) {
             Ok(post_str) => post_str,
-            Err(_read_err) => { return Err(db::static_err("Could not retrieve original post"));  },
+            Err(_read_err) => {
+                return Err(db::static_err("Could not retrieve original post"));
+            }
         };
         let lines = post_str.lines().collect::<Vec<&str>>();
         if lines.len() < 5 {
             Err(db::static_err("Could not load original post"))
-        }
-        else {
+        } else {
             let timestamp = match lines[0].parse::<u64>() {
                 Ok(ts) => ts,
-                Err(_parse_err) => { return Err(db::static_err("Could not parse timestamp")); },
+                Err(_parse_err) => {
+                    return Err(db::static_err("Could not parse timestamp"));
+                }
             };
 
             let bump_time = match lines[1].parse::<u64>() {
                 Ok(ts) => ts,
-                Err(_parse_err) => { return Err(db::static_err("Could not parse bump time")); },
+                Err(_parse_err) => {
+                    return Err(db::static_err("Could not parse bump time"));
+                }
             };
 
             let poster = match lines[3] {
-                 "" => None,
-                 name @ _  => Some(name.to_string()),
+                "" => None,
+                name @ _ => Some(name.to_string()),
             };
 
             let title = match lines[4] {
-                 "" => None,
-                 t @ _  => Some(t.to_string()),
+                "" => None,
+                t @ _ => Some(t.to_string()),
             };
 
             Ok(site::Original::new(
                 board_id,
                 post_num,
                 timestamp,
-                lines[2].to_string(),   // ip
-                lines[7..].join("\n"),  // body
+                lines[2].to_string(),  // ip
+                lines[7..].join("\n"), // body
                 poster,
                 Some(lines[5].to_string()), // file ID
                 Some(lines[6].to_string()), // file name
@@ -258,7 +311,7 @@ impl db::Database for FSDatabase {
         // Create thread directory
         let board_path = self.root.join(orig.board_id().to_string());
         if !board_path.exists() {
-            return Err(db::static_err("No such board"));  
+            return Err(db::static_err("No such board"));
         }
 
         let post_num = self.use_next_post_num(orig.board_id())?;
@@ -290,8 +343,7 @@ impl db::Database for FSDatabase {
             if file.write_all(data.as_bytes()).is_err() {
                 return Err(db::static_err("Error writing post file"));
             }
-        }
-        else {
+        } else {
             return Err(db::static_err("Unable to create post file"));
         }
 
@@ -299,7 +351,7 @@ impl db::Database for FSDatabase {
         Ok(post_num)
     }
 
-    fn get_reply(&self, board_id: u64, post_num: u64) -> Result<site::Reply, util::PlainchantErr> { 
+    fn get_reply(&self, board_id: u64, post_num: u64) -> Result<site::Reply, util::PlainchantErr> {
         let post_filename = OsString::from(post_num.to_string());
         for entry in WalkDir::new(self.root.join(board_id.to_string())) {
             match entry {
@@ -310,15 +362,21 @@ impl db::Database for FSDatabase {
                             let thread_filename = e_path.parent().unwrap().file_name().unwrap();
                             let thread_str = thread_filename.to_string_lossy();
                             match thread_str.parse::<u64>() {
-                                Ok(thread_num) =>
-                                    return Ok(self.get_thread_reply(board_id, thread_num, post_num)?),
-                                Err(_) =>
-                                    return Err(db::static_err("Could not parse thread directory to number")),
+                                Ok(thread_num) => {
+                                    return Ok(
+                                        self.get_thread_reply(board_id, thread_num, post_num)?
+                                    )
+                                }
+                                Err(_) => {
+                                    return Err(db::static_err(
+                                        "Could not parse thread directory to number",
+                                    ))
+                                }
                             }
                         }
                     }
-                },
-                Err(_) => {},
+                }
+                Err(_) => {}
             }
         }
         Err(db::static_err("Could not find reply"))
@@ -328,12 +386,14 @@ impl db::Database for FSDatabase {
         let post_num = self.use_next_post_num(reply.board_id())?;
         reply.set_post_num(post_num);
 
-        let thread_path = self.root.join(reply.board_id().to_string())
-                                   .join(reply.orig_num().to_string());
+        let thread_path = self
+            .root
+            .join(reply.board_id().to_string())
+            .join(reply.orig_num().to_string());
         if !thread_path.exists() {
             return Err(db::static_err("Thread does not exist"));
         }
-        
+
         // Compose post file
         let mut data = String::new();
         data.push_str(&format!("{}\n", reply.time()));
@@ -348,23 +408,25 @@ impl db::Database for FSDatabase {
             if file.write_all(data.as_bytes()).is_err() {
                 return Err(db::static_err("Error writing post file"));
             }
-        }
-        else {
+        } else {
             return Err(db::static_err("Unable to create post file"));
         }
-        
+
         self.write_boards_file()?;
         Ok(post_num)
     }
-    
-    fn get_post(&self, board_id: u64, post_num: u64) -> Result<Box<dyn site::Post>, util::PlainchantErr> {
+
+    fn get_post(
+        &self,
+        board_id: u64,
+        post_num: u64,
+    ) -> Result<Box<dyn site::Post>, util::PlainchantErr> {
         match self.get_original(board_id, post_num) {
             Ok(orig) => return Ok(Box::new(orig) as Box<dyn site::Post>),
             Err(_) => match self.get_reply(board_id, post_num) {
                 Ok(reply) => return Ok(Box::new(reply) as Box<dyn site::Post>),
                 Err(e) => Err(e),
-            }
+            },
         }
     }
-
 }
