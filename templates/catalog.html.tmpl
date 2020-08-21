@@ -21,11 +21,11 @@
         <div class="content">
             {%original%}
                 <div class="preview">
-                    <div class="thumbnail-frame">
-                        <a href="/{{board_url}}/thread/{{original.post_num}}">
+                    <a href="/{{board_url}}/thread/{{original.post_num}}">
+                    	<div class="thumbnail-frame">
                             <img class="thumbnail" src="{{original.file_url}}"></img>
-                        </a>
-                    </div>
+                    	</div>
+                    </a>
                     <div class="counts">
                         R: <span class="count">{{original.replies}}</span> / I: <span class="count">{{original.img_replies}}</span>
                     </div>

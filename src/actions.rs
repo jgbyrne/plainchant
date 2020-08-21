@@ -50,7 +50,8 @@ impl Actions {
                                            cur_time,
                                            0,
                                            0);
-        database.create_original(original)
+        database.create_original(original) //;
+                                           //Err(util::PlainchantErr { origin: util::ErrOrigin::FileRack, msg: String::from("test error") })
     }
 
     pub fn submit_reply<DB: db::Database>(&mut self,

@@ -2,11 +2,14 @@ use crate::actions;
 use crate::db;
 use crate::fr;
 use crate::pages;
-use bytes::{BufMut, Bytes, BytesMut};
+use crate::template::{Data, Template};
+use bytes::{buf::Buf, BufMut, Bytes, BytesMut};
 use futures::StreamExt;
+use lazy_static::lazy_static;
+use std::collections::HashMap;
 use std::convert::Infallible;
-use std::sync::{Arc, Mutex};
-use warp::http::Response;
+use std::sync::{Arc, Mutex, MutexGuard};
+use warp::http::{Response, StatusCode};
 use warp::multipart;
 use warp::reply;
 use warp::reply::Reply;
@@ -15,35 +18,59 @@ use warp::{http::Uri, Filter};
 type Pages = Arc<Mutex<pages::Pages>>;
 type Actions = Arc<Mutex<actions::Actions>>;
 
-fn error_page(message: &'static str) -> String {
-    String::from(format!(
-        r#"
-<html>
-    <body>
-        <h2>Server Error</h2>
-        <br/>
-        <p>{}</p>
-    </body>
-</html>
-"#,
-        message
-    ))
+lazy_static! {
+    static ref ERR_TMPL: Template =
+        Template::from_file("templates/error.html.tmpl").unwrap_or_else(|err| err.die());
+    static ref MSG_TMPL: Template =
+        Template::from_file("templates/message.html.tmpl").unwrap_or_else(|err| err.die());
 }
 
-fn as_resp<R: Reply>(reply: R) -> Result<reply::Response, Infallible> {
-    Ok(reply.into_response())
+fn error_page(message: &str) -> impl Reply {
+    let mut vals = HashMap::new();
+    vals.insert(String::from("message"), String::from(message));
+    reply::html(ERR_TMPL.render(&Data::new(vals, HashMap::new())))
 }
 
-async fn part_buffer(part: multipart::Part, buf_size: usize) -> Option<BytesMut> {
+fn message_page(message: &str) -> impl Reply {
+    let mut vals = HashMap::new();
+    vals.insert(String::from("message"), String::from(message));
+    reply::html(MSG_TMPL.render(&Data::new(vals, HashMap::new())))
+}
+
+fn acquire_lock<'l, T>(lock: &'l Arc<Mutex<T>>,
+                       name: &str)
+                       -> Result<MutexGuard<'l, T>, reply::Response> {
+    match lock.lock() {
+        Ok(guard) => Ok(guard),
+        Err(_) => Err(warp::reply::with_status(error_page(&format!("Could not acquire lock: {}",
+                                                                   name)),
+                                               StatusCode::INTERNAL_SERVER_ERROR).into_response()),
+    }
+}
+
+enum FormBuffer {
+    Empty,
+    Overflow,
+    Utilised(BytesMut),
+}
+
+async fn part_buffer(part: multipart::Part, buf_size: usize) -> FormBuffer {
     let mut chunks = part.stream();
     let mut buffer = BytesMut::with_capacity(buf_size);
+    let mut space = buf_size;
     while let Some(Ok(buf)) = chunks.next().await {
+        let additional = buf.bytes().len();
+        if space < additional {
+            return FormBuffer::Overflow;
+        }
         buffer.put(buf);
+        space -= additional;
     }
+
     if buffer.len() == 0 {
-        None
+        FormBuffer::Empty
     } else {
-        Some(buffer)
+        FormBuffer::Utilised(buffer)
     }
 }
 
@@ -51,8 +78,8 @@ async fn part_buffer(part: multipart::Part, buf_size: usize) -> Option<BytesMut>
 async fn part_string(part: multipart::Part, buf_size: usize) -> Option<String> {
     let buffer = part_buffer(part, buf_size).await;
     let buffer = match buffer {
-        Some(bytes) => bytes,
-        None => return Some(String::from("")),
+        FormBuffer::Utilised(bytes) => bytes,
+        FormBuffer::Empty | FormBuffer::Overflow => return Some(String::from("")),
     };
 
     match std::str::from_utf8(&buffer[..]) {
@@ -70,19 +97,26 @@ async fn create_submit<DB: 'static + db::Database + Sync + Send,
     a: Actions,
     db: Arc<Mutex<DB>>,
     fr: Arc<Mutex<FR>>)
-    -> Result<reply::Response, Infallible> {
+    -> Result<reply::Response, warp::reject::Rejection> {
     let board_id = {
-        let pages = p.lock().unwrap();
+        let p_lock = acquire_lock(&p, "Pages");
+        let mut pg = match p_lock {
+            Ok(pg) => pg,
+            Err(r) => return Ok(r),
+        };
+        let pages = &mut *pg;
+
         match pages.board_url_to_id(&board) {
             Some(b_id) => b_id.clone(),
-            None => return as_resp(warp::redirect(Uri::from_static("/"))),
+            None => return Ok(warp::redirect(Uri::from_static("/")).into_response()),
         }
     };
 
     let mut name = None;
     let mut title = None;
     let mut body = None;
-    let mut file = None;
+    let mut file = FormBuffer::Empty;
+
     while let Some(Ok(part)) = data.next().await {
         match part.name() {
             "name" => {
@@ -100,27 +134,54 @@ async fn create_submit<DB: 'static + db::Database + Sync + Send,
             _ => {},
         }
     }
-    let mut actions = match a.lock() {
-        Ok(guard) => guard,
-        Err(_) => return as_resp(warp::reply::with_status(error_page("Could not acquire lock on actions."), warp::http::StatusCode::INTERNAL_SERVER_ERROR)), 
+
+    let file: Bytes = match file {
+        FormBuffer::Utilised(bytes) => bytes.freeze(),
+        FormBuffer::Overflow => {
+            return Ok(message_page("File size limit exceeded").into_response())
+        },
+        FormBuffer::Empty => return Ok(message_page("You must upload a file").into_response()),
     };
 
-    let file_id = actions.upload_file(&mut *fr.lock().unwrap(), file.unwrap().freeze())
-                         .unwrap();
+    let a_lock = acquire_lock(&a, "Actions");
+    let mut ag = match a_lock {
+        Ok(ag) => ag,
+        Err(r) => return Ok(r),
+    };
+    let actions = &mut *ag;
 
-    let sub = actions.submit_original(&mut *db.lock().unwrap(),
-                                      board_id,
-                                      "0.0.0.0".to_string(),
-                                      body.unwrap(),
-                                      Some(name.unwrap()),
-                                      file_id,
-                                      "yellow_loveless.png".to_string(),
-                                      Some(title.unwrap()));
+    let file_id = {
+        let fr_lock = acquire_lock(&fr, "FileRack");
+        let mut rg = match fr_lock {
+            Ok(rg) => rg,
+            Err(r) => return Ok(r),
+        };
+        let rack = &mut *rg;
 
-    // TODO: Do something smarter here
-    match sub {
-        Ok(_) => as_resp(warp::redirect(format!("/{}/catalog", board).parse::<Uri>().unwrap())),
-        Err(_) => as_resp(warp::redirect(format!("/{}/catalog", board).parse::<Uri>().unwrap())),
+        actions.upload_file(rack, file).unwrap()
+    };
+
+    let sub_res = {
+        let db_lock = acquire_lock(&db, "Database");
+        let mut dg = match db_lock {
+            Ok(dg) => dg,
+            Err(r) => return Ok(r),
+        };
+        let database = &mut *dg;
+
+        actions.submit_original(database,
+                                board_id,
+                                "0.0.0.0".to_string(),
+                                body.unwrap(),
+                                Some(name.unwrap()),
+                                file_id,
+                                "yellow_loveless.png".to_string(),
+                                Some(title.unwrap()))
+    };
+
+    match sub_res {
+        Ok(_) => Ok(warp::redirect(format!("/{}/catalog", board).parse::<Uri>().unwrap()).into_response()),
+        Err(_) => Err(warp::reject()),
     }
 }
 
@@ -133,18 +194,25 @@ async fn create_reply<DB: 'static + db::Database + Sync + Send,
     a: Actions,
     db: Arc<Mutex<DB>>,
     fr: Arc<Mutex<FR>>)
-    -> Result<impl warp::Reply, Infallible> {
+    -> Result<reply::Response, warp::reject::Rejection> {
     let board_id = {
-        let pages = p.lock().unwrap();
+        let p_lock = acquire_lock(&p, "Pages");
+        let mut pg = match p_lock {
+            Ok(pg) => pg,
+            Err(r) => return Ok(r),
+        };
+        let pages = &mut *pg;
+
         match pages.board_url_to_id(&board) {
             Some(b_id) => b_id.clone(),
-            None => return Ok(warp::redirect(Uri::from_static("/"))),
+            None => return Ok(warp::redirect(Uri::from_static("/")).into_response()),
         }
     };
 
     let mut name = None;
     let mut body = None;
-    let mut file = None;
+    let mut file = FormBuffer::Empty;
+
     while let Some(Ok(part)) = data.next().await {
         match part.name() {
             "name" => {
@@ -159,30 +227,66 @@ async fn create_reply<DB: 'static + db::Database + Sync + Send,
             _ => {},
         }
     }
-    let mut actions = a.lock().unwrap();
+
+    let a_lock = acquire_lock(&a, "Actions");
+    let mut ag = match a_lock {
+        Ok(ag) => ag,
+        Err(r) => return Ok(r),
+    };
+    let actions = &mut *ag;
 
     let file_id = match file {
-        Some(bytes) => Some(actions.upload_file(&mut *fr.lock().unwrap(), bytes.freeze())
-                                   .unwrap()),
-        None => None,
+        FormBuffer::Utilised(bytes) => {
+            let file = bytes.freeze();
+
+            let fr_lock = acquire_lock(&fr, "FileRack");
+            let mut rg = match fr_lock {
+                Ok(rg) => rg,
+                Err(r) => return Ok(r),
+            };
+            let rack = &mut *rg;
+
+            Some(actions.upload_file(rack, file).unwrap())
+        },
+        FormBuffer::Overflow => {
+            return Ok(message_page("File size limit exceeded").into_response())
+        },
+        FormBuffer::Empty => None,
     };
 
-    let sub = actions.submit_reply(&mut *db.lock().unwrap(),
-                                   board_id,
-                                   "0.0.0.0".to_string(),
-                                   body.unwrap(),
-                                   Some(name.unwrap()),
-                                   file_id,
-                                   Some("yellow_loveless.png".to_string()),
-                                   thread);
+    let sub_res = {
+        let db_lock = acquire_lock(&db, "Database");
+        let mut dg = match db_lock {
+            Ok(dg) => dg,
+            Err(r) => return Ok(r),
+        };
+        let database = &mut *dg;
 
-    // TODO: Do something smarter here
-    match sub {
-        Ok(_) => Ok(warp::redirect(format!("/{}/thread/{}", board, thread).parse::<Uri>()
-                                                                          .unwrap())),
-        Err(_) => Ok(warp::redirect(format!("/{}/thread/{}", board, thread).parse::<Uri>()
-                                                                           .unwrap())),
+        actions.submit_reply(database,
+                             board_id,
+                             "0.0.0.0".to_string(),
+                             body.unwrap(),
+                             Some(name.unwrap()),
+                             file_id,
+                             Some("yellow_loveless.png".to_string()),
+                             thread)
+    };
+
+    match sub_res {
+        Ok(_) => {
+            Ok(warp::redirect(format!("/{}/thread/{}", board, thread).parse::<Uri>()
+                                                                     .unwrap()).into_response())
+        },
+        Err(_) => Err(warp::reject()),
     }
+}
+
+async fn not_found(_rej: warp::reject::Rejection) -> Result<reply::Response, Infallible> {
+    Ok(warp::reply::with_status(message_page("404 Not Found"), StatusCode::NOT_FOUND).into_response())
+}
+
+async fn index_redir(_rej: warp::reject::Rejection) -> Result<reply::Response, Infallible> {
+    Ok(warp::redirect("/".parse::<Uri>().unwrap()).into_response())
 }
 
 // Main server method - using tokio runtime
@@ -288,20 +392,19 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
                                       });
 
     // Serve submit action
-    let submit = warp::path!(String / "submit").and(warp::multipart::form())
-                                               .and(pages.clone())
-                                               .and(actions.clone())
-                                               .and(database.clone())
-                                               .and(file_rack.clone())
+    let submit = warp::path!(String / "submit").and(warp::multipart::form().and(pages.clone())
+                                                                           .and(actions.clone())
+                                                                           .and(database.clone())
+                                                                           .and(file_rack.clone()))
                                                .and_then(create_submit);
 
     // Serve reply action
-    let reply = warp::path!(String / "reply" / u64).and(warp::multipart::form())
-                                                   .and(pages.clone())
-                                                   .and(actions.clone())
-                                                   .and(database.clone())
-                                                   .and(file_rack.clone())
-                                                   .and_then(create_reply);
+    let reply =
+        warp::path!(String / "reply" / u64).and(warp::multipart::form().and(pages.clone())
+                                                                       .and(actions.clone())
+                                                                       .and(database.clone())
+                                                                       .and(file_rack.clone()))
+                                           .and_then(create_reply);
 
     // Serve rack files
     let files = warp::path!("files" / String).and(file_rack.clone())
@@ -322,7 +425,8 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
 
     // Bundle routes together and run
     let routes = warp::get().and(stat.or(files).or(catalog).or(thread).or(create))
-                            .or(warp::post().and(submit.or(reply)));
+                            .or(warp::post().and(submit.or(reply).unify().recover(index_redir)))
+                            .recover(not_found);
 
     warp::serve(routes).run((ip, port)).await;
 }
