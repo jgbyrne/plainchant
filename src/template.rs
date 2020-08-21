@@ -4,16 +4,14 @@ use std::fs;
 use std::mem;
 
 pub struct Data {
-    values: HashMap<String, String>,
+    values:      HashMap<String, String>,
     collections: HashMap<String, Vec<String>>,
 }
 
 impl Data {
     pub fn new(values: HashMap<String, String>, collections: HashMap<String, Vec<String>>) -> Data {
-        Data {
-            values,
-            collections,
-        }
+        Data { values,
+               collections }
     }
 }
 
@@ -30,10 +28,8 @@ pub struct Template {
 }
 
 pub fn static_err(msg: &'static str) -> util::PlainchantErr {
-    util::PlainchantErr {
-        origin: util::ErrOrigin::Template,
-        msg: msg.to_string(),
-    }
+    util::PlainchantErr { origin: util::ErrOrigin::Template,
+                          msg:    msg.to_string(), }
 }
 
 impl Template {
@@ -54,7 +50,7 @@ impl Template {
                     if skip.is_none() {
                         buf.push_str(&s)
                     }
-                }
+                },
                 Chunk::Placeholder(name, obj) => {
                     if skip.is_none() {
                         match obj {
@@ -67,23 +63,21 @@ impl Template {
                                         valpath.push_str(&obj);
                                         valpath.push('.');
                                         valpath.push_str(name);
-                                        buf.push_str(
-                                            data.values.get(&valpath).unwrap_or(&empty_str),
-                                        );
+                                        buf.push_str(data.values
+                                                         .get(&valpath)
+                                                         .unwrap_or(&empty_str));
                                     };
                                 }
-                            }
+                            },
                             None => match name.as_str() {
                                 "$TIME" => buf.push_str(&util::timestamp().to_string()),
-                                "$PLAINCHANT" => buf.push_str(&format!(
-                                    "Plainchant v{}",
-                                    env!("CARGO_PKG_VERSION")
-                                )),
+                                "$PLAINCHANT" => buf.push_str(&format!("Plainchant v{}",
+                                                                       env!("CARGO_PKG_VERSION"))),
                                 _ => buf.push_str(data.values.get(name).unwrap_or(&empty_str)),
                             },
                         }
                     }
-                }
+                },
                 Chunk::Control(obj) => match ptrs.get(obj) {
                     Some(start_ptr) => {
                         if skip.is_none() {
@@ -99,7 +93,7 @@ impl Template {
                                 }
                             }
                         }
-                    }
+                    },
                     None => {
                         if let Some(ref s) = skip {
                             if s == obj {
@@ -114,11 +108,11 @@ impl Template {
                                         ptrs.insert(String::from(obj), cptr);
                                         ctrs.insert(String::from(obj), 0);
                                     }
-                                }
-                                None => {}
+                                },
+                                None => {},
                             }
                         }
-                    }
+                    },
                 },
             }
             cptr += 1;
@@ -144,27 +138,25 @@ impl Template {
                             buf.push('{');
                             buf.push(c);
                             state = '+';
-                        }
+                        },
                     }
                     if state != '+' {
                         let frag = mem::replace(&mut buf, String::new());
                         chunks.push(Chunk::Fragment(frag));
                     }
-                }
+                },
                 '!' => match c {
                     '}' => {
                         let raw = mem::replace(&mut buf, String::new());
                         let split = raw.split(".").collect::<Vec<&str>>();
                         match split.len() {
                             1 => chunks.push(Chunk::Placeholder(raw, None)),
-                            2 => chunks.push(Chunk::Placeholder(
-                                split[1].to_string(),
-                                Some(split[0].to_string()),
-                            )),
+                            2 => chunks.push(Chunk::Placeholder(split[1].to_string(),
+                                                                Some(split[0].to_string()))),
                             _ => return Err(static_err("Bad syntax")),
                         }
                         state = '}';
-                    }
+                    },
                     _ => buf.push(c),
                 },
                 '?' => match c {
@@ -172,7 +164,7 @@ impl Template {
                         let raw = mem::replace(&mut buf, String::new());
                         chunks.push(Chunk::Control(raw));
                         state = '}';
-                    }
+                    },
                     _ => buf.push(c),
                 },
                 '}' => {
@@ -181,11 +173,11 @@ impl Template {
                     } else {
                         state = '+';
                     }
-                }
+                },
                 sc @ _ => {
                     println!("Entered invalid state {}", sc);
                     panic!()
-                }
+                },
             }
         }
         if buf.len() > 0 {

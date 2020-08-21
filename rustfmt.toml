@@ -1,0 +1,10 @@
+unstable_features = true
+
+enum_discrim_align_threshold = 10
+struct_field_align_threshold = 10
+
+fn_params_layout = "Compressed"
+imports_indent = "Visual"
+indent_style = "Visual"
+match_block_trailing_comma = true
+newline_style = "Unix"
