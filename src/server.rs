@@ -15,6 +15,11 @@ use warp::reply;
 use warp::reply::Reply;
 use warp::{http::Uri, Filter};
 
+// This value is equivalent to 64 MiB in bytes
+// Right now, above this, the browser is returned nothing rather than a proper error page
+// Therefore we make this value unreasonably high so 99% of the time a proper error is shown
+static FORM_MAX_LENGTH: u64 = 67_108_864;
+
 type Pages = Arc<Mutex<pages::Pages>>;
 type Actions = Arc<Mutex<actions::Actions>>;
 
@@ -158,7 +163,10 @@ async fn create_submit<DB: 'static + db::Database + Sync + Send,
         };
         let rack = &mut *rg;
 
-        actions.upload_file(rack, file).unwrap()
+        match actions.upload_file(rack, file) {
+            Ok(file_id) => file_id,
+            Err(_) => return Err(warp::reject()),
+        }
     };
 
     let sub_res = {
@@ -180,7 +188,7 @@ async fn create_submit<DB: 'static + db::Database + Sync + Send,
     };
 
     match sub_res {
-        Ok(_) => Ok(warp::redirect(format!("/{}/catalog", board).parse::<Uri>().unwrap()).into_response()),
+        Ok(_) => Ok(warp::redirect(format!("/{}/catalog", board).parse::<Uri>().expect("Could not parse catalog Uri")).into_response()),
         Err(_) => Err(warp::reject()),
     }
 }
@@ -246,7 +254,10 @@ async fn create_reply<DB: 'static + db::Database + Sync + Send,
             };
             let rack = &mut *rg;
 
-            Some(actions.upload_file(rack, file).unwrap())
+            match actions.upload_file(rack, file) {
+                Ok(file_id) => Some(file_id),
+                Err(_) => return Err(warp::reject()),
+            }
         },
         FormBuffer::Overflow => {
             return Ok(message_page("File size limit exceeded").into_response())
@@ -275,7 +286,7 @@ async fn create_reply<DB: 'static + db::Database + Sync + Send,
     match sub_res {
         Ok(_) => {
             Ok(warp::redirect(format!("/{}/thread/{}", board, thread).parse::<Uri>()
-                                                                     .unwrap()).into_response())
+                                                                     .expect("Could not parse thread Uri")).into_response())
         },
         Err(_) => Err(warp::reject()),
     }
@@ -286,7 +297,7 @@ async fn not_found(_rej: warp::reject::Rejection) -> Result<reply::Response, Inf
 }
 
 async fn index_redir(_rej: warp::reject::Rejection) -> Result<reply::Response, Infallible> {
-    Ok(warp::redirect("/".parse::<Uri>().unwrap()).into_response())
+    Ok(warp::redirect("/".parse::<Uri>().expect("Could not parse root Uri")).into_response())
 }
 
 // Main server method - using tokio runtime
@@ -321,21 +332,30 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
         warp::path!(String / "catalog").and(pages.clone())
                                        .and(database.clone())
                                        .map(|board: String, p: Pages, db: Arc<Mutex<DB>>| {
-                                           let pages = &mut (*p.lock().unwrap());
+                                           let p_lock = acquire_lock(&p, "Pages");
+                                           let mut pg = match p_lock {
+                                               Ok(pg) => pg,
+                                               Err(r) => return Ok(r),
+                                           };
+                                           let pages = &mut *pg;
+
                                            if let Some(board_id) = pages.board_url_to_id(&board) {
-                                               let database = &(*db.lock().unwrap());
+                                               let db_lock = acquire_lock(&db, "Database");
+                                               let mut dg = match db_lock {
+                                                   Ok(dg) => dg,
+                                                   Err(r) => return Ok(r),
+                                               };
+                                               let database = &mut *dg;
+
                                                let page_ref = pages::PageRef::Catalog(*board_id);
                                                let page = pages.get_page(database, &page_ref)
-                                                               .unwrap()
+                                                               .expect("Could not access catalog for extant board")
                                                                .page_text
                                                                .to_string();
 
-                                               Response::builder()
-                    .header("Content-Type", "text/html; charset=utf-8")
-                    .body(page)
+                                               Ok(reply::with_header(reply::html(page), "Content-Type", "text/html; charset=utf-8").into_response())
                                            } else {
-                                               Response::builder().status(404)
-                                                                  .body("Not Found".to_string())
+                                               Ok(warp::reply::with_status(message_page("No such board"), StatusCode::NOT_FOUND).into_response())
                                            }
                                        });
 
@@ -345,25 +365,30 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
         .and(database.clone())
         .map(
             |board: String, orig_num: u64, p: Pages, db: Arc<Mutex<DB>>| {
-                let pages = &mut (*p.lock().unwrap());
+               let p_lock = acquire_lock(&p, "Pages");
+               let mut pg = match p_lock {
+                   Ok(pg) => pg,
+                   Err(r) => return Ok(r),
+               };
+               let pages = &mut *pg;
 
                 if let Some(board_id) = pages.board_url_to_id(&board) {
-                    let database = &(*db.lock().unwrap());
+                    let db_lock = acquire_lock(&db, "Database");
+                    let mut dg = match db_lock {
+                        Ok(dg) => dg,
+                        Err(r) => return Ok(r),
+                    };
+                    let database = &mut *dg;
+
                     let page_ref = pages::PageRef::Thread(*board_id, orig_num);
                     let page = pages.get_page(database, &page_ref);
 
                     match page {
-                        Ok(page) => Response::builder()
-                            .header("Content-Type", "text/html; charset=utf-8")
-                            .body(page.page_text.to_string()),
-                        Err(_) => Response::builder()
-                            .status(404)
-                            .body("Not Found".to_string()),
+                        Ok(page) => Ok(reply::with_header(reply::html(page.page_text.to_string()), "Content-Type", "text/html; charset=utf-8").into_response()),
+                        Err(_) => Ok(warp::reply::with_status(message_page("No such thread"), StatusCode::NOT_FOUND).into_response()),
                     }
                 } else {
-                    Response::builder()
-                        .status(404)
-                        .body("Not Found".to_string())
+                   Ok(warp::reply::with_status(message_page("No such board"), StatusCode::NOT_FOUND).into_response())
                 }
             },
         );
@@ -373,26 +398,36 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
         warp::path!(String / "create").and(pages.clone())
                                       .and(database.clone())
                                       .map(|board: String, p: Pages, db: Arc<Mutex<DB>>| {
-                                          let pages = &mut (*p.lock().unwrap());
-                                          if let Some(board_id) = pages.board_url_to_id(&board) {
-                                              let database = &(*db.lock().unwrap());
+                                           let p_lock = acquire_lock(&p, "Pages");
+                                           let mut pg = match p_lock {
+                                               Ok(pg) => pg,
+                                               Err(r) => return Ok(r),
+                                           };
+                                           let pages = &mut *pg;
+
+                                           if let Some(board_id) = pages.board_url_to_id(&board) {
+                                              let db_lock = acquire_lock(&db, "Database");
+                                              let mut dg = match db_lock {
+                                                  Ok(dg) => dg,
+                                                  Err(r) => return Ok(r),
+                                              };
+                                              let database = &mut *dg;
+
                                               let page_ref = pages::PageRef::Create(*board_id);
                                               let page = pages.get_page(database, &page_ref)
-                                                              .unwrap()
+                                                              .expect("Could not access thread creation page for extant board")
                                                               .page_text
                                                               .to_string();
 
-                                              Response::builder().header("Content-Type",
-                                                                         "text/html; charset=utf-8")
-                                                                 .body(page)
-                                          } else {
-                                              Response::builder().status(404)
-                                                                 .body("Not Found".to_string())
-                                          }
+                                              Ok(reply::with_header(reply::html(page), "Content-Type", "text/html; charset=utf-8").into_response())
+                                           } else {
+                                              Ok(warp::reply::with_status(message_page("No such board"), StatusCode::NOT_FOUND).into_response())
+                                           }
                                       });
 
     // Serve submit action
-    let submit = warp::path!(String / "submit").and(warp::multipart::form().and(pages.clone())
+    let submit = warp::path!(String / "submit").and(warp::multipart::form().max_length(FORM_MAX_LENGTH)
+                                                                           .and(pages.clone())
                                                                            .and(actions.clone())
                                                                            .and(database.clone())
                                                                            .and(file_rack.clone()))
@@ -400,7 +435,8 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
 
     // Serve reply action
     let reply =
-        warp::path!(String / "reply" / u64).and(warp::multipart::form().and(pages.clone())
+        warp::path!(String / "reply" / u64).and(warp::multipart::form().max_length(FORM_MAX_LENGTH)
+                                                                       .and(pages.clone())
                                                                        .and(actions.clone())
                                                                        .and(database.clone())
                                                                        .and(file_rack.clone()))
@@ -409,15 +445,21 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
     // Serve rack files
     let files = warp::path!("files" / String).and(file_rack.clone())
                                              .map(|file_id: String, fr: Arc<Mutex<FR>>| {
-                                                 let file_rack = &mut (*fr.lock().unwrap());
+                                                 let fr_lock = acquire_lock(&fr, "FileRack");
+                                                 let mut rg = match fr_lock {
+                                                     Ok(rg) => rg,
+                                                     Err(r) => return Ok(r),
+                                                 };
+                                                 let file_rack = &mut *rg;
                                                  match file_rack.get_file(&file_id) {
-                Ok(file) => Response::builder()
-                    .header("Cache-Control", "public, max-age=604800, immutable")
-                    .body(file),
-                Err(_err) => Response::builder()
-                    .status(404)
-                    .body(Bytes::from("Not Found")),
-            }
+                                                    Ok(file) => Ok(Response::builder()
+                                                                    .header("Cache-Control", "public, max-age=604800, immutable")
+                                                                    .body(file).expect("Failed to build file response").into_response()),
+                                                    Err(_err) => Ok(Response::builder()
+                                                                    .status(404)
+                                                                    .body(Bytes::from("Not Found"))
+                                                                    .expect("Failed to build 404 response").into_response()),
+                                                 }
                                              });
 
     // Serve static resources
