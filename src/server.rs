@@ -8,15 +8,16 @@ use std::convert::Infallible;
 use std::sync::{Arc, Mutex};
 use warp::http::Response;
 use warp::multipart;
-use warp::{http::Uri, Filter};
 use warp::reply;
+use warp::reply::Reply;
+use warp::{http::Uri, Filter};
 
 type Pages = Arc<Mutex<pages::Pages>>;
 type Actions = Arc<Mutex<actions::Actions>>;
 
 fn error_page(message: &'static str) -> String {
     String::from(format!(
-r#"
+        r#"
 <html>
     <body>
         <h2>Server Error</h2>
@@ -24,7 +25,13 @@ r#"
         <p>{}</p>
     </body>
 </html>
-"#, message))
+"#,
+        message
+    ))
+}
+
+fn as_resp<R: Reply>(reply: R) -> Result<reply::Response, Infallible> {
+    Ok(reply.into_response())
 }
 
 async fn part_buffer(part: multipart::Part, buf_size: usize) -> Option<BytesMut> {
@@ -63,12 +70,12 @@ async fn create_submit<DB: 'static + db::Database + Sync + Send,
     a: Actions,
     db: Arc<Mutex<DB>>,
     fr: Arc<Mutex<FR>>)
-    -> Result<Box<dyn warp::Reply>, Infallible> {
+    -> Result<reply::Response, Infallible> {
     let board_id = {
         let pages = p.lock().unwrap();
         match pages.board_url_to_id(&board) {
             Some(b_id) => b_id.clone(),
-            None => return Ok(Box::new(warp::redirect(Uri::from_static("/")))),
+            None => return as_resp(warp::redirect(Uri::from_static("/"))),
         }
     };
 
@@ -95,7 +102,7 @@ async fn create_submit<DB: 'static + db::Database + Sync + Send,
     }
     let mut actions = match a.lock() {
         Ok(guard) => guard,
-        Err(_) => return Ok(Box::new(warp::reply::with_status(error_page("Could not acquire lock on actions."), warp::http::StatusCode::INTERNAL_SERVER_ERROR))), 
+        Err(_) => return as_resp(warp::reply::with_status(error_page("Could not acquire lock on actions."), warp::http::StatusCode::INTERNAL_SERVER_ERROR)), 
     };
 
     let file_id = actions.upload_file(&mut *fr.lock().unwrap(), file.unwrap().freeze())
@@ -112,8 +119,8 @@ async fn create_submit<DB: 'static + db::Database + Sync + Send,
 
     // TODO: Do something smarter here
     match sub {
-        Ok(_) => Ok(Box::new(warp::redirect(format!("/{}/catalog", board).parse::<Uri>().unwrap()))),
-        Err(_) => Ok(Box::new(warp::redirect(format!("/{}/catalog", board).parse::<Uri>().unwrap()))),
+        Ok(_) => as_resp(warp::redirect(format!("/{}/catalog", board).parse::<Uri>().unwrap())),
+        Err(_) => as_resp(warp::redirect(format!("/{}/catalog", board).parse::<Uri>().unwrap())),
     }
 }
 
