@@ -104,12 +104,24 @@ impl Original {
         self.bump_time
     }
 
+    pub fn set_bump_time(&mut self, bump_time: u64) {
+        self.bump_time = bump_time;
+    }
+
     pub fn replies(&self) -> u16 {
         self.replies
     }
 
+    pub fn set_replies(&mut self, replies: u16) {
+        self.replies = replies;
+    }
+
     pub fn img_replies(&self) -> u16 {
         self.img_replies
+    }
+
+    pub fn set_img_replies(&mut self, img_replies: u16) {
+        self.img_replies = img_replies;
     }
 }
 

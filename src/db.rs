@@ -29,4 +29,6 @@ pub trait Database {
 
     fn create_original(&mut self, orig: site::Original) -> Result<u64, util::PlainchantErr>;
     fn create_reply(&mut self, reply: site::Reply) -> Result<u64, util::PlainchantErr>;
+
+    fn update_original(&mut self, orig: site::Original) -> Result<(), util::PlainchantErr>;
 }

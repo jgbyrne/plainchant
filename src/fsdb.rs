@@ -126,6 +126,21 @@ impl<'init> FSDatabase {
                                 orig_num))
         }
     }
+
+    fn serialise_original(orig: &site::Original) -> String {
+        let mut data = String::new();
+        data.push_str(&format!("{}\n", orig.time()));
+        data.push_str(&format!("{}\n", orig.bump_time()));
+        data.push_str(&format!("{}\n", orig.ip()));
+        data.push_str(&format!("{}\n", orig.poster().unwrap_or("")));
+        data.push_str(&format!("{}\n", orig.title().unwrap_or("")));
+        data.push_str(&format!("{}\n", orig.file_id().unwrap_or("")));
+        data.push_str(&format!("{}\n", orig.file_name().unwrap_or("")));
+        data.push_str(&orig.body());
+
+        data
+    }
+
 }
 
 impl db::Database for FSDatabase {
@@ -282,6 +297,32 @@ impl db::Database for FSDatabase {
         }
     }
 
+    fn update_original(&mut self, orig: site::Original) -> Result<(), util::PlainchantErr> {
+        let board_path = self.root.join(orig.board_id().to_string());
+        if !board_path.exists() {
+            return Err(db::static_err("No such board"));
+        }
+
+        let thread_path = board_path.join(orig.post_num().to_string());
+        if !thread_path.exists() {
+            return Err(db::static_err("Thread does not exist"));
+        }
+
+        let data = FSDatabase::serialise_original(&orig);
+
+        // Write post file to disk
+        if let Ok(mut file) = File::create(thread_path.join(orig.post_num().to_string())) {
+            if file.write_all(data.as_bytes()).is_err() {
+                return Err(db::static_err("Error writing post file"));
+            }
+        } else {
+            return Err(db::static_err("Unable to write post file"));
+        }
+
+        self.write_boards_file()?;
+        Ok(())
+    }
+
     fn create_original(&mut self, mut orig: site::Original) -> Result<u64, util::PlainchantErr> {
         // Create thread directory
         let board_path = self.root.join(orig.board_id().to_string());
@@ -302,16 +343,7 @@ impl db::Database for FSDatabase {
             return Err(db::static_err("Could not create thread directory"));
         }
 
-        // Compose post file
-        let mut data = String::new();
-        data.push_str(&format!("{}\n", orig.time()));
-        data.push_str(&format!("{}\n", orig.bump_time()));
-        data.push_str(&format!("{}\n", orig.ip()));
-        data.push_str(&format!("{}\n", orig.poster().unwrap_or("")));
-        data.push_str(&format!("{}\n", orig.title().unwrap_or("")));
-        data.push_str(&format!("{}\n", orig.file_id().unwrap_or("")));
-        data.push_str(&format!("{}\n", orig.file_name().unwrap_or("")));
-        data.push_str(&orig.body());
+        let data = FSDatabase::serialise_original(&orig);
 
         // Write post file to disk
         if let Ok(mut file) = File::create(thread_path.join(orig.post_num().to_string())) {
