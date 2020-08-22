@@ -21,8 +21,7 @@ use warp::{http::Uri, Filter};
 static FORM_MAX_LENGTH: u64 = 67_108_864;
 
 // Alias these types to make some code less ugly
-type Pages = Arc<Mutex<pages::Pages>>;
-type Actions = Arc<Mutex<actions::Actions>>;
+type Ptr<T> = Arc<Mutex<T>>;
 
 // More complex templates are handled by Pages, but these
 // simple message pages we can handle directly
@@ -48,9 +47,7 @@ fn message_page(message: &str) -> impl Reply {
 }
 
 // Lock an Arc<Mutex<>>, returning a rendered error page if this fails
-fn acquire_lock<'l, T>(lock: &'l Arc<Mutex<T>>,
-                       name: &str)
-                       -> Result<MutexGuard<'l, T>, reply::Response> {
+fn acquire_lock<'l, T>(lock: &'l Ptr<T>, name: &str) -> Result<MutexGuard<'l, T>, reply::Response> {
     match lock.lock() {
         Ok(guard) => Ok(guard),
         Err(_) => Err(warp::reply::with_status(error_page(&format!("Could not acquire lock: {}",
@@ -107,10 +104,10 @@ async fn create_submit<DB: 'static + db::Database + Sync + Send,
                        FR: 'static + fr::FileRack + Sync + Send>(
     board: String,
     mut data: multipart::FormData,
-    p: Pages,
-    a: Actions,
-    db: Arc<Mutex<DB>>,
-    fr: Arc<Mutex<FR>>)
+    p: Ptr<pages::Pages>,
+    a: Ptr<actions::Actions>,
+    db: Ptr<DB>,
+    fr: Ptr<FR>)
     -> Result<reply::Response, warp::reject::Rejection> {
     // Look-up Board URL to retrieve ID
     let board_id = {
@@ -195,11 +192,11 @@ async fn create_submit<DB: 'static + db::Database + Sync + Send,
         actions.submit_original(database,
                                 board_id,
                                 "0.0.0.0".to_string(),
-                                body.unwrap(),
-                                Some(name.unwrap()),
+                                body.unwrap_or(String::from("")),
+                                Some(name.unwrap_or(String::from(""))),
                                 file_id,
                                 "yellow_loveless.png".to_string(),
-                                Some(title.unwrap()))
+                                Some(title.unwrap_or(String::from(""))))
     };
 
     // Handle the outcome of the submission
@@ -215,10 +212,10 @@ async fn create_reply<DB: 'static + db::Database + Sync + Send,
     board: String,
     thread: u64,
     mut data: multipart::FormData,
-    p: Pages,
-    a: Actions,
-    db: Arc<Mutex<DB>>,
-    fr: Arc<Mutex<FR>>)
+    p: Ptr<pages::Pages>,
+    a: Ptr<actions::Actions>,
+    db: Ptr<DB>,
+    fr: Ptr<FR>)
     -> Result<reply::Response, warp::reject::Rejection> {
     // Look-up board ID from URL
     let board_id = {
@@ -298,8 +295,8 @@ async fn create_reply<DB: 'static + db::Database + Sync + Send,
         actions.submit_reply(database,
                              board_id,
                              "0.0.0.0".to_string(),
-                             body.unwrap(),
-                             Some(name.unwrap()),
+                             body.unwrap_or(String::from("")),
+                             Some(name.unwrap_or(String::from(""))),
                              file_id,
                              Some("yellow_loveless.png".to_string()),
                              thread)
@@ -308,8 +305,10 @@ async fn create_reply<DB: 'static + db::Database + Sync + Send,
     // Handle outcome of submission
     match sub_res {
         Ok(_) => {
-            Ok(warp::redirect(format!("/{}/thread/{}", board, thread).parse::<Uri>()
-                                                                     .expect("Could not parse thread Uri")).into_response())
+            Ok(warp::redirect(format!("/{}/thread/{}", board, thread)
+                                        .parse::<Uri>()
+                                        .expect("Could not parse thread Uri"))
+                     .into_response())
         },
         Err(_) => Err(warp::reject()),
     }
@@ -326,7 +325,6 @@ async fn index_redir(_rej: warp::reject::Rejection) -> Result<reply::Response, I
 }
 
 // Main server method - using tokio runtime
-
 #[tokio::main]
 pub async fn serve<DB: 'static + db::Database + Sync + Send,
                    FR: 'static + fr::FileRack + Sync + Send>(
@@ -356,7 +354,7 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
     let catalog =
         warp::path!(String / "catalog").and(pages.clone())
                                        .and(database.clone())
-                                       .map(|board: String, p: Pages, db: Arc<Mutex<DB>>| {
+                                       .map(|board: String, p: Ptr<pages::Pages>, db: Ptr<DB>| {
                                            // Acquire lock on Pages
                                            let p_lock = acquire_lock(&p, "Pages");
                                            let mut pg = match p_lock {
@@ -391,7 +389,7 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
         .and(pages.clone())
         .and(database.clone())
         .map(
-            |board: String, orig_num: u64, p: Pages, db: Arc<Mutex<DB>>| {
+            |board: String, orig_num: u64, p: Ptr<pages::Pages>, db: Arc<Mutex<DB>>| {
                // Acquire lock on Pages
                let p_lock = acquire_lock(&p, "Pages");
                let mut pg = match p_lock {
@@ -426,7 +424,7 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
     let create =
         warp::path!(String / "create").and(pages.clone())
                                       .and(database.clone())
-                                      .map(|board: String, p: Pages, db: Arc<Mutex<DB>>| {
+                                      .map(|board: String, p: Ptr<pages::Pages>, db: Ptr<DB>| {
                                            // Acquire lock on Pages
                                            let p_lock = acquire_lock(&p, "Pages");
                                            let mut pg = match p_lock {
@@ -476,7 +474,7 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
 
     // Serve rack files
     let files = warp::path!("files" / String).and(file_rack.clone())
-                                             .map(|file_id: String, fr: Arc<Mutex<FR>>| {
+                                             .map(|file_id: String, fr: Ptr<FR>| {
                                                  // Lock file rack
                                                  let fr_lock = acquire_lock(&fr, "FileRack");
                                                  let mut rg = match fr_lock {

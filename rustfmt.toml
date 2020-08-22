@@ -13,4 +13,4 @@ match_block_trailing_comma = true
 
 # Whitespace
 newline_style = "Unix"
-preserve_block_start_blank_lines = true
+#preserve_block_start_blank_lines = true
