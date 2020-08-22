@@ -20,9 +20,12 @@ use warp::{http::Uri, Filter};
 // Therefore we make this value unreasonably high so 99% of the time a proper error is shown
 static FORM_MAX_LENGTH: u64 = 67_108_864;
 
+// Alias these types to make some code less ugly
 type Pages = Arc<Mutex<pages::Pages>>;
 type Actions = Arc<Mutex<actions::Actions>>;
 
+// More complex templates are handled by Pages, but these
+// simple message pages we can handle directly
 lazy_static! {
     static ref ERR_TMPL: Template =
         Template::from_file("templates/error.html.tmpl").unwrap_or_else(|err| err.die());
@@ -30,18 +33,21 @@ lazy_static! {
         Template::from_file("templates/message.html.tmpl").unwrap_or_else(|err| err.die());
 }
 
+// Produce an Error page Reply
 fn error_page(message: &str) -> impl Reply {
     let mut vals = HashMap::new();
     vals.insert(String::from("message"), String::from(message));
     reply::html(ERR_TMPL.render(&Data::new(vals, HashMap::new())))
 }
 
+// Produce a Message page Reply
 fn message_page(message: &str) -> impl Reply {
     let mut vals = HashMap::new();
     vals.insert(String::from("message"), String::from(message));
     reply::html(MSG_TMPL.render(&Data::new(vals, HashMap::new())))
 }
 
+// Lock an Arc<Mutex<>>, returning a rendered error page if this fails
 fn acquire_lock<'l, T>(lock: &'l Arc<Mutex<T>>,
                        name: &str)
                        -> Result<MutexGuard<'l, T>, reply::Response> {
@@ -53,15 +59,18 @@ fn acquire_lock<'l, T>(lock: &'l Arc<Mutex<T>>,
     }
 }
 
+// A buffer read from one part of a Multipart Form
 enum FormBuffer {
     Empty,
     Overflow,
     Utilised(BytesMut),
 }
 
+// Process multipart bytestream into Buffer
 async fn part_buffer(part: multipart::Part, buf_size: usize) -> FormBuffer {
     let mut chunks = part.stream();
     let mut buffer = BytesMut::with_capacity(buf_size);
+
     let mut space = buf_size;
     while let Some(Ok(buf)) = chunks.next().await {
         let additional = buf.bytes().len();
@@ -103,6 +112,7 @@ async fn create_submit<DB: 'static + db::Database + Sync + Send,
     db: Arc<Mutex<DB>>,
     fr: Arc<Mutex<FR>>)
     -> Result<reply::Response, warp::reject::Rejection> {
+    // Look-up Board URL to retrieve ID
     let board_id = {
         let p_lock = acquire_lock(&p, "Pages");
         let mut pg = match p_lock {
@@ -117,6 +127,7 @@ async fn create_submit<DB: 'static + db::Database + Sync + Send,
         }
     };
 
+    // Extract each field from the form
     let mut name = None;
     let mut title = None;
     let mut body = None;
@@ -140,6 +151,7 @@ async fn create_submit<DB: 'static + db::Database + Sync + Send,
         }
     }
 
+    // Handle potential outcomes of reading the file
     let file: Bytes = match file {
         FormBuffer::Utilised(bytes) => bytes.freeze(),
         FormBuffer::Overflow => {
@@ -148,6 +160,7 @@ async fn create_submit<DB: 'static + db::Database + Sync + Send,
         FormBuffer::Empty => return Ok(message_page("You must upload a file").into_response()),
     };
 
+    // Obtain a lock on Actions
     let a_lock = acquire_lock(&a, "Actions");
     let mut ag = match a_lock {
         Ok(ag) => ag,
@@ -155,6 +168,7 @@ async fn create_submit<DB: 'static + db::Database + Sync + Send,
     };
     let actions = &mut *ag;
 
+    // Upload the file to the FileRack
     let file_id = {
         let fr_lock = acquire_lock(&fr, "FileRack");
         let mut rg = match fr_lock {
@@ -169,6 +183,7 @@ async fn create_submit<DB: 'static + db::Database + Sync + Send,
         }
     };
 
+    // Submit the post to the Database
     let sub_res = {
         let db_lock = acquire_lock(&db, "Database");
         let mut dg = match db_lock {
@@ -187,12 +202,14 @@ async fn create_submit<DB: 'static + db::Database + Sync + Send,
                                 Some(title.unwrap()))
     };
 
+    // Handle the outcome of the submission
     match sub_res {
         Ok(_) => Ok(warp::redirect(format!("/{}/catalog", board).parse::<Uri>().expect("Could not parse catalog Uri")).into_response()),
         Err(_) => Err(warp::reject()),
     }
 }
 
+// Handle multipart submission of thread reply
 async fn create_reply<DB: 'static + db::Database + Sync + Send,
                       FR: 'static + fr::FileRack + Sync + Send>(
     board: String,
@@ -203,6 +220,7 @@ async fn create_reply<DB: 'static + db::Database + Sync + Send,
     db: Arc<Mutex<DB>>,
     fr: Arc<Mutex<FR>>)
     -> Result<reply::Response, warp::reject::Rejection> {
+    // Look-up board ID from URL
     let board_id = {
         let p_lock = acquire_lock(&p, "Pages");
         let mut pg = match p_lock {
@@ -217,6 +235,7 @@ async fn create_reply<DB: 'static + db::Database + Sync + Send,
         }
     };
 
+    // Extract fields of multipart form
     let mut name = None;
     let mut body = None;
     let mut file = FormBuffer::Empty;
@@ -236,6 +255,7 @@ async fn create_reply<DB: 'static + db::Database + Sync + Send,
         }
     }
 
+    // Acquire lock on Actions
     let a_lock = acquire_lock(&a, "Actions");
     let mut ag = match a_lock {
         Ok(ag) => ag,
@@ -243,6 +263,7 @@ async fn create_reply<DB: 'static + db::Database + Sync + Send,
     };
     let actions = &mut *ag;
 
+    // Handle different statuses of uploaded file
     let file_id = match file {
         FormBuffer::Utilised(bytes) => {
             let file = bytes.freeze();
@@ -265,6 +286,7 @@ async fn create_reply<DB: 'static + db::Database + Sync + Send,
         FormBuffer::Empty => None,
     };
 
+    // Submit reply to Database
     let sub_res = {
         let db_lock = acquire_lock(&db, "Database");
         let mut dg = match db_lock {
@@ -283,6 +305,7 @@ async fn create_reply<DB: 'static + db::Database + Sync + Send,
                              thread)
     };
 
+    // Handle outcome of submission
     match sub_res {
         Ok(_) => {
             Ok(warp::redirect(format!("/{}/thread/{}", board, thread).parse::<Uri>()
@@ -291,6 +314,8 @@ async fn create_reply<DB: 'static + db::Database + Sync + Send,
         Err(_) => Err(warp::reject()),
     }
 }
+
+// Some handlers for common responses
 
 async fn not_found(_rej: warp::reject::Rejection) -> Result<reply::Response, Infallible> {
     Ok(warp::reply::with_status(message_page("404 Not Found"), StatusCode::NOT_FOUND).into_response())
@@ -332,6 +357,7 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
         warp::path!(String / "catalog").and(pages.clone())
                                        .and(database.clone())
                                        .map(|board: String, p: Pages, db: Arc<Mutex<DB>>| {
+                                           // Acquire lock on Pages
                                            let p_lock = acquire_lock(&p, "Pages");
                                            let mut pg = match p_lock {
                                                Ok(pg) => pg,
@@ -339,6 +365,7 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
                                            };
                                            let pages = &mut *pg;
 
+                                           // Retrieve Catalog page for board
                                            if let Some(board_id) = pages.board_url_to_id(&board) {
                                                let db_lock = acquire_lock(&db, "Database");
                                                let mut dg = match db_lock {
@@ -365,6 +392,7 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
         .and(database.clone())
         .map(
             |board: String, orig_num: u64, p: Pages, db: Arc<Mutex<DB>>| {
+               // Acquire lock on Pages
                let p_lock = acquire_lock(&p, "Pages");
                let mut pg = match p_lock {
                    Ok(pg) => pg,
@@ -372,24 +400,25 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
                };
                let pages = &mut *pg;
 
-                if let Some(board_id) = pages.board_url_to_id(&board) {
-                    let db_lock = acquire_lock(&db, "Database");
-                    let mut dg = match db_lock {
-                        Ok(dg) => dg,
-                        Err(r) => return Ok(r),
-                    };
-                    let database = &mut *dg;
+               // Retreive Thread
+               if let Some(board_id) = pages.board_url_to_id(&board) {
+                   let db_lock = acquire_lock(&db, "Database");
+                   let mut dg = match db_lock {
+                       Ok(dg) => dg,
+                       Err(r) => return Ok(r),
+                   };
+                   let database = &mut *dg;
 
-                    let page_ref = pages::PageRef::Thread(*board_id, orig_num);
-                    let page = pages.get_page(database, &page_ref);
+                   let page_ref = pages::PageRef::Thread(*board_id, orig_num);
+                   let page = pages.get_page(database, &page_ref);
 
-                    match page {
-                        Ok(page) => Ok(reply::with_header(reply::html(page.page_text.to_string()), "Content-Type", "text/html; charset=utf-8").into_response()),
-                        Err(_) => Ok(warp::reply::with_status(message_page("No such thread"), StatusCode::NOT_FOUND).into_response()),
-                    }
-                } else {
+                   match page {
+                       Ok(page) => Ok(reply::with_header(reply::html(page.page_text.to_string()), "Content-Type", "text/html; charset=utf-8").into_response()),
+                       Err(_) => Ok(warp::reply::with_status(message_page("No such thread"), StatusCode::NOT_FOUND).into_response()),
+                   }
+               } else {
                    Ok(warp::reply::with_status(message_page("No such board"), StatusCode::NOT_FOUND).into_response())
-                }
+               }
             },
         );
 
@@ -398,6 +427,7 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
         warp::path!(String / "create").and(pages.clone())
                                       .and(database.clone())
                                       .map(|board: String, p: Pages, db: Arc<Mutex<DB>>| {
+                                           // Acquire lock on Pages
                                            let p_lock = acquire_lock(&p, "Pages");
                                            let mut pg = match p_lock {
                                                Ok(pg) => pg,
@@ -405,6 +435,7 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
                                            };
                                            let pages = &mut *pg;
 
+                                           // Retrieve thread creation page for board
                                            if let Some(board_id) = pages.board_url_to_id(&board) {
                                               let db_lock = acquire_lock(&db, "Database");
                                               let mut dg = match db_lock {
@@ -426,12 +457,13 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
                                       });
 
     // Serve submit action
-    let submit = warp::path!(String / "submit").and(warp::multipart::form().max_length(FORM_MAX_LENGTH)
-                                                                           .and(pages.clone())
-                                                                           .and(actions.clone())
-                                                                           .and(database.clone())
-                                                                           .and(file_rack.clone()))
-                                               .and_then(create_submit);
+    let submit =
+        warp::path!(String / "submit").and(warp::multipart::form().max_length(FORM_MAX_LENGTH)
+                                                                  .and(pages.clone())
+                                                                  .and(actions.clone())
+                                                                  .and(database.clone())
+                                                                  .and(file_rack.clone()))
+                                      .and_then(create_submit);
 
     // Serve reply action
     let reply =
@@ -445,12 +477,15 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
     // Serve rack files
     let files = warp::path!("files" / String).and(file_rack.clone())
                                              .map(|file_id: String, fr: Arc<Mutex<FR>>| {
+                                                 // Lock file rack
                                                  let fr_lock = acquire_lock(&fr, "FileRack");
                                                  let mut rg = match fr_lock {
                                                      Ok(rg) => rg,
                                                      Err(r) => return Ok(r),
                                                  };
                                                  let file_rack = &mut *rg;
+
+                                                 // Retrieve file from rack
                                                  match file_rack.get_file(&file_id) {
                                                     Ok(file) => Ok(Response::builder()
                                                                     .header("Cache-Control", "public, max-age=604800, immutable")
