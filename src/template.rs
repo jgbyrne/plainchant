@@ -10,7 +10,10 @@ pub struct Data {
 }
 
 impl Data {
-    pub fn new(values: HashMap<String, String>, flags: HashMap<String, bool>, collections: HashMap<String, Vec<String>>) -> Data {
+    pub fn new(values: HashMap<String, String>,
+               flags: HashMap<String, bool>,
+               collections: HashMap<String, Vec<String>>)
+               -> Data {
         Data { values,
                flags,
                collections }
@@ -84,7 +87,7 @@ impl Template {
                 Chunk::Condition(ref name, ref obj) => {
                     if let Some(ref s) = skip {
                         if *s == format!("{}.{}", name, obj.as_ref().unwrap_or(&empty_str)) {
-                            skip = None;  
+                            skip = None;
                         }
                     } else {
                         let flag = match obj {
@@ -98,12 +101,14 @@ impl Template {
                                         valpath.push('.');
                                         valpath.push_str(name);
                                         *data.flags.get(&valpath).unwrap_or(&false)
-                                    } else { false }
-                                } else { false }
+                                    } else {
+                                        false
+                                    }
+                                } else {
+                                    false
+                                }
                             },
-                            None => {
-                                *data.flags.get(name).unwrap_or(&false)
-                            }
+                            None => *data.flags.get(name).unwrap_or(&false),
                         };
                         if !flag {
                             skip = Some(format!("{}.{}", name, obj.as_ref().unwrap_or(&empty_str)));

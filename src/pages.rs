@@ -81,7 +81,7 @@ impl Pages {
                 let thread = database.get_thread(*board_id, *orig_num)?;
 
                 let mut values = HashMap::new();
-                let mut flags  = HashMap::new();
+                let mut flags = HashMap::new();
 
                 values.insert(String::from("board_url"), String::from(board.url));
                 values.insert(String::from("board_title"), String::from(board.title));
@@ -109,7 +109,8 @@ impl Pages {
                     values.insert(format!("reply.{}.file_url", reply.post_num()),
                                   format!("/files/{}", reply.file_id().unwrap_or("")));
 
-                    flags.insert(format!("reply.{}.has_image", reply.post_num()), reply.file_id().is_some());
+                    flags.insert(format!("reply.{}.has_image", reply.post_num()),
+                                 reply.file_id().is_some());
 
                     values.insert(format!("reply.{}.poster", reply.post_num()),
                                   reply.poster().unwrap_or("Anonymous").to_string());

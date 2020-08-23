@@ -142,7 +142,6 @@ impl<'init> FSDatabase {
 
         data
     }
-
 }
 
 impl db::Database for FSDatabase {

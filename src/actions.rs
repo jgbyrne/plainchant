@@ -64,12 +64,18 @@ impl Actions {
                                           file_name: Option<String>,
                                           orig_num: u64)
                                           -> Result<u64, util::PlainchantErr> {
-        
         let mut orig = database.get_original(board_id, orig_num)?;
 
         let cur_time = util::timestamp();
-        let reply = site::Reply::new(board_id, 0, // post_num
-                                     cur_time, ip, body, poster, file_id.clone(), file_name, orig_num);
+        let reply = site::Reply::new(board_id,
+                                     0, // post_num
+                                     cur_time,
+                                     ip,
+                                     body,
+                                     poster,
+                                     file_id.clone(),
+                                     file_name,
+                                     orig_num);
         let post_id = database.create_reply(reply)?;
 
         orig.set_bump_time(cur_time);
