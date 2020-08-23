@@ -68,7 +68,7 @@ impl Pages {
                 }
                 let mut collections = HashMap::new();
                 collections.insert("original".to_string(), originals);
-                let render_data = template::Data::new(values, collections);
+                let render_data = template::Data::new(values, HashMap::new(), collections);
                 let page_text = self.templates.catalog_tmpl.render(&render_data);
                 let page = Page { page_ref: *pr,
                                   render_time: util::timestamp(),
@@ -81,6 +81,8 @@ impl Pages {
                 let thread = database.get_thread(*board_id, *orig_num)?;
 
                 let mut values = HashMap::new();
+                let mut flags  = HashMap::new();
+
                 values.insert(String::from("board_url"), String::from(board.url));
                 values.insert(String::from("board_title"), String::from(board.title));
 
@@ -107,11 +109,7 @@ impl Pages {
                     values.insert(format!("reply.{}.file_url", reply.post_num()),
                                   format!("/files/{}", reply.file_id().unwrap_or("")));
 
-                    values.insert(format!("reply.{}.frame_class", reply.post_num()),
-                                  match reply.file_id() {
-                                      Some(_) => String::from("post-image-frame"),
-                                      None => String::from("post-imageless-frame"),
-                                  });
+                    flags.insert(format!("reply.{}.has_image", reply.post_num()), reply.file_id().is_some());
 
                     values.insert(format!("reply.{}.poster", reply.post_num()),
                                   reply.poster().unwrap_or("Anonymous").to_string());
@@ -133,7 +131,7 @@ impl Pages {
                 let mut collections = HashMap::new();
                 collections.insert("reply".to_string(), replies);
 
-                let render_data = template::Data::new(values, collections);
+                let render_data = template::Data::new(values, flags, collections);
                 let page_text = self.templates.thread_tmpl.render(&render_data);
                 let page = Page { page_ref: *pr,
                                   render_time: util::timestamp(),
@@ -148,7 +146,7 @@ impl Pages {
                 values.insert(String::from("board_title"), String::from(board.title));
 
                 let collections = HashMap::new();
-                let render_data = template::Data::new(values, collections);
+                let render_data = template::Data::new(values, HashMap::new(), collections);
                 let page_text = self.templates.create_tmpl.render(&render_data);
                 let page = Page { page_ref: *pr,
                                   render_time: util::timestamp(),

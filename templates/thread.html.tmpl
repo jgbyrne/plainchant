@@ -41,9 +41,11 @@
             {%reply%}
             <div class="post reply">
                 <div class="post-text">
-		    <div class="{{reply.frame_class}}"> <!-- class = post-image-frame || post-imageless-frame -->
-		         <img class="post-image" src="{{reply.file_url}}"></img>
-		    </div>
+	  	    {:reply.has_image:}
+		        <div class="post-image-frame">
+		             <img class="post-image" src="{{reply.file_url}}"></img>
+                        </div>
+		    {:reply.has_image:}
                     <div class="info-line">
                         <span class="post-nick">{{reply.poster}}</span> :
                         <span class="post-time">{{reply.time}}</span> :

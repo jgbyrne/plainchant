@@ -37,10 +37,6 @@
     display: block;
 }
 
-.post-imageless-frame {
-    display: none;
-}
-
 .orig-post-image-frame {
     width: 200px;
     max-width: 200px;

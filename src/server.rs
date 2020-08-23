@@ -36,14 +36,14 @@ lazy_static! {
 fn error_page(message: &str) -> impl Reply {
     let mut vals = HashMap::new();
     vals.insert(String::from("message"), String::from(message));
-    reply::html(ERR_TMPL.render(&Data::new(vals, HashMap::new())))
+    reply::html(ERR_TMPL.render(&Data::new(vals, HashMap::new(), HashMap::new())))
 }
 
 // Produce a Message page Reply
 fn message_page(message: &str) -> impl Reply {
     let mut vals = HashMap::new();
     vals.insert(String::from("message"), String::from(message));
-    reply::html(MSG_TMPL.render(&Data::new(vals, HashMap::new())))
+    reply::html(MSG_TMPL.render(&Data::new(vals, HashMap::new(), HashMap::new())))
 }
 
 // Lock an Arc<Mutex<>>, returning a rendered error page if this fails

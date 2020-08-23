@@ -5,12 +5,14 @@ use std::mem;
 
 pub struct Data {
     values:      HashMap<String, String>,
+    flags:       HashMap<String, bool>,
     collections: HashMap<String, Vec<String>>,
 }
 
 impl Data {
-    pub fn new(values: HashMap<String, String>, collections: HashMap<String, Vec<String>>) -> Data {
+    pub fn new(values: HashMap<String, String>, flags: HashMap<String, bool>, collections: HashMap<String, Vec<String>>) -> Data {
         Data { values,
+               flags,
                collections }
     }
 }
@@ -19,6 +21,7 @@ impl Data {
 pub enum Chunk {
     Fragment(String),
     Placeholder(String, Option<String>),
+    Condition(String, Option<String>),
     Control(String),
 }
 
@@ -57,10 +60,10 @@ impl Template {
                             Some(obj_name) => {
                                 if let Some(obj_ctr) = ctrs.get(obj_name) {
                                     if let Some(obj_col) = data.collections.get(obj_name) {
-                                        let obj = &obj_col[*obj_ctr];
+                                        let obj_id = &obj_col[*obj_ctr];
                                         let mut valpath = String::from(obj_name);
                                         valpath.push('.');
-                                        valpath.push_str(&obj);
+                                        valpath.push_str(&obj_id);
                                         valpath.push('.');
                                         valpath.push_str(name);
                                         buf.push_str(data.values
@@ -75,6 +78,35 @@ impl Template {
                                                                        env!("CARGO_PKG_VERSION"))),
                                 _ => buf.push_str(data.values.get(name).unwrap_or(&empty_str)),
                             },
+                        }
+                    }
+                },
+                Chunk::Condition(ref name, ref obj) => {
+                    if let Some(ref s) = skip {
+                        if *s == format!("{}.{}", name, obj.as_ref().unwrap_or(&empty_str)) {
+                            skip = None;  
+                        }
+                    } else {
+                        let flag = match obj {
+                            Some(obj_name) => {
+                                if let Some(obj_ctr) = ctrs.get(obj_name) {
+                                    if let Some(obj_col) = data.collections.get(obj_name) {
+                                        let obj_id = &obj_col[*obj_ctr];
+                                        let mut valpath = String::from(obj_name);
+                                        valpath.push('.');
+                                        valpath.push_str(&obj_id);
+                                        valpath.push('.');
+                                        valpath.push_str(name);
+                                        *data.flags.get(&valpath).unwrap_or(&false)
+                                    } else { false }
+                                } else { false }
+                            },
+                            None => {
+                                *data.flags.get(name).unwrap_or(&false)
+                            }
+                        };
+                        if !flag {
+                            skip = Some(format!("{}.{}", name, obj.as_ref().unwrap_or(&empty_str)));
                         }
                     }
                 },
@@ -132,8 +164,9 @@ impl Template {
                 },
                 '{' => {
                     match c {
-                        '{' => state = '!',
-                        '%' => state = '?',
+                        '{' => state = '$',
+                        ':' => state = '?',
+                        '%' => state = '!',
                         _ => {
                             buf.push('{');
                             buf.push(c);
@@ -145,7 +178,7 @@ impl Template {
                         chunks.push(Chunk::Fragment(frag));
                     }
                 },
-                '!' => match c {
+                '$' => match c {
                     '}' => {
                         let raw = mem::replace(&mut buf, String::new());
                         let split = raw.split(".").collect::<Vec<&str>>();
@@ -160,6 +193,20 @@ impl Template {
                     _ => buf.push(c),
                 },
                 '?' => match c {
+                    ':' => {
+                        let raw = mem::replace(&mut buf, String::new());
+                        let split = raw.split(".").collect::<Vec<&str>>();
+                        match split.len() {
+                            1 => chunks.push(Chunk::Condition(raw, None)),
+                            2 => chunks.push(Chunk::Condition(split[1].to_string(),
+                                                              Some(split[0].to_string()))),
+                            _ => return Err(static_err("Bad syntax")),
+                        }
+                        state = '}';
+                    },
+                    _ => buf.push(c),
+                },
+                '!' => match c {
                     '%' => {
                         let raw = mem::replace(&mut buf, String::new());
                         chunks.push(Chunk::Control(raw));
