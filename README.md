@@ -4,8 +4,6 @@
 
 Plainchant is a lightweight and libre imageboard software package.
 
-This software is not yet functional.
-
 ### Goals
 
 * Practical - the software should be fully-featured and polished such that it can be used for real-world public imageboards.

@@ -136,6 +136,8 @@ impl<'init> FSDatabase {
         data.push_str(&format!("{}\n", orig.title().unwrap_or("")));
         data.push_str(&format!("{}\n", orig.file_id().unwrap_or("")));
         data.push_str(&format!("{}\n", orig.file_name().unwrap_or("")));
+        data.push_str(&format!("{}\n", orig.replies()));
+        data.push_str(&format!("{}\n", orig.img_replies()));
         data.push_str(&orig.body());
 
         data
@@ -282,18 +284,32 @@ impl db::Database for FSDatabase {
                 t @ _ => Some(t.to_string()),
             };
 
+            let replies = match lines[7].parse::<u16>() {
+                Ok(r) => r,
+                Err(_parse_err) => {
+                    return Err(db::static_err("Could not parse replies count"));
+                },
+            };
+
+            let img_replies = match lines[8].parse::<u16>() {
+                Ok(ir) => ir,
+                Err(_parse_err) => {
+                    return Err(db::static_err("Could not parse image replies count"));
+                },
+            };
+
             Ok(site::Original::new(board_id,
                                    post_num,
                                    timestamp,
                                    lines[2].to_string(),  // ip
-                                   lines[7..].join("\n"), // body
+                                   lines[9..].join("\n"), // body
                                    poster,
                                    Some(lines[5].to_string()), // file ID
                                    Some(lines[6].to_string()), // file name
                                    title,
                                    bump_time,
-                                   0,
-                                   0))
+                                   replies,
+                                   img_replies))
         }
     }
 
