@@ -46,7 +46,7 @@ impl Pages {
                 let cat = database.get_catalog(board.id)?;
                 for orig in cat.originals {
                     values.insert(format!("original.{}.file_url", orig.post_num()),
-                                  format!("/files/{}", orig.file_id().unwrap_or("")));
+                                  format!("/thumbnails/{}", orig.file_id().unwrap_or("")));
 
                     values.insert(format!("original.{}.replies", orig.post_num()),
                                   orig.replies().to_string());
@@ -93,6 +93,8 @@ impl Pages {
 
                 values.insert(String::from("orig_file_url"),
                               format!("/files/{}", thread.original.file_id().unwrap_or("")));
+                values.insert(String::from("orig_thumbnail_url"),
+                              format!("/thumbnails/{}", thread.original.file_id().unwrap_or("")));
                 values.insert(String::from("orig_title"),
                               thread.original.title().unwrap_or("").to_string());
                 values.insert(String::from("orig_poster"),
@@ -108,6 +110,9 @@ impl Pages {
                 for reply in thread.replies {
                     values.insert(format!("reply.{}.file_url", reply.post_num()),
                                   format!("/files/{}", reply.file_id().unwrap_or("")));
+
+                    values.insert(format!("reply.{}.thumbnail_url", reply.post_num()),
+                                  format!("/thumbnails/{}", reply.file_id().unwrap_or("")));
 
                     flags.insert(format!("reply.{}.has_image", reply.post_num()),
                                  reply.file_id().is_some());

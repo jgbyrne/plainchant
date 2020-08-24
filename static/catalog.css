@@ -3,6 +3,7 @@
     margin-right: 50px;
     padding-top: 10px;
     min-height: 80%;
+    text-align: center;
 }
 
 .preview {
@@ -11,6 +12,7 @@
     text-align: center;
     vertical-align: top;
     display: inline-block;
+    padding-bottom: 20px;
 }
 
 

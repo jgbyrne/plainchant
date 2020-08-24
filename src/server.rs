@@ -495,11 +495,40 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
                                                  }
                                              });
 
+    // Serve thumbnail files
+    // This is a bit more code duplication than I'd like, but
+    // it's preferable to the wrong abstraction :-)
+    let thumbnails = warp::path!("thumbnails" / String).and(file_rack.clone())
+                                             .map(|file_id: String, fr: Ptr<FR>| {
+                                                 // Lock file rack
+                                                 let fr_lock = acquire_lock(&fr, "FileRack");
+                                                 let mut rg = match fr_lock {
+                                                     Ok(rg) => rg,
+                                                     Err(r) => return Ok(r),
+                                                 };
+                                                 let file_rack = &mut *rg;
+
+                                                 // Retrieve file thumbnail from rack
+                                                 match file_rack.get_file_thumbnail(&file_id) {
+                                                    Ok(file) => Ok(Response::builder()
+                                                                    .header("Cache-Control", "public, max-age=604800, immutable")
+                                                                    .body(file).expect("Failed to build file response").into_response()),
+                                                    Err(_err) => Ok(Response::builder()
+                                                                    .status(404)
+                                                                    .body(Bytes::from("Not Found"))
+                                                                    .expect("Failed to build 404 response").into_response()),
+                                                 }
+                                             });
+
     // Serve static resources
     let stat = warp::path("static").and(warp::fs::dir("./static"));
 
     // Bundle routes together and run
-    let routes = warp::get().and(stat.or(files).or(catalog).or(thread).or(create))
+    let routes = warp::get().and(stat.or(files)
+                                     .or(thumbnails)
+                                     .or(catalog)
+                                     .or(thread)
+                                     .or(create))
                             .or(warp::post().and(submit.or(reply).unify().recover(index_redir)))
                             .recover(not_found);
 
