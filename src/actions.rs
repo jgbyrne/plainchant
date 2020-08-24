@@ -50,8 +50,7 @@ impl Actions {
                                            cur_time,
                                            0,
                                            0);
-        database.create_original(original) //;
-                                           //Err(util::PlainchantErr { origin: util::ErrOrigin::FileRack, msg: String::from("test error") })
+        database.create_original(original)
     }
 
     pub fn submit_reply<DB: db::Database>(&mut self,
@@ -79,7 +78,7 @@ impl Actions {
         let post_id = database.create_reply(reply)?;
 
         orig.set_bump_time(cur_time);
-        orig.set_replies(orig.replies() + 1); // Won't work with FSDB yet I don't think...
+        orig.set_replies(orig.replies() + 1);
         if file_id.is_some() {
             orig.set_img_replies(orig.img_replies() + 1);
         }
