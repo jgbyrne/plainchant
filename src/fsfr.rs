@@ -1,6 +1,6 @@
 use crate::fr;
 use crate::util;
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut, buf::BufMutExt};
 use image;
 use std::collections::HashMap;
 use std::fs::File;
@@ -72,14 +72,26 @@ impl fr::FileRack for FSFileRack {
 
         let thumb_id = FSFileRack::thumb_id(file_id);
         let thumb_path = self.file_dir.join(&thumb_id);
-        match thumb.save_with_format(thumb_path, image::ImageFormat::Jpeg) {
-            Ok(_) => {
-                self.cache
-                    .insert(thumb_id.to_string(), Bytes::from(thumb.to_bytes()));
-                Ok(())
-            },
-            Err(_write_err) => return Err(fr::static_err("Could not write thumbnail file")),
+        let mut thumb_buf: Vec<u8> = vec![];
+        if thumb.write_to(&mut thumb_buf, image::ImageFormat::Jpeg).is_err() {
+            return Err(fr::static_err("Could not write thumbnail buffer"));
         }
+
+        let thumbf_res = File::create(thumb_path);
+        match thumbf_res {
+            Ok(mut f)  => {
+                let thumb_buf = Bytes::from(thumb_buf);
+                if f.write(&thumb_buf).is_err() {
+                    Err(fr::static_err("Could not write to thumbnail file"))
+                }
+                else {
+                    self.cache.insert(thumb_id.to_string(), thumb_buf);
+                    Ok(())
+                }
+            }
+            Err(_write_err) => Err(fr::static_err("Could not open thumbnail file for writing")),
+        }
+
     }
 
     fn get_file(&mut self, file_id: &str) -> Result<Bytes, util::PlainchantErr> {

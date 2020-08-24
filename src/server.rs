@@ -176,7 +176,7 @@ async fn create_submit<DB: 'static + db::Database + Sync + Send,
 
         match actions.upload_file(rack, file) {
             Ok(file_id) => file_id,
-            Err(_) => return Err(warp::reject()),
+            Err(_) => return Ok(message_page("File upload failed - filetype may not be supported").into_response()),
         }
     };
 
@@ -274,7 +274,7 @@ async fn create_reply<DB: 'static + db::Database + Sync + Send,
 
             match actions.upload_file(rack, file) {
                 Ok(file_id) => Some(file_id),
-                Err(_) => return Err(warp::reject()),
+                Err(_) => return Ok(message_page("File upload failed - filetype may not be supported").into_response()),
             }
         },
         FormBuffer::Overflow => {
