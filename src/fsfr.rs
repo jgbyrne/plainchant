@@ -70,9 +70,14 @@ impl fr::FileRack for FSFileRack {
             Err(_write_err) => return Err(fr::static_err("Could not open requested write file")),
         }
 
-        let thumb_path = self.file_dir.join(FSFileRack::thumb_id(file_id));
+        let thumb_id = FSFileRack::thumb_id(file_id);
+        let thumb_path = self.file_dir.join(&thumb_id);
         match thumb.save_with_format(thumb_path, image::ImageFormat::Jpeg) {
-            Ok(_) => Ok(()),
+            Ok(_) => {
+                self.cache
+                    .insert(thumb_id.to_string(), Bytes::from(thumb.to_bytes()));
+                Ok(())
+            },
             Err(_write_err) => return Err(fr::static_err("Could not write thumbnail file")),
         }
     }
