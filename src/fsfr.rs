@@ -38,7 +38,11 @@ impl<'init> FSFileRack {
             Ok(f) => {
                 let bytes_res = f.bytes().collect::<Result<Vec<u8>, std::io::Error>>();
                 match bytes_res {
-                    Ok(bytes) => Ok(Bytes::from(bytes)),
+                    Ok(bytes) => {
+                        let bytes = Bytes::from(bytes);
+                        self.cache.insert(file_id.to_string(), bytes.clone());
+                        Ok(bytes)
+                    },
                     Err(_read_err) => {
                         Err(fr::static_err("Could not read bytes from requested file"))
                     },
