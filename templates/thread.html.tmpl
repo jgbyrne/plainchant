@@ -42,16 +42,17 @@
             {%reply%}
             <div class="post reply">
                 <div class="post-text">
+                <div class="info-line">
+                    <span class="post-nick">{{reply.poster}}</span> :
+                    <span class="post-time">{{reply.time}}</span> :
+                    <span class="post-num">No.{{reply.post_num}}</span>
+                </div>
+
 	  	    {:reply.has_image:}
 		        <div class="post-image-frame">
 		             <a href="{{reply.file_url}}"><img class="post-image" src="{{reply.thumbnail_url}}"></img></a>
                         </div>
 		    {:reply.has_image:}
-                    <div class="info-line">
-                        <span class="post-nick">{{reply.poster}}</span> :
-                        <span class="post-time">{{reply.time}}</span> :
-                        <span class="post-num">No.{{reply.post_num}}</span>
-                    </div>
                     <p class="post-body">{{reply.post_body}}</p>
                 </div>
             </div>
