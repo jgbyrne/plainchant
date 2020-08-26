@@ -1,7 +1,6 @@
 use crate::fr;
 use crate::util;
-use bytes::{buf::BufMutExt, Bytes, BytesMut};
-use image;
+use bytes::{Bytes};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Read, Write};
@@ -28,9 +27,8 @@ impl<'init> FSFileRack {
     }
 
     fn retrieve_file(&mut self, file_id: &str) -> Result<Bytes, util::PlainchantErr> {
-        match self.cache.get(file_id) {
-            Some(bytes) => return Ok((*bytes).clone()),
-            None => {},
+        if let Some(bytes) = self.cache.get(file_id) {
+            return Ok((*bytes).clone());
         }
 
         let f_res = File::open(self.file_dir.join(file_id));
@@ -90,7 +88,7 @@ impl fr::FileRack for FSFileRack {
                 if f.write(&thumb_buf).is_err() {
                     Err(fr::static_err("Could not write to thumbnail file"))
                 } else {
-                    self.cache.insert(thumb_id.to_string(), thumb_buf);
+                    self.cache.insert(thumb_id, thumb_buf);
                     Ok(())
                 }
             },

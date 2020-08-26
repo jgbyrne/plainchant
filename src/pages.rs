@@ -39,8 +39,8 @@ impl Pages {
             PageRef::Catalog(board_id) => {
                 let board = database.get_board(*board_id)?;
                 let mut values = HashMap::new();
-                values.insert(String::from("board_url"), String::from(board.url));
-                values.insert(String::from("board_title"), String::from(board.title));
+                values.insert(String::from("board_url"), board.url);
+                values.insert(String::from("board_title"), board.title);
 
                 let mut originals = vec![];
                 let cat = database.get_catalog(board.id)?;
@@ -83,8 +83,8 @@ impl Pages {
                 let mut values = HashMap::new();
                 let mut flags = HashMap::new();
 
-                values.insert(String::from("board_url"), String::from(board.url));
-                values.insert(String::from("board_title"), String::from(board.title));
+                values.insert(String::from("board_url"), board.url);
+                values.insert(String::from("board_title"), board.title);
 
                 values.insert(String::from("replies"),
                               thread.original.replies().to_string());
@@ -148,8 +148,8 @@ impl Pages {
             PageRef::Create(board_id) => {
                 let board = database.get_board(*board_id)?;
                 let mut values = HashMap::new();
-                values.insert(String::from("board_url"), String::from(board.url));
-                values.insert(String::from("board_title"), String::from(board.title));
+                values.insert(String::from("board_url"), board.url);
+                values.insert(String::from("board_title"), board.title);
 
                 let collections = HashMap::new();
                 let render_data = template::Data::new(values, HashMap::new(), collections);
@@ -165,20 +165,9 @@ impl Pages {
 
     pub fn page_exists<DB: db::Database>(&self, database: &DB, pr: &PageRef) -> bool {
         match pr {
-            PageRef::Catalog(board_id) => match database.get_board(*board_id) {
-                Ok(_) => true,
-                Err(_) => false,
-            },
-            PageRef::Thread(board_id, orig_num) => {
-                match database.get_thread(*board_id, *orig_num) {
-                    Ok(_) => true,
-                    Err(_) => false,
-                }
-            },
-            PageRef::Create(board_id) => match database.get_board(*board_id) {
-                Ok(_) => true,
-                Err(_) => false,
-            },
+            PageRef::Catalog(board_id) => database.get_board(*board_id).is_ok(),
+            PageRef::Thread(board_id, orig_num) => database.get_thread(*board_id, *orig_num).is_ok(),
+            PageRef::Create(board_id) => database.get_board(*board_id).is_ok(), 
         }
     }
 

@@ -117,17 +117,15 @@ impl Template {
                 },
                 Chunk::Control(obj) => match ptrs.get(obj) {
                     Some(start_ptr) => {
-                        if skip.is_none() {
-                            if *start_ptr != cptr {
-                                let mut ctr = *ctrs.get(obj).unwrap();
-                                ctr += 1;
-                                if ctr == data.collections.get(obj).unwrap().len() {
-                                    ptrs.remove(obj);
-                                    ctrs.remove(obj);
-                                } else {
-                                    ctrs.insert(String::from(obj), ctr);
-                                    cptr = *start_ptr;
-                                }
+                        if skip.is_none() && *start_ptr != cptr {
+                            let mut ctr = *ctrs.get(obj).unwrap();
+                            ctr += 1;
+                            if ctr == data.collections.get(obj).unwrap().len() {
+                                ptrs.remove(obj);
+                                ctrs.remove(obj);
+                            } else {
+                                ctrs.insert(String::from(obj), ctr);
+                                cptr = *start_ptr;
                             }
                         }
                     },
@@ -136,17 +134,12 @@ impl Template {
                             if s == obj {
                                 skip = None;
                             }
-                        } else {
-                            match data.collections.get(obj) {
-                                Some(col) => {
-                                    if col.len() == 0 {
-                                        skip = Some(obj.clone());
-                                    } else {
-                                        ptrs.insert(String::from(obj), cptr);
-                                        ctrs.insert(String::from(obj), 0);
-                                    }
-                                },
-                                None => {},
+                        } else if let Some(col) = data.collections.get(obj) {
+                            if col.is_empty() {
+                                skip = Some(obj.clone());
+                            } else {
+                                ptrs.insert(String::from(obj), cptr);
+                                ctrs.insert(String::from(obj), 0);
                             }
                         }
                     },
@@ -186,7 +179,7 @@ impl Template {
                 '$' => match c {
                     '}' => {
                         let raw = mem::replace(&mut buf, String::new());
-                        let split = raw.split(".").collect::<Vec<&str>>();
+                        let split = raw.split('.').collect::<Vec<&str>>();
                         match split.len() {
                             1 => chunks.push(Chunk::Placeholder(raw, None)),
                             2 => chunks.push(Chunk::Placeholder(split[1].to_string(),
@@ -200,7 +193,7 @@ impl Template {
                 '?' => match c {
                     ':' => {
                         let raw = mem::replace(&mut buf, String::new());
-                        let split = raw.split(".").collect::<Vec<&str>>();
+                        let split = raw.split('.').collect::<Vec<&str>>();
                         match split.len() {
                             1 => chunks.push(Chunk::Condition(raw, None)),
                             2 => chunks.push(Chunk::Condition(split[1].to_string(),
@@ -226,13 +219,13 @@ impl Template {
                         state = '+';
                     }
                 },
-                sc @ _ => {
+                sc => {
                     println!("Entered invalid state {}", sc);
                     panic!()
                 },
             }
         }
-        if buf.len() > 0 {
+        if !buf.is_empty() {
             chunks.push(Chunk::Fragment(buf));
         }
         Ok(Template { chunks })

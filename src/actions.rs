@@ -2,7 +2,6 @@ use crate::db;
 use crate::fr;
 use crate::site;
 use crate::util;
-use rand;
 use rand::Rng;
 use std::iter;
 

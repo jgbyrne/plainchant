@@ -78,7 +78,7 @@ async fn part_buffer(part: multipart::Part, buf_size: usize) -> FormBuffer {
         space -= additional;
     }
 
-    if buffer.len() == 0 {
+    if buffer.is_empty() {
         FormBuffer::Empty
     } else {
         FormBuffer::Utilised(buffer)
@@ -119,7 +119,7 @@ async fn create_submit<DB: 'static + db::Database + Sync + Send,
         let pages = &mut *pg;
 
         match pages.board_url_to_id(&board) {
-            Some(b_id) => b_id.clone(),
+            Some(b_id) => *b_id,
             None => return Ok(warp::redirect(Uri::from_static("/")).into_response()),
         }
     };
@@ -192,11 +192,11 @@ async fn create_submit<DB: 'static + db::Database + Sync + Send,
         actions.submit_original(database,
                                 board_id,
                                 "0.0.0.0".to_string(),
-                                body.unwrap_or(String::from("")),
-                                Some(name.unwrap_or(String::from(""))),
+                                body.unwrap_or_else(|| String::from("")),
+                                Some(name.unwrap_or_else(|| String::from(""))),
                                 file_id,
                                 "yellow_loveless.png".to_string(),
-                                Some(title.unwrap_or(String::from(""))))
+                                Some(title.unwrap_or_else(|| String::from(""))))
     };
 
     // Handle the outcome of the submission
@@ -227,7 +227,7 @@ async fn create_reply<DB: 'static + db::Database + Sync + Send,
         let pages = &mut *pg;
 
         match pages.board_url_to_id(&board) {
-            Some(b_id) => b_id.clone(),
+            Some(b_id) => *b_id,
             None => return Ok(warp::redirect(Uri::from_static("/")).into_response()),
         }
     };
@@ -295,8 +295,8 @@ async fn create_reply<DB: 'static + db::Database + Sync + Send,
         actions.submit_reply(database,
                              board_id,
                              "0.0.0.0".to_string(),
-                             body.unwrap_or(String::from("")),
-                             Some(name.unwrap_or(String::from(""))),
+                             body.unwrap_or_else(|| String::from("")),
+                             Some(name.unwrap_or_else(|| String::from(""))),
                              file_id,
                              Some("yellow_loveless.png".to_string()),
                              thread)

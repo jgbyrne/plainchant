@@ -28,7 +28,7 @@ impl<'init> FSDatabase {
 
         let mut boards = vec![];
         for line in boards_str.lines() {
-            let parts = line.split(",").collect::<Vec<&str>>();
+            let parts = line.split(',').collect::<Vec<&str>>();
             if parts.len() == 4 {
                 let id = match parts[0].parse::<u64>() {
                     Ok(id) => id,
@@ -107,12 +107,12 @@ impl<'init> FSDatabase {
 
             let poster = match lines[2] {
                 "" => None,
-                name @ _ => Some(name.to_string()),
+                name  => Some(name.to_string()),
             };
 
             let file_id = match lines[3] {
                 "" => None,
-                file_id @ _ => Some(file_id.to_string()),
+                file_id => Some(file_id.to_string()),
             };
 
             Ok(site::Reply::new(board_id,
@@ -275,12 +275,12 @@ impl db::Database for FSDatabase {
 
             let poster = match lines[3] {
                 "" => None,
-                name @ _ => Some(name.to_string()),
+                name => Some(name.to_string()),
             };
 
             let title = match lines[4] {
                 "" => None,
-                t @ _ => Some(t.to_string()),
+                t  => Some(t.to_string()),
             };
 
             let replies = match lines[7].parse::<u16>() {
@@ -354,7 +354,7 @@ impl db::Database for FSDatabase {
         }
 
         let dir_creation = create_dir(&thread_path);
-        if !dir_creation.is_ok() {
+        if dir_creation.is_err() {
             return Err(db::static_err("Could not create thread directory"));
         }
 
@@ -376,29 +376,26 @@ impl db::Database for FSDatabase {
     fn get_reply(&self, board_id: u64, post_num: u64) -> Result<site::Reply, util::PlainchantErr> {
         let post_filename = OsString::from(post_num.to_string());
         for entry in WalkDir::new(self.root.join(board_id.to_string())) {
-            match entry {
-                Ok(entry) => {
-                    if entry.depth() == 2 {
-                        let e_path = entry.path();
-                        if e_path.is_file() && entry.file_name() == post_filename {
-                            let thread_filename = e_path.parent().unwrap().file_name().unwrap();
-                            let thread_str = thread_filename.to_string_lossy();
-                            match thread_str.parse::<u64>() {
-                                Ok(thread_num) => {
-                                    return Ok(
-                                        self.get_thread_reply(board_id, thread_num, post_num)?
-                                    )
-                                }
-                                Err(_) => {
-                                    return Err(db::static_err(
-                                        "Could not parse thread directory to number",
-                                    ))
-                                }
+            if let Ok(entry) = entry {
+                if entry.depth() == 2 {
+                    let e_path = entry.path();
+                    if e_path.is_file() && entry.file_name() == post_filename {
+                        let thread_filename = e_path.parent().unwrap().file_name().unwrap();
+                        let thread_str = thread_filename.to_string_lossy();
+                        match thread_str.parse::<u64>() {
+                            Ok(thread_num) => {
+                                return Ok(
+                                    self.get_thread_reply(board_id, thread_num, post_num)?
+                                )
+                            }
+                            Err(_) => {
+                                return Err(db::static_err(
+                                    "Could not parse thread directory to number",
+                                ))
                             }
                         }
                     }
-                },
-                Err(_) => {},
+                }
             }
         }
         Err(db::static_err("Could not find reply"))
@@ -442,9 +439,9 @@ impl db::Database for FSDatabase {
                 post_num: u64)
                 -> Result<Box<dyn site::Post>, util::PlainchantErr> {
         match self.get_original(board_id, post_num) {
-            Ok(orig) => return Ok(Box::new(orig) as Box<dyn site::Post>),
+            Ok(orig) => Ok(Box::new(orig) as Box<dyn site::Post>),
             Err(_) => match self.get_reply(board_id, post_num) {
-                Ok(reply) => return Ok(Box::new(reply) as Box<dyn site::Post>),
+                Ok(reply) => Ok(Box::new(reply) as Box<dyn site::Post>),
                 Err(e) => Err(e),
             },
         }
