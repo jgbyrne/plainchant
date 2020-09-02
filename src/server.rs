@@ -27,9 +27,9 @@ type Ptr<T> = Arc<Mutex<T>>;
 // simple message pages we can handle directly
 lazy_static! {
     static ref ERR_TMPL: Template =
-        Template::from_file("templates/error.html.tmpl").unwrap_or_else(|err| err.die());
+        Template::from_file("../templates/error.html.tmpl").unwrap_or_else(|err| err.die());
     static ref MSG_TMPL: Template =
-        Template::from_file("templates/message.html.tmpl").unwrap_or_else(|err| err.die());
+        Template::from_file("../templates/message.html.tmpl").unwrap_or_else(|err| err.die());
 }
 
 // Produce an Error page Reply
