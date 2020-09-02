@@ -2,6 +2,7 @@ use crate::fr;
 use crate::util;
 use bytes::{Bytes};
 use std::collections::HashMap;
+use std::fs;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -105,6 +106,19 @@ impl fr::FileRack for FSFileRack {
     }
 
     fn delete_file(&mut self, file_id: &str) -> Result<(), util::PlainchantErr> {
-        unimplemented!();
+        self.cache.remove(file_id);
+        let thumb_id = FSFileRack::thumb_id(file_id);
+        self.cache.remove(&thumb_id);
+
+        let file_path = self.file_dir.join(file_id);
+        if fs::remove_file(file_path).is_err() {
+            return Err(fr::static_err("Could not delete file"));
+        }
+        let thumb_path = self.file_dir.join(&thumb_id);
+        if fs::remove_file(thumb_path).is_err() {
+            return Err(fr::static_err("Could not delete thumbnail file"));
+        }
+
+        Ok(())
     }
 }
