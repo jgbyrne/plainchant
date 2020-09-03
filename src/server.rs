@@ -6,7 +6,6 @@ use crate::template::{Data, Template};
 use crate::Config;
 use bytes::{buf::Buf, BufMut, Bytes, BytesMut};
 use futures::StreamExt;
-use std::boxed::Box;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::sync::{Arc, Mutex, MutexGuard};

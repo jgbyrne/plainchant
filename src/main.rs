@@ -16,7 +16,7 @@ use std::convert::TryInto;
 use std::env;
 use std::fs;
 use std::net::{IpAddr, SocketAddr};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::exit;
 
 use toml::Value;
@@ -27,7 +27,6 @@ fn init_die(msg: &str) -> ! {
 }
 
 pub struct Config {
-    config:        PathBuf,
     addr:          SocketAddr,
     templates_dir: PathBuf,
     static_dir:    PathBuf,
@@ -40,18 +39,17 @@ fn val<'v_out, 'v_in: 'v_out>(v: &'v_in Value, k: &str) -> &'v_out Value {
 
 fn main() {
     let mut args = std::env::args();
-    let bin = args.next();
+    let _bin = args.next();
 
     let conf_path = fs::canonicalize(args.next().unwrap_or(String::from("./plainchant.toml")))
                             .unwrap_or_else(|_|
                                 init_die("Config file does not exist."));
 
-    let mut conf_string =
-        fs::read_to_string(&conf_path).unwrap_or_else(|_| {
-                                          init_die("Could not read from config file.")
-                                      });
+    let conf_string = fs::read_to_string(&conf_path).unwrap_or_else(|_| {
+                                                        init_die("Could not read from config file.")
+                                                    });
 
-    let mut conf_data =
+    let conf_data =
         conf_string.parse::<Value>()
                    .unwrap_or_else(|_| init_die("Could not parse config file as toml."));
 
@@ -88,8 +86,7 @@ fn main() {
                                                    init_die("Could not comprehend static path")
                                                });
 
-    let config = Config { config: conf_path,
-                          addr,
+    let config = Config { addr,
                           templates_dir,
                           static_dir };
 
