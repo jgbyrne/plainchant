@@ -13,9 +13,9 @@ pub struct FSFileRack {
     cache:    HashMap<String, Bytes>,
 }
 
-impl<'init> FSFileRack {
-    pub fn from_dir(dir: &'init str) -> Result<FSFileRack, util::PlainchantErr> {
-        let fr_path = Path::new(&dir).to_path_buf();
+impl FSFileRack {
+    pub fn from_dir(dir: &Path) -> Result<FSFileRack, util::PlainchantErr> {
+        let fr_path = dir.join("rack").to_path_buf();
         match fr_path.is_dir() {
             true => Ok(FSFileRack { file_dir: fr_path,
                                     cache:    HashMap::new(), }),

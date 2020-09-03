@@ -14,14 +14,27 @@ mod template;
 
 use std::env;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::exit;
+use std::convert::TryInto;
 
 use toml::Value;
 
 fn init_die(msg: &str) -> ! {
     eprintln!("Initialisation Error: {}", msg);
     exit(9);
+}
+
+pub struct Config {
+    config: PathBuf,
+    ip: String,
+    port: usize,
+    templates_dir: PathBuf,
+    static_dir: PathBuf,
+}
+
+fn val<'v_out, 'v_in: 'v_out>(v: &'v_in Value, k: &str) -> &'v_out Value {
+    v.get(k).unwrap_or_else(|| init_die(&format!("Could not get config key: {}.", k)))
 }
 
 fn main() {
@@ -36,7 +49,7 @@ fn main() {
                                 .unwrap_or_else(|_|
                                     init_die("Could not read from config file."));
 
-    let mut config = conf_string.parse::<Value>()
+    let mut conf_data = conf_string.parse::<Value>()
                                 .unwrap_or_else(|_|
                                     init_die("Could not parse config file as toml."));
 
@@ -50,10 +63,24 @@ fn main() {
                 exit(1);
             });
 
+    let ip = String::from(val(val(&conf_data, "site"), "ip").as_str().unwrap());
+    let port: usize = val(val(&conf_data, "site"), "port").as_integer().unwrap().try_into().unwrap();
+    let assets = PathBuf::from(val(val(&conf_data, "site"), "assets").as_str().unwrap());
+    let templates_dir = fs::canonicalize(assets.join("templates")).unwrap_or_else(|err| init_die(&format!("Could not comprehend templates path: {:?}", err)));
+    let static_dir = fs::canonicalize(assets.join("static")).unwrap_or_else(|err| init_die(&format!("Could not comprehend static path: {:?}", err)));
+
+    let config = Config {
+        config: conf_path,
+        ip,
+        port,
+        templates_dir,
+        static_dir,
+    };
+
     // Load database - this needs to be db::Database
-    let db = if let Some(path) = config["db"]["fs"]["path"].as_str() {
+    let db = if let Some(path) = conf_data["db"]["fs"]["path"].as_str() {
         match fs::canonicalize(path) {
-            Ok(path) => fsdb::FSDatabase::from_root(path.to_str().unwrap_or("")).unwrap_or_else(|err| err.die()),
+            Ok(path) => fsdb::FSDatabase::from_root(&path.as_path()).unwrap_or_else(|err| err.die()),
             Err(_)   => init_die("Could not comprehend fsdb path"),
         }
     }
@@ -62,9 +89,9 @@ fn main() {
     };
 
     // Load file rack - this needs to be fr::FileRack
-    let fr = if let Some(path) = config["fr"]["fs"]["path"].as_str() {
+    let fr = if let Some(path) = conf_data["fr"]["fs"]["path"].as_str() {
         match fs::canonicalize(path) {
-            Ok(path) => fsfr::FSFileRack::from_dir(path.to_str().unwrap_or("")).unwrap_or_else(|err| err.die()),
+            Ok(path) => fsfr::FSFileRack::from_dir(&path.as_path()).unwrap_or_else(|err| err.die()),
             Err(_)   => init_die("Could not comprehend fsfr path"),
         }
     }
@@ -72,13 +99,11 @@ fn main() {
         init_die("No file rack specified in config")
     };
 
-    let tmpl_path = fs::canonicalize(Path::new(config["site"]["templates"].as_str().unwrap())).unwrap_or_else(|_| init_die("Could not comprehend templates path"));
-
     // Load templates from template files
     let templates = pages::SiteTemplates {
-        catalog_tmpl: template::Template::from_file(tmpl_path.join("catalog.html.tmpl").to_str().unwrap()).unwrap(),
-        thread_tmpl: template::Template::from_file(tmpl_path.join("thread.html.tmpl").to_str().unwrap()).unwrap(),
-        create_tmpl: template::Template::from_file(tmpl_path.join("create.html.tmpl").to_str().unwrap()).unwrap(),
+        catalog_tmpl: template::Template::from_file(config.templates_dir.join("catalog.html.tmpl").as_path()).unwrap(),
+        thread_tmpl: template::Template::from_file(config.templates_dir.join("thread.html.tmpl").as_path()).unwrap(),
+        create_tmpl: template::Template::from_file(config.templates_dir.join("create.html.tmpl").as_path()).unwrap(),
     };
 
     // Create structs for pages and actions
@@ -86,5 +111,5 @@ fn main() {
     let actions = actions::Actions::new();
 
     // Serve the site using the pages, actions, and database
-    server::serve(pages, actions, db, fr, [0, 0, 0, 0], 8088);
+    server::serve(config, pages, actions, db, fr, [0, 0, 0, 0], 8088);
 }

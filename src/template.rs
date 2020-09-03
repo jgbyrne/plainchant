@@ -2,6 +2,7 @@ use crate::util;
 use std::collections::HashMap;
 use std::fs;
 use std::mem;
+use std::path::Path;
 
 pub struct Data {
     values:      HashMap<String, String>,
@@ -231,7 +232,7 @@ impl Template {
         Ok(Template { chunks })
     }
 
-    pub fn from_file(path: &str) -> Result<Template, util::PlainchantErr> {
+    pub fn from_file(path: &Path) -> Result<Template, util::PlainchantErr> {
         match fs::read_to_string(path) {
             Ok(s) => Template::from_string(s),
             Err(_) => Err(static_err("Could not read from template file")),

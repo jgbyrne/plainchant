@@ -15,9 +15,9 @@ pub struct FSDatabase {
     boards:      Vec<(u64, String, String, u64)>,
 }
 
-impl<'init> FSDatabase {
-    pub fn from_root(root: &'init str) -> Result<FSDatabase, util::PlainchantErr> {
-        let root_path = Path::new(&root).to_path_buf();
+impl FSDatabase {
+    pub fn from_root(root: &Path) -> Result<FSDatabase, util::PlainchantErr> {
+        let root_path = root.to_path_buf();
         let boards_path = root_path.join("boards");
         let boards_str = match read_to_string(&boards_path) {
             Ok(boards_str) => boards_str,
