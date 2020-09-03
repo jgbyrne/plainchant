@@ -1,6 +1,6 @@
 use crate::fr;
 use crate::util;
-use bytes::{Bytes};
+use bytes::Bytes;
 use std::collections::HashMap;
 use std::fs;
 use std::fs::File;

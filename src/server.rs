@@ -1,15 +1,15 @@
-use crate::Config;
 use crate::actions;
 use crate::db;
 use crate::fr;
 use crate::pages;
 use crate::template::{Data, Template};
+use crate::Config;
 use bytes::{buf::Buf, BufMut, Bytes, BytesMut};
 use futures::StreamExt;
+use std::boxed::Box;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::sync::{Arc, Mutex, MutexGuard};
-use std::boxed::Box;
 use warp::http::{Response, StatusCode};
 use warp::multipart;
 use warp::reply;
@@ -27,30 +27,36 @@ type Ptr<T> = Arc<Mutex<T>>;
 // More complex templates are handled by Pages, but these
 // simple message pages we can handle directly
 struct StaticPages {
-    error_tmpl: Template,
+    error_tmpl:   Template,
     message_tmpl: Template,
 }
-
 
 // Produce an Error page Reply
 fn error_page(sp: &StaticPages, message: &str) -> impl Reply {
     let mut vals = HashMap::new();
     vals.insert(String::from("message"), String::from(message));
-    reply::html(sp.error_tmpl.render(&Data::new(vals, HashMap::new(), HashMap::new())))
+    reply::html(sp.error_tmpl
+                  .render(&Data::new(vals, HashMap::new(), HashMap::new())))
 }
 
 // Produce a Message page Reply
 fn message_page(sp: &StaticPages, message: &str) -> impl Reply {
     let mut vals = HashMap::new();
     vals.insert(String::from("message"), String::from(message));
-    reply::html(sp.message_tmpl.render(&Data::new(vals, HashMap::new(), HashMap::new())))
+    reply::html(sp.message_tmpl
+                  .render(&Data::new(vals, HashMap::new(), HashMap::new())))
 }
 
 // Lock an Arc<Mutex<>>, returning a rendered error page if this fails
-fn acquire_lock<'l, T>(lock: &'l Ptr<T>, sp: &StaticPages, name: &str) -> Result<MutexGuard<'l, T>, reply::Response> {
+fn acquire_lock<'l, T>(lock: &'l Ptr<T>,
+                       sp: &StaticPages,
+                       name: &str)
+                       -> Result<MutexGuard<'l, T>, reply::Response> {
     match lock.lock() {
         Ok(guard) => Ok(guard),
-        Err(_) => Err(warp::reply::with_status(error_page(sp, &format!("Could not acquire lock: {}", name)),
+        Err(_) => Err(warp::reply::with_status(error_page(sp,
+                                                          &format!("Could not acquire lock: {}",
+                                                                   name)),
                                                StatusCode::INTERNAL_SERVER_ERROR).into_response()),
     }
 }
@@ -154,7 +160,9 @@ async fn create_submit<DB: 'static + db::Database + Sync + Send,
         FormBuffer::Overflow => {
             return Ok(message_page(sp.as_ref(), "File size limit exceeded").into_response())
         },
-        FormBuffer::Empty => return Ok(message_page(sp.as_ref(), "You must upload a file").into_response()),
+        FormBuffer::Empty => {
+            return Ok(message_page(sp.as_ref(), "You must upload a file").into_response())
+        },
     };
 
     // Obtain a lock on Actions
@@ -317,8 +325,11 @@ async fn create_reply<DB: 'static + db::Database + Sync + Send,
 
 // Some handlers for common responses
 
-async fn not_found(sp: Arc<StaticPages>, _rej: warp::reject::Rejection) -> Result<reply::Response, Infallible> {
-    Ok(warp::reply::with_status(message_page(sp.as_ref(), "404 Not Found"), StatusCode::NOT_FOUND).into_response())
+async fn not_found(sp: Arc<StaticPages>,
+                   _rej: warp::reject::Rejection)
+                   -> Result<reply::Response, Infallible> {
+    Ok(warp::reply::with_status(message_page(sp.as_ref(), "404 Not Found"),
+                                StatusCode::NOT_FOUND).into_response())
 }
 
 async fn index_redir(_rej: warp::reject::Rejection) -> Result<reply::Response, Infallible> {
@@ -334,16 +345,18 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
     actions: actions::Actions,
     database: DB,
     file_rack: FR) {
-    // Move static pages into a filter 
-    let sp = StaticPages {
-        error_tmpl: Template::from_file(config.templates_dir.join("error.html.tmpl").as_path())
-                             .unwrap_or_else(|err| err.die()),
-        message_tmpl: Template::from_file(config.templates_dir.join("message.html.tmpl").as_path())
-                               .unwrap_or_else(|err| err.die()),
-    };
+    // Move static pages into a filter
+    let sp = StaticPages { error_tmpl:
+                               Template::from_file(config.templates_dir
+                                                         .join("error.html.tmpl")
+                                                         .as_path()).unwrap_or_else(|err| err.die()),
+                           message_tmpl:
+                               Template::from_file(config.templates_dir
+                                                         .join("message.html.tmpl")
+                                                         .as_path()).unwrap_or_else(|err| err.die()), };
 
     let sp = Arc::new(sp);
-    let sp_retain = sp.clone(); 
+    let sp_retain = sp.clone();
     let static_pages = warp::any().map(move || sp.clone());
 
     // Wrap pages in Arc<Mutex<>> and move into a filter

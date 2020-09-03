@@ -107,7 +107,7 @@ impl FSDatabase {
 
             let poster = match lines[2] {
                 "" => None,
-                name  => Some(name.to_string()),
+                name => Some(name.to_string()),
             };
 
             let file_id = match lines[3] {
@@ -147,11 +147,11 @@ impl FSDatabase {
 impl db::Database for FSDatabase {
     fn get_boards(&self) -> Result<Vec<site::Board>, util::PlainchantErr> {
         Ok(self.boards
-            .iter()
-            .map(|b| site::Board { id:    b.0,
-                                   url:   b.1.clone(),
-                                   title: b.2.clone(), })
-            .collect())
+               .iter()
+               .map(|b| site::Board { id:    b.0,
+                                      url:   b.1.clone(),
+                                      title: b.2.clone(), })
+               .collect())
     }
 
     fn get_board(&self, board_id: u64) -> Result<site::Board, util::PlainchantErr> {
@@ -280,7 +280,7 @@ impl db::Database for FSDatabase {
 
             let title = match lines[4] {
                 "" => None,
-                t  => Some(t.to_string()),
+                t => Some(t.to_string()),
             };
 
             let replies = match lines[7].parse::<u16>() {

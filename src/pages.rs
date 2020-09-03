@@ -166,8 +166,10 @@ impl Pages {
     pub fn page_exists<DB: db::Database>(&self, database: &DB, pr: &PageRef) -> bool {
         match pr {
             PageRef::Catalog(board_id) => database.get_board(*board_id).is_ok(),
-            PageRef::Thread(board_id, orig_num) => database.get_thread(*board_id, *orig_num).is_ok(),
-            PageRef::Create(board_id) => database.get_board(*board_id).is_ok(), 
+            PageRef::Thread(board_id, orig_num) => {
+                database.get_thread(*board_id, *orig_num).is_ok()
+            },
+            PageRef::Create(board_id) => database.get_board(*board_id).is_ok(),
         }
     }
 
