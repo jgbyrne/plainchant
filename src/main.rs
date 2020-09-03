@@ -67,13 +67,19 @@ fn main() {
                                                             .unwrap_or_else(|| {
                                                                 init_die("site.ip is not a string")
                                                             }));
-    let port: u16 = val(val(&conf_data, "site"), "port").as_integer().unwrap_or_else(|| init_die("site.port is not an integer")).try_into().unwrap_or_else(|_| init_die("site.port is not a sensibly sized positive integer"));
-    let addr: SocketAddr =
+
+    let port: u16 = val(val(&conf_data, "site"), "port").as_integer()
+                                                        .unwrap_or_else(|| init_die("site.port is not an integer"))
+                                                        .try_into()
+                                                        .unwrap_or_else(|_| init_die("site.port is not a sensibly sized positive integer"));
+    let addr =
         (ip.parse::<IpAddr>()
            .unwrap_or_else(|_| init_die("site.ip could not be understood as an IP Address")),
-         port)
-              .try_into()
-              .unwrap_or_else(|_| init_die("site.ip:site.port is not a valid address"));
+         port);
+
+    let addr: SocketAddr =
+        addr.try_into()
+            .unwrap_or_else(|_| init_die("site.ip:site.port is not a valid address"));
 
     let assets = PathBuf::from(val(val(&conf_data, "site"), "assets").as_str().unwrap_or_else(|| init_die("site.assets path is not a string")));
     let templates_dir = fs::canonicalize(assets.join("templates")).unwrap_or_else(|_| init_die("Could not comprehend templates path"));
