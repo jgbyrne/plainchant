@@ -333,9 +333,7 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
     pages: pages::Pages,
     actions: actions::Actions,
     database: DB,
-    file_rack: FR,
-    ip: [u8; 4],
-    port: u16) {
+    file_rack: FR) {
     // Move static pages into a filter 
     let sp = StaticPages {
         error_tmpl: Template::from_file(config.templates_dir.join("error.html.tmpl").as_path())
@@ -551,5 +549,5 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
                             .or(warp::post().and(submit.or(reply).unify().recover(index_redir)))
                             .recover(move |rej| not_found(sp_retain.clone(), rej));
 
-    warp::serve(routes).run((ip, port)).await;
+    warp::serve(routes).run(config.addr).await;
 }

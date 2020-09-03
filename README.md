@@ -30,4 +30,28 @@ Plainchant is implemented in Rust. Web functionality is provided by Warp, while 
 
 -----
 
+## Running Plainchant
+
+Plainchant is alpha software and should not be used for any serious purpose. However the interested reader may use the following instructions to try it out for themselves. Note that all directories specified here are simply recommendations and that others may be used, provided the config file `plainchant.toml` is updated appropriately.
+
+1. Create a directory `/etc/plainchant`, and into it copy from this repository the file `demo/plainchant.toml` and the folders `templates` and `static`. † 
+
+2. Create a directory `/var/lib/plainchant` and within it two subdirectories `fsdb` and `fsfr`.
+
+3. Create a subdirectory `/rack` within `/var/lib/plainchant/fsfr`.
+
+4. Create a file `boards` within `/var/lib/plainchant/fsdb`
+
+5. For each board that you wish to serve, add a line to the file `boards` of the form `<board_id>,<slug>,<desc>,<post_ctr>` - for example `1234,mu,Music,10000`.
+
+6. For each board that you wish to serve, create a directory `<board_id>` within `/var/lib/plainchant/fsdb`
+
+7. Ensure that the user that you intend to run the server has read access to `/etc/plainchant/` and read-write access to `/var/lib/plainchant/`
+
+† *You may find it useful to symlink these directories to your local copy of the repository for ease-of-hacking* 
+
+You may now run `plainchant`, either with `cargo run` or by invoking the binary directly. You need provide just one argument, the path to the site config file - if you have exactly followed the directions above, that's `/etc/plainchant/plainchant.toml`. By default it runs on `localhost:8088`.
+
+-----
+
 *Disclaimer: This is a technical project intended to replicate to some extent the functionality and aesthetics of internet imageboard websites. There are many such sites, of which some, including 4chan and 8chan, have gained notoriety for distasteful content. The existence of this project does not imply my agreement, tacit or overt, with anything shared on any such site. Obviously.*

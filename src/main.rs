@@ -17,6 +17,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::convert::TryInto;
+use std::net::{SocketAddr, IpAddr};
 
 use toml::Value;
 
@@ -27,14 +28,13 @@ fn init_die(msg: &str) -> ! {
 
 pub struct Config {
     config: PathBuf,
-    ip: String,
-    port: usize,
+    addr: SocketAddr,
     templates_dir: PathBuf,
     static_dir: PathBuf,
 }
 
 fn val<'v_out, 'v_in: 'v_out>(v: &'v_in Value, k: &str) -> &'v_out Value {
-    v.get(k).unwrap_or_else(|| init_die(&format!("Could not get config key: {}.", k)))
+    v.get(k).unwrap_or_else(|| init_die(&format!("Could not get config key: {}", k)))
 }
 
 fn main() {
@@ -63,22 +63,23 @@ fn main() {
                 exit(1);
             });
 
-    let ip = String::from(val(val(&conf_data, "site"), "ip").as_str().unwrap());
-    let port: usize = val(val(&conf_data, "site"), "port").as_integer().unwrap().try_into().unwrap();
-    let assets = PathBuf::from(val(val(&conf_data, "site"), "assets").as_str().unwrap());
-    let templates_dir = fs::canonicalize(assets.join("templates")).unwrap_or_else(|err| init_die(&format!("Could not comprehend templates path: {:?}", err)));
-    let static_dir = fs::canonicalize(assets.join("static")).unwrap_or_else(|err| init_die(&format!("Could not comprehend static path: {:?}", err)));
+    let ip = String::from(val(val(&conf_data, "site"), "ip").as_str().unwrap_or_else(|| init_die("site.ip is not a string")));
+    let port: u16 = val(val(&conf_data, "site"), "port").as_integer().unwrap_or_else(|| init_die("site.port is not an integer")).try_into().unwrap_or_else(|_| init_die("site.port is not a sensibly sized positive integer"));
+    let addr: SocketAddr = (ip.parse::<IpAddr>().unwrap_or_else(|_| init_die("site.ip could not be understood as an IP Address")), port).try_into().unwrap_or_else(|_| init_die("site.ip:site.port is not a valid address"));
+
+    let assets = PathBuf::from(val(val(&conf_data, "site"), "assets").as_str().unwrap_or_else(|| init_die("site.assets path is not a string")));
+    let templates_dir = fs::canonicalize(assets.join("templates")).unwrap_or_else(|_| init_die("Could not comprehend templates path"));
+    let static_dir = fs::canonicalize(assets.join("static")).unwrap_or_else(|_| init_die("Could not comprehend static path"));
 
     let config = Config {
         config: conf_path,
-        ip,
-        port,
+        addr,
         templates_dir,
         static_dir,
     };
 
     // Load database - this needs to be db::Database
-    let db = if let Some(path) = conf_data["db"]["fs"]["path"].as_str() {
+    let db = if let Some(path) = val(val(val(&conf_data, "db"), "fs"), "path").as_str() {
         match fs::canonicalize(path) {
             Ok(path) => fsdb::FSDatabase::from_root(&path.as_path()).unwrap_or_else(|err| err.die()),
             Err(_)   => init_die("Could not comprehend fsdb path"),
@@ -89,7 +90,7 @@ fn main() {
     };
 
     // Load file rack - this needs to be fr::FileRack
-    let fr = if let Some(path) = conf_data["fr"]["fs"]["path"].as_str() {
+    let fr = if let Some(path) = val(val(val(&conf_data, "fr"), "fs"), "path").as_str() {
         match fs::canonicalize(path) {
             Ok(path) => fsfr::FSFileRack::from_dir(&path.as_path()).unwrap_or_else(|err| err.die()),
             Err(_)   => init_die("Could not comprehend fsfr path"),
@@ -101,15 +102,15 @@ fn main() {
 
     // Load templates from template files
     let templates = pages::SiteTemplates {
-        catalog_tmpl: template::Template::from_file(config.templates_dir.join("catalog.html.tmpl").as_path()).unwrap(),
-        thread_tmpl: template::Template::from_file(config.templates_dir.join("thread.html.tmpl").as_path()).unwrap(),
-        create_tmpl: template::Template::from_file(config.templates_dir.join("create.html.tmpl").as_path()).unwrap(),
+        catalog_tmpl: template::Template::from_file(config.templates_dir.join("catalog.html.tmpl").as_path()).unwrap_or_else(|err| err.die()),
+        thread_tmpl: template::Template::from_file(config.templates_dir.join("thread.html.tmpl").as_path()).unwrap_or_else(|err| err.die()),
+        create_tmpl: template::Template::from_file(config.templates_dir.join("create.html.tmpl").as_path()).unwrap_or_else(|err| err.die()),
     };
 
     // Create structs for pages and actions
-    let pages = pages::Pages::new(&db, templates, 1).unwrap();
+    let pages = pages::Pages::new(&db, templates, 1).unwrap_or_else(|err| err.die());
     let actions = actions::Actions::new();
 
     // Serve the site using the pages, actions, and database
-    server::serve(config, pages, actions, db, fr, [0, 0, 0, 0], 8088);
+    server::serve(config, pages, actions, db, fr);
 }

@@ -206,7 +206,7 @@ impl Pages {
         let pages = HashMap::new();
 
         let mut board_urls = HashMap::new();
-        for board in database.get_boards() {
+        for board in database.get_boards()? {
             board_urls.insert(board.url.clone(), board.id);
         }
 

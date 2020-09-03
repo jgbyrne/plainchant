@@ -145,13 +145,13 @@ impl FSDatabase {
 }
 
 impl db::Database for FSDatabase {
-    fn get_boards(&self) -> Vec<site::Board> {
-        self.boards
+    fn get_boards(&self) -> Result<Vec<site::Board>, util::PlainchantErr> {
+        Ok(self.boards
             .iter()
             .map(|b| site::Board { id:    b.0,
                                    url:   b.1.clone(),
                                    title: b.2.clone(), })
-            .collect()
+            .collect())
     }
 
     fn get_board(&self, board_id: u64) -> Result<site::Board, util::PlainchantErr> {
