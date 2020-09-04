@@ -42,7 +42,7 @@ Plainchant is alpha software and should not be used for any serious purpose. How
 
 4. Create a file `boards` within `/var/lib/plainchant/fsdb`
 
-5. For each board that you wish to serve, add a line to the file `boards` of the form `<board_id>,<slug>,<desc>,<post_ctr>` - for example `1234,mu,Music,10000`.
+5. For each board that you wish to serve, add a line to the file `boards` of the form `<board_id>,<slug>,<desc>,<post_ctr>,<post_cap>,<bump_limit>` - for example `1234,mu,Music,10000,20,100`.
 
 6. For each board that you wish to serve, create a directory `<board_id>` within `/var/lib/plainchant/fsdb`
 

@@ -192,9 +192,11 @@ impl_post!(Original, Reply);
 
 #[derive(Debug)]
 pub struct Board {
-    pub id:    u64,
-    pub url:   String,
-    pub title: String,
+    pub id:         u64,
+    pub url:        String,
+    pub title:      String,
+    pub post_cap:   u16,
+    pub bump_limit: u16,
 }
 
 #[derive(Debug)]

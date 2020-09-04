@@ -12,7 +12,7 @@ use walkdir::WalkDir;
 pub struct FSDatabase {
     root:        PathBuf,
     boards_path: PathBuf,
-    boards:      Vec<(u64, String, String, u64)>,
+    boards:      Vec<(u64, String, String, u64, u16, u16)>,
 }
 
 impl FSDatabase {
@@ -29,7 +29,7 @@ impl FSDatabase {
         let mut boards = vec![];
         for line in boards_str.lines() {
             let parts = line.split(',').collect::<Vec<&str>>();
-            if parts.len() == 4 {
+            if parts.len() == 6 {
                 let id = match parts[0].parse::<u64>() {
                     Ok(id) => id,
                     Err(_parse_err) => {
@@ -42,9 +42,26 @@ impl FSDatabase {
                         return Err(db::static_err("Could not parse next post_num"));
                     },
                 };
-                boards.push((id, parts[1].to_string(), parts[2].to_string(), next_post_num));
+                let post_cap = match parts[4].parse::<u16>() {
+                    Ok(num) => num,
+                    Err(_parse_err) => {
+                        return Err(db::static_err("Could not parse post_cap"));
+                    },
+                };
+                let bump_limit = match parts[5].parse::<u16>() {
+                    Ok(num) => num,
+                    Err(_parse_err) => {
+                        return Err(db::static_err("Could not parse next bump_limit"));
+                    },
+                };
+                boards.push((id,
+                             parts[1].to_string(),
+                             parts[2].to_string(),
+                             next_post_num,
+                             post_cap,
+                             bump_limit));
             } else {
-                return Err(db::static_err("Too many parts"));
+                return Err(db::static_err("Wrong number of parts in board line"));
             }
         }
 
@@ -56,7 +73,8 @@ impl FSDatabase {
     pub fn write_boards_file(&self) -> Result<(), util::PlainchantErr> {
         let mut boards_str = String::new();
         for board in self.boards.iter() {
-            boards_str.push_str(&format!("{},{},{},{}\n", board.0, board.1, board.2, board.3));
+            boards_str.push_str(&format!("{},{},{},{},{},{}\n",
+                                         board.0, board.1, board.2, board.3, board.4, board.5));
         }
         if let Ok(mut file) = File::create(&self.boards_path) {
             match file.write_all(boards_str.as_bytes()) {
@@ -148,18 +166,22 @@ impl db::Database for FSDatabase {
     fn get_boards(&self) -> Result<Vec<site::Board>, util::PlainchantErr> {
         Ok(self.boards
                .iter()
-               .map(|b| site::Board { id:    b.0,
-                                      url:   b.1.clone(),
-                                      title: b.2.clone(), })
+               .map(|b| site::Board { id:         b.0,
+                                      url:        b.1.clone(),
+                                      title:      b.2.clone(),
+                                      post_cap:   b.4,
+                                      bump_limit: b.5, })
                .collect())
     }
 
     fn get_board(&self, board_id: u64) -> Result<site::Board, util::PlainchantErr> {
         for b in &self.boards {
             if b.0 == board_id {
-                return Ok(site::Board { id:    b.0,
-                                        url:   b.1.clone(),
-                                        title: b.2.clone(), });
+                return Ok(site::Board { id:         b.0,
+                                        url:        b.1.clone(),
+                                        title:      b.2.clone(),
+                                        post_cap:   b.4,
+                                        bump_limit: b.5, });
             }
         }
         Err(db::static_err("No such board!"))
