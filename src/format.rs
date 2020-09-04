@@ -15,30 +15,26 @@ pub fn annotate_post(body: &str) -> String {
                             Some(n) => {
                                 if !n.is_ascii_digit() {
                                     false
-                                }
-                                else {
+                                } else {
                                     let mut num = n.to_string();
                                     let mut post = String::new();
-                                    
+
                                     let mut is_not_link = false;
                                     while let Some(c) = c_iter.next() {
                                         if c.is_ascii_digit() {
                                             num.push(c);
-                                        }
-                                        else if !c.is_whitespace() {
+                                        } else if !c.is_whitespace() {
                                             is_not_link = true;
                                             break;
-                                        }
-                                        else {
-                                           post.push(c);
-                                           break;
+                                        } else {
+                                            post.push(c);
+                                            break;
                                         }
                                     }
 
                                     if is_not_link {
                                         false
-                                    }
-                                    else {
+                                    } else {
                                         post.push_str(&c_iter.collect::<String>());
 
                                         out.push_str(&format!("<a href='#{}'>", num));
@@ -52,7 +48,7 @@ pub fn annotate_post(body: &str) -> String {
                             },
                             None => false,
                         }
-                    }
+                    },
                     _ => false,
                 };
 

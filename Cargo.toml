@@ -1,6 +1,6 @@
 [package]
 name = "plainchant"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Jack Byrne <jack.byrne@durham.ac.uk>"]
 edition = "2018"
 
@@ -14,6 +14,5 @@ chrono = "0.4"
 futures = "0.3.5"
 bytes = "0.5.4"
 rand = "0.7.3"
-lazy_static = "1.4.0"
 image = "0.23.8"
 toml = "0.5.6"

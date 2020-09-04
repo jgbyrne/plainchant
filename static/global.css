@@ -33,6 +33,10 @@ hr {
     font-weight: bold;
 }
 
+.nav-link > a, .nav-link > a:visited {
+    color: #0000EE;
+}
+
 .form-field {
     padding: 5px;
 }
@@ -60,4 +64,14 @@ hr {
 
 .quote {
     color: #44CC55;
+}
+
+.subtle-link:link, .subtle-link:visited {
+  color: inherit;
+  text-decoration: inherit;
+}
+
+.subtle-link:hover {
+    color: #111188;
+    text-decoration: underline;
 }

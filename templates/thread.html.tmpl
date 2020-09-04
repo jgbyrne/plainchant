@@ -30,7 +30,9 @@
 	   	    <span class="post-title">{{orig_title}}</span> :
 		    <span class="post-nick">{{orig_poster}}</span> :
 		    <span class="post-time">{{orig_time}}</span> :
-		    <span class="post-num">No.{{orig_post_num}}</span>
+                    <a class="subtle-link" href="/{{board_url}}/thread/{{orig_post_num}}">
+		        <span class="post-num">No.{{orig_post_num}}</span>
+		    </a>
 	        </div>
                 <div class="post-text">
 	            <div class="post-image-frame orig-post-image-frame">
@@ -47,7 +49,9 @@
                 <div class="info-line">
                     <span class="post-nick">{{reply.poster}}</span> :
                     <span class="post-time">{{reply.time}}</span> :
-                    <span class="post-num">No.{{reply.post_num}}</span>
+                    <a class="subtle-link" href="/{{board_url}}/thread/{{orig_post_num}}#{{reply.post_num}}">
+			<span class="post-num">No.{{reply.post_num}}</span>
+		    </a>
                 </div>
 
 	  	    {:reply.has_image:}
