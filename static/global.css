@@ -57,3 +57,7 @@ hr {
 .form-submit>input {
     width: 110px;
 }
+
+.quote {
+    color: #44CC55;
+}

@@ -10,7 +10,6 @@
 - IP Bans
 - Tripcodes
 - Capcodes
-- Greentext
 - Postwise Links
 - Reply Backlinks
 - Reply Frontlinks
@@ -22,6 +21,7 @@
 
 - Bump Limit
 - Post Limit
+- Greentext
 
 ## Complete
 

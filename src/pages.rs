@@ -1,4 +1,5 @@
 use crate::db;
+use crate::format;
 use crate::site::Post;
 use crate::template;
 use crate::util;
@@ -104,7 +105,7 @@ impl Pages {
                 values.insert(String::from("orig_post_num"),
                               thread.original.post_num().to_string());
                 values.insert(String::from("orig_post_body"),
-                              thread.original.body().to_string());
+                              format::annotate_post(thread.original.body()));
 
                 let mut replies = vec![];
                 for reply in thread.replies {
@@ -127,7 +128,7 @@ impl Pages {
                                   reply.post_num().to_string());
 
                     values.insert(format!("reply.{}.post_body", reply.post_num()),
-                                  reply.body().to_string());
+                                  format::annotate_post(reply.body()));
 
                     replies.push(reply.post_num().to_string());
                 }

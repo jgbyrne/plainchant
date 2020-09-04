@@ -2,10 +2,10 @@ mod site;
 mod util;
 
 mod db;
-
 mod fr;
 
 mod actions;
+mod format;
 mod fsdb;
 mod fsfr;
 mod pages;
