@@ -10,18 +10,18 @@
 - IP Bans
 - Tripcodes
 - Capcodes
-- Postwise Links
-- Reply Backlinks
 - Reply Frontlinks
 
 ## In Progress
 
+- Reply Backlinks
 
 ## Refinement
 
 - Bump Limit
 - Post Limit
 - Greentext
+- Postwise Links
 
 ## Complete
 

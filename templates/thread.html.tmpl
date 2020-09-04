@@ -24,7 +24,7 @@
         </div>
         <hr/>
         <div class="content">
-
+            <a id="{{orig_post_num}}">
             <div class="post orig">
 	        <div class="info-line">
 	   	    <span class="post-title">{{orig_title}}</span> :
@@ -39,7 +39,9 @@
                     <p class="post-body">{{orig_post_body}}</p>
                 </div>
             </div>
+	    </a>
             {%reply%}
+	    <a id="{{reply.post_num}}">
             <div class="post reply">
                 <div class="post-text">
                 <div class="info-line">
@@ -56,6 +58,7 @@
                     <p class="post-body">{{reply.post_body}}</p>
                 </div>
             </div>
+            </a>
             {%reply%}
 	    <hr/>
 	    <div class="reply-form">
