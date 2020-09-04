@@ -31,4 +31,6 @@ pub trait Database {
     fn create_reply(&mut self, reply: site::Reply) -> Result<u64, util::PlainchantErr>;
 
     fn update_original(&mut self, orig: site::Original) -> Result<(), util::PlainchantErr>;
+
+    fn delete_original(&mut self, board_id: u64, post_num: u64) -> Result<(), util::PlainchantErr>;
 }

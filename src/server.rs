@@ -173,42 +173,43 @@ async fn create_submit<DB: 'static + db::Database + Sync + Send,
     let actions = &mut *ag;
 
     // Upload the file to the FileRack
-    let file_id = {
-        let fr_lock = acquire_lock(&fr, sp.as_ref(), "FileRack");
-        let mut rg = match fr_lock {
-            Ok(rg) => rg,
-            Err(r) => return Ok(r),
-        };
-        let rack = &mut *rg;
+    let fr_lock = acquire_lock(&fr, sp.as_ref(), "FileRack");
+    let mut rg = match fr_lock {
+        Ok(rg) => rg,
+        Err(r) => return Ok(r),
+    };
+    let rack = &mut *rg;
 
-        match actions.upload_file(rack, file) {
-            Ok(file_id) => file_id,
-            Err(_) => return Ok(message_page(sp.as_ref(), "File upload failed - filetype may not be supported").into_response()),
-        }
+    let file_id = match actions.upload_file(rack, file) {
+        Ok(file_id) => file_id,
+        Err(_) => return Ok(message_page(sp.as_ref(), "File upload failed - filetype may not be supported").into_response()),
     };
 
     // Submit the post to the Database
-    let sub_res = {
-        let db_lock = acquire_lock(&db, sp.as_ref(), "Database");
-        let mut dg = match db_lock {
-            Ok(dg) => dg,
-            Err(r) => return Ok(r),
-        };
-        let database = &mut *dg;
-
-        actions.submit_original(database,
-                                board_id,
-                                "0.0.0.0".to_string(),
-                                body.unwrap_or_else(|| String::from("")),
-                                Some(name.unwrap_or_else(|| String::from(""))),
-                                file_id,
-                                "yellow_loveless.png".to_string(),
-                                Some(title.unwrap_or_else(|| String::from(""))))
+    let db_lock = acquire_lock(&db, sp.as_ref(), "Database");
+    let mut dg = match db_lock {
+        Ok(dg) => dg,
+        Err(r) => return Ok(r),
     };
+    let database = &mut *dg;
+
+    let sub_res = actions.submit_original(database,
+                                          board_id,
+                                          "0.0.0.0".to_string(),
+                                          body.unwrap_or_else(|| String::from("")),
+                                          Some(name.unwrap_or_else(|| String::from(""))),
+                                          file_id,
+                                          "yellow_loveless.png".to_string(),
+                                          Some(title.unwrap_or_else(|| String::from(""))));
 
     // Handle the outcome of the submission
     match sub_res {
-        Ok(_) => Ok(warp::redirect(format!("/{}/catalog", board).parse::<Uri>().expect("Could not parse catalog Uri")).into_response()),
+        Ok(_) => {
+            match actions.enforce_post_cap(database, rack, board_id) {
+                Ok(_) => Ok(warp::redirect(format!("/{}/catalog", board).parse::<Uri>().expect("Could not parse catalog Uri")).into_response()),
+                Err(_) => Err(warp::reject()),
+            }
+        },
         Err(_) => Err(warp::reject()),
     }
 }

@@ -3,7 +3,7 @@ use crate::site;
 use crate::site::Post;
 use crate::util;
 use std::ffi::OsString;
-use std::fs::{create_dir, read_dir, read_to_string, File};
+use std::fs::{create_dir, read_dir, read_to_string, remove_dir_all, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
@@ -331,6 +331,21 @@ impl db::Database for FSDatabase {
                                    bump_time,
                                    replies,
                                    img_replies))
+        }
+    }
+
+    fn delete_original(&mut self, board_id: u64, post_num: u64) -> Result<(), util::PlainchantErr> {
+        let orig_dir = self.root
+                           .join(board_id.to_string())
+                           .join(post_num.to_string());
+
+        if orig_dir.is_dir() {
+            match remove_dir_all(orig_dir) {
+                Ok(_) => Ok(()),
+                Err(_) => Err(db::static_err("Could not remove orig dir")),
+            }
+        } else {
+            Err(db::static_err("Orig dir does not exist"))
         }
     }
 

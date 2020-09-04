@@ -1,7 +1,5 @@
 ## To Do
 
-- Bump Limit
-- Post Limit
 - Archiving
 - Sticky Posts
 - Filenames
@@ -22,6 +20,8 @@
 
 ## Refinement
 
+- Bump Limit
+- Post Limit
 
 ## Complete
 

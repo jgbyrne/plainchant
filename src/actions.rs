@@ -1,6 +1,7 @@
 use crate::db;
 use crate::fr;
 use crate::site;
+use crate::site::Post;
 use crate::util;
 use rand::Rng;
 use std::iter;
@@ -38,7 +39,7 @@ impl Actions {
                                              -> Result<u64, util::PlainchantErr> {
         let cur_time = util::timestamp();
         let original = site::Original::new(board_id,
-                                           0, // post_num
+                                           0,
                                            cur_time,
                                            ip,
                                            body,
@@ -50,6 +51,29 @@ impl Actions {
                                            0,
                                            0);
         database.create_original(original)
+    }
+
+    pub fn enforce_post_cap<DB: db::Database, FR: fr::FileRack>(
+        &mut self,
+        database: &mut DB,
+        file_rack: &mut FR,
+        board_id: u64)
+        -> Result<(), util::PlainchantErr> {
+        let board = database.get_board(board_id)?;
+        let mut catalog = database.get_catalog(board_id)?;
+
+        let post_cap: usize = board.post_cap.into();
+
+        if catalog.originals.len() > post_cap {
+            let excess: Vec<site::Original> = catalog.originals.drain(post_cap..).collect();
+            for orig in excess.iter() {
+                database.delete_original(board_id, orig.post_num())?;
+                if let Some(id) = orig.file_id() {
+                    file_rack.delete_file(id)?;
+                }
+            }
+        }
+        Ok(())
     }
 
     pub fn submit_reply<DB: db::Database>(&mut self,
