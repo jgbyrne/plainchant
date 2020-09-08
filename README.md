@@ -1,6 +1,6 @@
 ## Plainchant
 
-![Demo Site Screenshot](https://github.com/jgbyrne/plainchant/blob/master/demo/screenshot.png)
+![Demo Screenshot](https://github.com/jgbyrne/plainchant/blob/master/demo/screenshot.png)
 
 Plainchant is a lightweight and libre imageboard software package.
 
