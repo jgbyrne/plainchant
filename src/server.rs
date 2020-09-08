@@ -9,7 +9,7 @@ use futures::StreamExt;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::sync::{Arc, Mutex, MutexGuard};
-use warp::http::{Response, StatusCode};
+use warp::http::{Response, StatusCode, header, HeaderValue};
 use warp::multipart;
 use warp::reply;
 use warp::reply::Reply;
@@ -124,7 +124,7 @@ async fn create_submit<DB: 'static + db::Database + Sync + Send,
         let pages = &mut *pg;
 
         match pages.board_url_to_id(&board) {
-            Some(b_id) => *b_id,
+            Some(b_id) => b_id,
             None => return Ok(warp::redirect(Uri::from_static("/")).into_response()),
         }
     };
@@ -236,7 +236,7 @@ async fn create_reply<DB: 'static + db::Database + Sync + Send,
         let pages = &mut *pg;
 
         match pages.board_url_to_id(&board) {
-            Some(b_id) => *b_id,
+            Some(b_id) => b_id,
             None => return Ok(warp::redirect(Uri::from_static("/")).into_response()),
         }
     };
@@ -398,7 +398,7 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
                                                };
                                                let database = &mut *dg;
 
-                                               let page_ref = pages::PageRef::Catalog(*board_id);
+                                               let page_ref = pages::PageRef::Catalog(board_id);
                                                let page = pages.get_page(database, &page_ref)
                                                                .expect("Could not access catalog for extant board")
                                                                .page_text
@@ -416,7 +416,7 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
         .and(pages.clone())
         .and(database.clone())
         .map(
-            |board: String, orig_num: u64, sp: Arc<StaticPages>, p: Ptr<pages::Pages>, db: Arc<Mutex<DB>>| {
+            |board: String, post_num: u64, sp: Arc<StaticPages>, p: Ptr<pages::Pages>, db: Arc<Mutex<DB>>| {
                // Acquire lock on Pages
                let p_lock = acquire_lock(&p, sp.as_ref(), "Pages");
                let mut pg = match p_lock {
@@ -425,7 +425,7 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
                };
                let pages = &mut *pg;
 
-               // Retreive Thread
+               // Retrieve Thread
                if let Some(board_id) = pages.board_url_to_id(&board) {
                    let db_lock = acquire_lock(&db, sp.as_ref(), "Database");
                    let mut dg = match db_lock {
@@ -434,16 +434,33 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
                    };
                    let database = &mut *dg;
 
-                   let page_ref = pages::PageRef::Thread(*board_id, orig_num);
+                   let page_ref = pages::PageRef::Thread(board_id, post_num);
                    let page = pages.get_page(database, &page_ref);
 
                    match page {
                        Ok(page) => Ok(reply::with_header(reply::html(page.page_text.to_string()), "Content-Type", "text/html; charset=utf-8").into_response()),
-                       Err(_) => Ok(warp::reply::with_status(message_page(sp.as_ref(), "No such thread"), StatusCode::NOT_FOUND).into_response()),
+                       Err(_) => {
+                           // The board exists but the OP does not; let's try and get it as a reply
+                           let repl = database.get_reply(board_id, post_num);
+                           match repl {
+                               Ok(repl) => {
+                                   // We don't use warp::redirect because it requires a value
+                                   // of type http::Uri, and that type does not support anchors.
+                                   // Thus we need build our own redirect reply.
+                                   let uri = format!("/{}/thread/{}#{}", &board, repl.orig_num(), post_num);
+                                   Ok(warp::reply::with_header(StatusCode::MOVED_PERMANENTLY,
+                                                               header::LOCATION,
+                                                               HeaderValue::from_str(&uri).unwrap()).into_response())
+                               },
+                               Err(_) => Ok(warp::reply::with_status(message_page(sp.as_ref(), "No such thread"), StatusCode::NOT_FOUND).into_response()),
+                           }
+                       },
                    }
+
                } else {
                    Ok(warp::reply::with_status(message_page(sp.as_ref(), "No such board"), StatusCode::NOT_FOUND).into_response())
                }
+
             },
         );
 
@@ -470,7 +487,7 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
                                               };
                                               let database = &mut *dg;
 
-                                              let page_ref = pages::PageRef::Create(*board_id);
+                                              let page_ref = pages::PageRef::Create(board_id);
                                               let page = pages.get_page(database, &page_ref)
                                                               .expect("Could not access thread creation page for extant board")
                                                               .page_text

@@ -3,7 +3,7 @@ use crate::format;
 use crate::site::Post;
 use crate::template;
 use crate::util;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy)]
 pub enum PageRef {
@@ -81,6 +81,14 @@ impl Pages {
                 let board = database.get_board(*board_id)?;
                 let thread = database.get_thread(*board_id, *orig_num)?;
 
+                // The set of post IDs in the current thread is used
+                // by the annotate_post function to decide how whether
+                // to use an anchor link or a direct link
+                let mut posts = HashSet::new();
+                posts.insert(thread.original.post_num());
+                posts.extend(thread.replies.iter().map(|r| r.post_num()));
+                let posts = posts;
+
                 let mut values = HashMap::new();
                 let mut flags = HashMap::new();
 
@@ -105,7 +113,7 @@ impl Pages {
                 values.insert(String::from("orig_post_num"),
                               thread.original.post_num().to_string());
                 values.insert(String::from("orig_post_body"),
-                              format::annotate_post(thread.original.body()));
+                              format::annotate_post(thread.original.body(), &posts));
 
                 let mut replies = vec![];
                 for reply in thread.replies {
@@ -128,7 +136,7 @@ impl Pages {
                                   reply.post_num().to_string());
 
                     values.insert(format!("reply.{}.post_body", reply.post_num()),
-                                  format::annotate_post(reply.body()));
+                                  format::annotate_post(reply.body(), &posts));
 
                     replies.push(reply.post_num().to_string());
                 }
@@ -198,8 +206,11 @@ impl Pages {
         Ok(self.pages.get(pr).unwrap())
     }
 
-    pub fn board_url_to_id(&self, url: &str) -> Option<&u64> {
-        self.board_urls.get(url)
+    pub fn board_url_to_id(&self, url: &str) -> Option<u64> {
+        match self.board_urls.get(url) {
+            Some(id) => Some(*id),
+            None => None,
+        }
     }
 
     pub fn new<DB: db::Database>(database: &DB,

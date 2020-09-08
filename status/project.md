@@ -7,10 +7,10 @@
 - Postgres DB
 - Post Deletion
 - Image Deletion
-- IP Bans
 - Tripcodes
 - Capcodes
 - Reply Frontlinks
+- IP Bans
 
 ## In Progress
 
