@@ -32,6 +32,7 @@ pub struct Config {
     static_dir:    PathBuf,
 }
 
+
 fn val<'v_out, 'v_in: 'v_out>(v: &'v_in Value, k: &str) -> &'v_out Value {
     v.get(k)
      .unwrap_or_else(|| init_die(&format!("Could not get config key: {}", k)))
