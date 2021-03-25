@@ -62,7 +62,9 @@ impl Pages {
                                   orig.title().unwrap_or("").to_string());
 
                     let mut cat_desc = orig.body().to_string();
-                    cat_desc.truncate(128);
+                    if let Some((i, _)) = cat_desc.char_indices().nth(128) {
+                        cat_desc.truncate(i);
+                    }
                     values.insert(format!("original.{}.post_body", orig.post_num()), cat_desc);
 
                     originals.push(orig.post_num().to_string());
