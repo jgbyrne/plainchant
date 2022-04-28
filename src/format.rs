@@ -1,4 +1,55 @@
 use std::collections::HashSet;
+use crate::util;
+use chrono::{Utc, TimeZone};
+
+pub fn utc_timestamp(ts: u64) -> String {
+    Utc.timestamp(ts.try_into().unwrap_or(0), 0).to_string()
+}
+
+const SECS_IN_YEAR : u64 = (365 * 24 * 60 * 60);
+const SECS_IN_DAY  : u64 = (24 * 60 * 60);
+const SECS_IN_HOUR : u64 = (60 * 60);
+const SECS_IN_MIN  : u64 = 60;
+
+pub fn humanise_time(ts: u64) -> String {
+    let cur_ts = util::timestamp();
+    let delta = cur_ts - ts;
+
+    let years = delta / SECS_IN_YEAR;
+    if years == 1 {
+        return String::from("1 year ago");
+    }
+    else if years > 1 {
+        return format!("{} years ago", years);
+    }
+
+    let days  = delta / SECS_IN_DAY;
+    if days == 1 {
+        return String::from("1 day ago");
+    }
+    else if days > 1 {
+        return format!("{} days ago", days);
+    }
+
+    let hours = delta / SECS_IN_HOUR;
+    if hours == 1 {
+        return String::from("1 hour ago");
+    }
+    else if hours > 1 {
+        return format!("{} hours ago", hours);
+    }
+
+    let mins = delta / SECS_IN_MIN;
+    if mins == 1 {
+        return String::from("1 minute ago");
+    }
+    else if mins > 1 {
+        return format!("{} minutes ago", mins);
+    }
+    
+    String::from("less than a minute ago")
+}
+
 
 pub fn annotate_post(body: &str, posts: &HashSet<u64>) -> String {
     let mut out = String::new();

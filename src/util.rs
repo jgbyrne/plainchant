@@ -1,6 +1,5 @@
 use std::process::exit;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-//use chrono::Utc;
 
 #[derive(Debug)]
 pub enum ErrOrigin {
@@ -29,6 +28,3 @@ pub fn timestamp() -> u64 {
                      .as_secs()
 }
 
-//pub fn fmt_time(ts: u64) -> String {
-//    Utc::now().to_rfc3339()
-//}

@@ -111,7 +111,9 @@ impl Pages {
                 values.insert(String::from("orig_poster"),
                               thread.original.poster().unwrap_or("Anonymous").to_string());
                 values.insert(String::from("orig_time"),
-                              thread.original.time().to_string());
+                              format::humanise_time(thread.original.time()));
+                values.insert(String::from("orig_timestamp"),
+                              format::utc_timestamp(thread.original.time()));
                 values.insert(String::from("orig_post_num"),
                               thread.original.post_num().to_string());
                 values.insert(String::from("orig_post_body"),
@@ -132,7 +134,10 @@ impl Pages {
                                   reply.poster().unwrap_or("Anonymous").to_string());
 
                     values.insert(format!("reply.{}.time", reply.post_num()),
-                                  reply.time().to_string());
+                                  format::humanise_time(reply.time()));
+
+                    values.insert(format!("reply.{}.timestamp", reply.post_num()),
+                                  format::utc_timestamp(reply.time()));
 
                     values.insert(format!("reply.{}.post_num", reply.post_num()),
                                   reply.post_num().to_string());
