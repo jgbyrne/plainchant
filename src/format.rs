@@ -6,9 +6,9 @@ pub fn utc_timestamp(ts: u64) -> String {
     Utc.timestamp(ts.try_into().unwrap_or(0), 0).to_string()
 }
 
-const SECS_IN_YEAR : u64 = (365 * 24 * 60 * 60);
-const SECS_IN_DAY  : u64 = (24 * 60 * 60);
-const SECS_IN_HOUR : u64 = (60 * 60);
+const SECS_IN_YEAR : u64 = 365 * 24 * 60 * 60;
+const SECS_IN_DAY  : u64 = 24 * 60 * 60;
+const SECS_IN_HOUR : u64 = 60 * 60;
 const SECS_IN_MIN  : u64 = 60;
 
 pub fn humanise_time(ts: u64) -> String {

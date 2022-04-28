@@ -4,11 +4,15 @@ use crate::fr;
 use crate::pages;
 use crate::template::{Data, Template};
 use crate::Config;
+
 use bytes::{buf::Buf, BufMut, Bytes, BytesMut};
 use futures::StreamExt;
+
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::sync::{Arc, Mutex, MutexGuard};
+use std::net::SocketAddr;
+
 use warp::http::{Response, StatusCode, header, HeaderValue};
 use warp::multipart;
 use warp::reply;
@@ -108,12 +112,16 @@ async fn create_submit<DB: 'static + db::Database + Sync + Send,
                        FR: 'static + fr::FileRack + Sync + Send>(
     board: String,
     mut data: multipart::FormData,
+    addr: Option<SocketAddr>,
     sp: Arc<StaticPages>,
     p: Ptr<pages::Pages>,
     a: Ptr<actions::Actions>,
     db: Ptr<DB>,
     fr: Ptr<FR>)
     -> Result<reply::Response, warp::reject::Rejection> {
+    
+    let addr = addr.expect("create_submit: unwrap address failed (???)"); 
+
     // Look-up Board URL to retrieve ID
     let board_id = {
         let p_lock = acquire_lock(&p, sp.as_ref(), "Pages");
@@ -195,11 +203,11 @@ async fn create_submit<DB: 'static + db::Database + Sync + Send,
 
     let sub_res = actions.submit_original(database,
                                           board_id,
-                                          "0.0.0.0".to_string(),
+                                          addr.ip().to_string(),
                                           body.unwrap_or_else(|| String::from("")),
                                           Some(name.unwrap_or_else(|| String::from(""))),
                                           file_id,
-                                          "yellow_loveless.png".to_string(),
+                                          String::new(),
                                           Some(title.unwrap_or_else(|| String::from(""))));
 
     // Handle the outcome of the submission
@@ -220,12 +228,16 @@ async fn create_reply<DB: 'static + db::Database + Sync + Send,
     board: String,
     thread: u64,
     mut data: multipart::FormData,
+    addr: Option<SocketAddr>,
     sp: Arc<StaticPages>,
     p: Ptr<pages::Pages>,
     a: Ptr<actions::Actions>,
     db: Ptr<DB>,
     fr: Ptr<FR>)
     -> Result<reply::Response, warp::reject::Rejection> {
+
+    let addr = addr.expect("create_reply: unwrap address failed (???)"); 
+
     // Look-up board ID from URL
     let board_id = {
         let p_lock = acquire_lock(&p, sp.as_ref(), "Pages");
@@ -303,11 +315,11 @@ async fn create_reply<DB: 'static + db::Database + Sync + Send,
 
         actions.submit_reply(database,
                              board_id,
-                             "0.0.0.0".to_string(),
+                             addr.ip().to_string(),
                              body.unwrap_or_else(|| String::from("")),
                              Some(name.unwrap_or_else(|| String::from(""))),
                              file_id,
-                             Some("yellow_loveless.png".to_string()),
+                             Some(String::new()),
                              thread)
     };
 
@@ -502,6 +514,7 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
     // Serve submit action
     let submit =
         warp::path!(String / "submit").and(warp::multipart::form().max_length(FORM_MAX_LENGTH)
+                                                                  .and(warp::addr::remote())
                                                                   .and(static_pages.clone())
                                                                   .and(pages.clone())
                                                                   .and(actions.clone())
@@ -512,6 +525,7 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
     // Serve reply action
     let reply =
         warp::path!(String / "reply" / u64).and(warp::multipart::form().max_length(FORM_MAX_LENGTH)
+                                                                       .and(warp::addr::remote())
                                                                        .and(static_pages.clone())
                                                                        .and(pages.clone())
                                                                        .and(actions.clone())
