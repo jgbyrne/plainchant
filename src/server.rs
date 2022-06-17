@@ -78,7 +78,7 @@ async fn part_buffer(part: multipart::Part, buf_size: usize) -> FormBuffer {
 
     let mut space = buf_size;
     while let Some(Ok(buf)) = chunks.next().await {
-        let additional = buf.bytes().len();
+        let additional = buf.remaining();
         if space < additional {
             return FormBuffer::Overflow;
         }

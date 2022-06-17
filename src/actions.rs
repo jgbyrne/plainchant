@@ -19,7 +19,7 @@ impl Actions {
                                          -> Result<String, util::PlainchantErr> {
         let mut rng = rand::thread_rng();
         let file_id: String =
-            iter::repeat(()).map(|()| rng.sample(rand::distributions::Alphanumeric))
+            iter::repeat(()).map(|()| rng.sample(rand::distributions::Alphanumeric) as char)
                             .take(12)
                             .collect();
 
