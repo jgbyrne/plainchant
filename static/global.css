@@ -66,6 +66,14 @@ hr {
     color: #44CC55;
 }
 
+.quote a:link {
+    color: #44CC55;
+}
+
+.quote a:visited {
+    color: darkgreen;
+}
+
 .subtle-link:link, .subtle-link:visited {
   color: inherit;
   text-decoration: inherit;

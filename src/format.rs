@@ -1,6 +1,8 @@
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 use crate::util;
 use chrono::{Utc, TimeZone};
+use lazy_static::lazy_static;
+use regex::Regex;
 
 pub fn utc_timestamp(ts: u64) -> String {
     Utc.timestamp(ts.try_into().unwrap_or(0), 0).to_string()
@@ -50,81 +52,79 @@ pub fn humanise_time(ts: u64) -> String {
     String::from("less than a minute ago")
 }
 
+pub fn annotate_post(body: &str,
+                    board_urls: &HashMap<String, u64>,
+                    posts: &HashSet<u64>) -> String {
+    lazy_static! {
+        // Match quoted (greentext) lines
+        static ref QUOTED: Regex = Regex::new(r"^\s*>(?:$|[^>])").unwrap();
+        // Capture replies of form >>390290 and >>>/blah/2939404
+        static ref REPLY: Regex = Regex::new(r"(>>)(?:([\d]+)|>/(\w+)/([\d]+))(?:$|\W)").unwrap();
+    }
 
-pub fn annotate_post(body: &str, posts: &HashSet<u64>) -> String {
     let mut out = String::new();
     for line in body.lines() {
-        let mut c_iter = line.chars();
-        match c_iter.next() {
-            Some('>') => {
-                let is_link = match c_iter.next() {
-                    Some('>') => {
-                        match c_iter.next() {
-                            Some('>') => {
-                                // TODO
-                                out.push_str(line);
-                                true
-                            },
-                            Some(n) => {
-                                if !n.is_ascii_digit() {
-                                    false
-                                } else {
-                                    let mut num = n.to_string();
-                                    let mut post = String::new();
+        let quoted = QUOTED.is_match(line);
 
-                                    let mut is_link = true;
-                                    while let Some(c) = c_iter.next() {
-                                        if c.is_ascii_digit() {
-                                            num.push(c);
-                                        } else if !c.is_whitespace() {
-                                            is_link = false;
-                                            break;
-                                        } else {
-                                            post.push(c);
-                                            break;
-                                        }
-                                    }
-
-                                    if is_link {
-                                        if let Ok(num) = num.parse::<u64>() {
-                                            post.push_str(&c_iter.collect::<String>());
-
-                                            // If the post is in the same thread, we link to the
-                                            // anchor so the browser need not make a request.
-                                            // Otherwise we link directly to the post.
-                                            let link = match posts.contains(&num) {
-                                                true => format!("#{}", num),
-                                                false => format!("./{}", num),
-                                            };
-                                            out.push_str(&format!("<a href='{}'>>>{}</a>", &link, num));
-                                            out.push_str(&post);
-                                            true
-                                        }
-                                        else {
-                                            false
-                                        }
-                                    } else {
-                                        false
-                                    }
-                                }
-                            },
-                            None => false,
-                        }
-                    },
-                    _ => false,
-                };
-
-                if !is_link {
-                    out.push_str("<span class='quote'>");
-                    out.push_str(line);
-                    out.push_str("</span>");
-                }
-            },
-            _ => {
-                out.push_str(line);
-            },
+        if quoted {
+            out.push_str("<span class='quote'>");
         }
-        out.push('\n');
+        let mut left = 0;
+
+        for reply in REPLY.captures_iter(line) {
+            let start = reply.get(1).unwrap().start();
+
+            out.push_str(&line[left..start]);
+
+            let local = match reply.get(3) { Some(_) => false, None => true };
+            if local {
+                let post_num = reply.get(2).unwrap();
+                let right = post_num.end();
+
+                if let Ok(num) = &post_num.as_str().parse::<u64>() {
+                    // If the post is in the same thread, we link to the
+                    // anchor so the browser need not make a request.
+                    // Otherwise we link directly to the post.
+                    let link = match posts.contains(&num) {
+                        true => format!("#{}", num),
+                        false => format!("./{}", num),
+                    };
+                    out.push_str(&format!("<a href='{}'>>>{}</a>", &link, num));
+                }
+                else {
+                    out.push_str(&line[start..right]);
+                }
+
+                left = right; 
+            }
+            else {
+                let board_id = reply.get(3).unwrap();
+                let post_num = reply.get(4).unwrap();
+                let right = post_num.end();
+
+                let url = board_id.as_str();
+                let parsed_post_num = post_num.as_str().parse::<u64>();
+                let board_exists = board_urls.get(url).is_some();
+
+                if let (Ok(num), true) = (&parsed_post_num, board_exists) {
+                    // TODO: This link might be flaky (should it really be absolute path?)
+                    out.push_str(&format!("<a href='/{0}/thread/{1}'>>>>/{0}/{1}</a>", &url, &num));
+                }
+                else {
+                    out.push_str(&line[start..right]);
+                }
+
+                left = right;
+            }
+        }
+
+        out.push_str(&line[left..]);
+
+        if quoted {
+            out.push_str("</span>");
+        }
+
+        out.push_str("\n");
     }
     out
 }
