@@ -1,3 +1,11 @@
+#[derive(Debug)]
+pub enum Feather {
+    None,
+    Trip(String),
+    Moderator,
+    Admin,
+}
+
 pub trait Post {
     fn board_id(&self) -> u64;
     fn set_post_num(&mut self, post_num: u64);
@@ -6,6 +14,8 @@ pub trait Post {
     fn ip(&self) -> &str;
     fn body(&self) -> &str;
     fn poster(&self) -> Option<&str>;
+    fn set_feather(&mut self, feather: Feather);
+    fn feather(&self) -> &Feather;
     fn file_id(&self) -> Option<&str>;
     fn file_name(&self) -> Option<&str>;
 }
@@ -18,41 +28,15 @@ pub struct Original {
     ip:          String,
     body:        String,
     poster:      Option<String>,
+    feather:     Feather,
     file_id:     Option<String>,
     file_name:   Option<String>,
     title:       Option<String>,
     bump_time:   u64,
     replies:     u16,
     img_replies: u16,
-}
-
-impl Original {
-    pub fn new(board_id: u64,
-               post_num: u64,
-               time: u64,
-               ip: String,
-               body: String,
-               poster: Option<String>,
-               file_id: Option<String>,
-               file_name: Option<String>,
-               title: Option<String>,
-               bump_time: u64,
-               replies: u16,
-               img_replies: u16)
-               -> Original {
-        Original { board_id,
-                   post_num,
-                   time,
-                   ip,
-                   body,
-                   poster,
-                   file_id,
-                   file_name,
-                   title,
-                   bump_time,
-                   replies,
-                   img_replies }
-    }
+    pinned:      bool,
+    archived:    bool,
 }
 
 #[derive(Debug)]
@@ -63,32 +47,10 @@ pub struct Reply {
     ip:        String,
     body:      String,
     poster:    Option<String>,
+    feather:   Feather,
     file_id:   Option<String>,
     file_name: Option<String>,
     orig_num:  u64,
-}
-
-impl Reply {
-    pub fn new(board_id: u64,
-               post_num: u64,
-               time: u64,
-               ip: String,
-               body: String,
-               poster: Option<String>,
-               file_id: Option<String>,
-               file_name: Option<String>,
-               orig_num: u64)
-               -> Reply {
-        Reply { board_id,
-                post_num,
-                time,
-                ip,
-                body,
-                poster,
-                file_id,
-                file_name,
-                orig_num }
-    }
 }
 
 impl Original {
@@ -122,6 +84,14 @@ impl Original {
 
     pub fn set_img_replies(&mut self, img_replies: u16) {
         self.img_replies = img_replies;
+    }
+
+    pub fn pinned(&self) -> bool {
+        self.pinned
+    }
+
+    pub fn set_pinned(&mut self, pinned: bool) {
+        self.pinned = pinned;
     }
 }
 
@@ -159,30 +129,23 @@ macro_rules! impl_post {
             }
 
             fn poster(&self) -> Option<&str> {
-                if let Some(ref p) = self.poster {
-                    Some(p)
-                }
-                else {
-                    None
-                }
+                self.poster.as_deref()
+            }
+
+            fn feather(&self) -> &Feather {
+                &self.feather
+            }
+
+            fn set_feather(&mut self, feather: Feather) {
+                self.feather = feather
             }
 
             fn file_id(&self) -> Option<&str> {
-                if let Some(ref f_id) = self.file_id {
-                    Some(f_id)
-                }
-                else {
-                    None
-                }
+                self.poster.as_deref()
             }
 
             fn file_name(&self) -> Option<&str> {
-                if let Some(ref f_name) = self.file_name {
-                    Some(f_name)
-                }
-                else {
-                    None
-                }
+                self.poster.as_deref()
             }
         })+
     }

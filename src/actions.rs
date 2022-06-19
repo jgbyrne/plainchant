@@ -38,18 +38,21 @@ impl Actions {
                                              title: Option<String>)
                                              -> Result<u64, util::PlainchantErr> {
         let cur_time = util::timestamp();
-        let original = site::Original::new(board_id,
-                                           0,
-                                           cur_time,
-                                           ip,
-                                           body,
-                                           poster,
-                                           Some(file_id),
-                                           Some(file_name),
-                                           title,
-                                           cur_time,
-                                           0,
-                                           0);
+        let original = site::Original { board_id,
+                                        post_num: 0,
+                                        time: cur_time,
+                                        ip,
+                                        body,
+                                        poster,
+                                        feather: site::Feather::None,
+                                        file_id: Some(file_id),
+                                        file_name: Some(file_name),
+                                        title,
+                                        bump_time: cur_time,
+                                        replies: 0,
+                                        img_replies: 0,
+                                        pinned: false,
+                                        archived: false };
         database.create_original(original)
     }
 
@@ -90,15 +93,16 @@ impl Actions {
         let mut orig = database.get_original(board_id, orig_num)?;
 
         let cur_time = util::timestamp();
-        let reply = site::Reply::new(board_id,
-                                     0, // post_num
-                                     cur_time,
-                                     ip,
-                                     body,
-                                     poster,
-                                     file_id.clone(),
-                                     file_name,
-                                     orig_num);
+        let reply = site::Reply { board_id,
+                                  post_num: 0,
+                                  time: cur_time,
+                                  ip,
+                                  body,
+                                  poster,
+                                  feather: site::Feather::None,
+                                  file_id: file_id.clone(),
+                                  file_name,
+                                  orig_num };
         let post_id = database.create_reply(reply)?;
         let new_reply_count = orig.replies() + 1;
 

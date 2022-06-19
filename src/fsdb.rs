@@ -156,6 +156,7 @@ impl FSDatabase {
         data.push_str(&format!("{}\n", orig.file_name().unwrap_or("")));
         data.push_str(&format!("{}\n", orig.replies()));
         data.push_str(&format!("{}\n", orig.img_replies()));
+        data.push_str(&format!("{}\n", orig.pinned()));
         data.push_str(&orig.body());
 
         data
@@ -319,18 +320,26 @@ impl db::Database for FSDatabase {
                 },
             };
 
+            let pinned = match lines[9].parse::<bool>() {
+                Ok(p) => p,
+                Err(_parse_err) => {
+                    return Err(db::static_err("Could not parse pinned status"));
+                },
+            };
+
             Ok(site::Original::new(board_id,
                                    post_num,
                                    timestamp,
                                    lines[2].to_string(),  // ip
-                                   lines[9..].join("\n"), // body
+                                   lines[10..].join("\n"), // body
                                    poster,
                                    Some(lines[5].to_string()), // file ID
                                    Some(lines[6].to_string()), // file name
                                    title,
                                    bump_time,
                                    replies,
-                                   img_replies))
+                                   img_replies,
+                                   pinned))
         }
     }
 

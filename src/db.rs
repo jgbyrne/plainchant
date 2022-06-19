@@ -17,6 +17,7 @@ pub trait Database {
     fn get_board(&self, board_id: u64) -> Result<site::Board, util::PlainchantErr>;
     fn get_catalog(&self, board_id: u64) -> Result<site::Catalog, util::PlainchantErr>;
     fn get_thread(&self, board_id: u64, post_num: u64) -> Result<Thread, util::PlainchantErr>;
+
     fn get_original(&self,
                     board_id: u64,
                     post_num: u64)
@@ -31,6 +32,9 @@ pub trait Database {
     fn create_reply(&mut self, reply: site::Reply) -> Result<u64, util::PlainchantErr>;
 
     fn update_original(&mut self, orig: site::Original) -> Result<(), util::PlainchantErr>;
+    fn update_reply(&mut self, reply: site::Reply) -> Result<(), util::PlainchantErr>;
 
     fn delete_original(&mut self, board_id: u64, post_num: u64) -> Result<(), util::PlainchantErr>;
+    fn delete_reply(&mut self, board_id: u64, post_num: u64) -> Result<(), util::PlainchantErr>;
+    fn delete_post(&mut self, board_id: u64, post_num: u64) -> Result<(), util::PlainchantErr>;
 }
