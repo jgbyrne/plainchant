@@ -7,6 +7,7 @@ mod fr;
 mod actions;
 mod format;
 mod fsdb;
+mod sqlite3db;
 mod fsfr;
 mod pages;
 mod server;
@@ -95,7 +96,8 @@ fn main() {
     let db = if let Some(path) = val(val(val(&conf_data, "db"), "fs"), "path").as_str() {
         match fs::canonicalize(path) {
             Ok(path) => {
-                fsdb::FSDatabase::from_root(&path.as_path()).unwrap_or_else(|err| err.die())
+                // fsdb::FSDatabase::from_root(&path.as_path()).unwrap_or_else(|err| err.die())
+                sqlite3db::Sqlite3Database::from_path(PathBuf::from("/var/lib/plainchant/db.sqlite3")).unwrap_or_else(|err| err.die())
             },
             Err(_) => init_die("Could not comprehend fsdb path"),
         }

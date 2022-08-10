@@ -1,7 +1,7 @@
 [package]
 name = "plainchant"
 version = "0.3.0"
-authors = ["Jack Byrne <jack.byrne@durham.ac.uk>"]
+authors = ["Jack Byrne <jgbyrne9@gmail.com>"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -18,3 +18,6 @@ image = "0.24"
 toml = "0.5"
 lazy_static = "1.4"
 regex = "1.5"
+rusqlite = "0.28"
+r2d2 = "0.8"
+r2d2_sqlite = "0.21"

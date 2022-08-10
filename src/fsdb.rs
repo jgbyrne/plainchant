@@ -133,6 +133,10 @@ impl FSDatabase {
                 file_id => Some(file_id.to_string()),
             };
 
+            unimplemented!();
+
+            /* 
+
             Ok(site::Reply::new(board_id,
                                 post_num,
                                 timestamp,
@@ -142,6 +146,7 @@ impl FSDatabase {
                                 file_id,
                                 Some(lines[4].to_string()), // file name
                                 orig_num))
+            */
         }
     }
 
@@ -327,6 +332,12 @@ impl db::Database for FSDatabase {
                 },
             };
 
+            unimplemented!();
+
+            /* 
+
+
+
             Ok(site::Original::new(board_id,
                                    post_num,
                                    timestamp,
@@ -340,6 +351,7 @@ impl db::Database for FSDatabase {
                                    replies,
                                    img_replies,
                                    pinned))
+            */
         }
     }
 
@@ -492,4 +504,8 @@ impl db::Database for FSDatabase {
             },
         }
     }
+
+    fn update_reply(&mut self, reply: site::Reply) -> Result<(), util::PlainchantErr> { unimplemented!() }
+    fn delete_reply(&mut self, board_id: u64, post_num: u64) -> Result<(), util::PlainchantErr> { unimplemented!() }
+    fn delete_post(&mut self, board_id: u64, post_num: u64) -> Result<(), util::PlainchantErr> { unimplemented!() }
 }
