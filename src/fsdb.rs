@@ -13,6 +13,7 @@ pub struct FSDatabase {
     root:        PathBuf,
     boards_path: PathBuf,
     boards:      Vec<(u64, String, String, u64, u16, u16)>,
+    // this slightly insane tuple is (id, url, title, next_post_num, post_cap, bump_limit)
 }
 
 impl FSDatabase {
@@ -176,7 +177,8 @@ impl db::Database for FSDatabase {
                                       url:        b.1.clone(),
                                       title:      b.2.clone(),
                                       post_cap:   b.4,
-                                      bump_limit: b.5, })
+                                      bump_limit: b.5,
+                                      next_post_num: b.3 })
                .collect())
     }
 
@@ -187,7 +189,8 @@ impl db::Database for FSDatabase {
                                         url:        b.1.clone(),
                                         title:      b.2.clone(),
                                         post_cap:   b.4,
-                                        bump_limit: b.5, });
+                                        bump_limit: b.5,
+                                        next_post_num: b.3 });
             }
         }
         Err(db::static_err("No such board!"))
