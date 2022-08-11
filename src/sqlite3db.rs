@@ -160,6 +160,21 @@ fn row_to_original<'stmt>(row: &rusqlite::Row<'stmt>) -> rusqlite::Result<site::
                         archived: row.get(15)? })
 }
 
+fn query_board<T: Deref<Target = rusqlite::Connection>>(
+    conn: &T,
+    board_id: u64)
+    -> Result<site::Board, PlainchantErr> {
+        let mut query = conn.prepare(
+                                     r#"
+            SELECT BoardId, Url, Title, PostCap, BumpLimit, NextPostNum FROM Boards
+                WHERE BoardId=?1;
+        "#,
+        )?;
+
+        query.query_row((board_id,), row_to_board)
+             .map_err(|e| e.into())
+}
+
 fn query_original<T: Deref<Target = rusqlite::Connection>>(
     conn: &T,
     board_id: u64,
@@ -241,15 +256,7 @@ impl db::Database for Sqlite3Database {
 
     fn get_board(&self, board_id: u64) -> Result<site::Board, PlainchantErr> {
         let conn = self.pool.get()?;
-        let mut query = conn.prepare(
-                                     r#"
-            SELECT BoardId, Url, Title, PostCap, BumpLimit, NextPostNum FROM Boards
-                WHERE BoardId=?1;
-        "#,
-        )?;
-
-        query.query_row((board_id,), row_to_board)
-             .map_err(|e| e.into())
+        query_board(&conn, board_id)
     }
 
     fn get_catalog(&self, board_id: u64) -> Result<site::Catalog, PlainchantErr> {
@@ -330,11 +337,12 @@ impl db::Database for Sqlite3Database {
     }
 
     fn create_original(&mut self, mut orig: site::Original) -> Result<u64, PlainchantErr> {
-        let mut board = self.get_board(orig.board_id)?;
+        let mut conn = self.pool.get()?;
+
+        let mut board = query_board(&conn, orig.board_id)?;
         orig.post_num = board.next_post_num;
         board.next_post_num += 1;
 
-        let mut conn = self.pool.get()?;
         let tx = conn.transaction()?;
         increment_next_post_num(&tx, orig.board_id)?;
 
@@ -383,7 +391,7 @@ impl db::Database for Sqlite3Database {
     fn create_reply(&mut self, mut reply: site::Reply) -> Result<u64, PlainchantErr> {
         let mut conn = self.pool.get()?;
 
-        let mut board = self.get_board(reply.board_id)?;
+        let mut board = query_board(&conn, reply.board_id)?;
         reply.post_num = board.next_post_num;
         board.next_post_num += 1;
 
