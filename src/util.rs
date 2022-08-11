@@ -27,4 +27,3 @@ pub fn timestamp() -> u64 {
                      .unwrap_or(Duration::from_secs(0))
                      .as_secs()
 }
-

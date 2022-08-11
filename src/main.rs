@@ -7,10 +7,10 @@ mod fr;
 mod actions;
 mod format;
 mod fsdb;
-mod sqlite3db;
 mod fsfr;
 mod pages;
 mod server;
+mod sqlite3db;
 mod template;
 
 use std::convert::TryInto;
@@ -32,7 +32,6 @@ pub struct Config {
     templates_dir: PathBuf,
     static_dir:    PathBuf,
 }
-
 
 fn val<'v_out, 'v_in: 'v_out>(v: &'v_in Value, k: &str) -> &'v_out Value {
     v.get(k)

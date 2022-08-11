@@ -1,17 +1,17 @@
-use std::collections::{HashSet, HashMap};
 use crate::util;
-use chrono::{Utc, TimeZone};
+use chrono::{TimeZone, Utc};
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::collections::{HashMap, HashSet};
 
 pub fn utc_timestamp(ts: u64) -> String {
     Utc.timestamp(ts.try_into().unwrap_or(0), 0).to_string()
 }
 
-const SECS_IN_YEAR : u64 = 365 * 24 * 60 * 60;
-const SECS_IN_DAY  : u64 = 24 * 60 * 60;
-const SECS_IN_HOUR : u64 = 60 * 60;
-const SECS_IN_MIN  : u64 = 60;
+const SECS_IN_YEAR: u64 = 365 * 24 * 60 * 60;
+const SECS_IN_DAY: u64 = 24 * 60 * 60;
+const SECS_IN_HOUR: u64 = 60 * 60;
+const SECS_IN_MIN: u64 = 60;
 
 pub fn humanise_time(ts: u64) -> String {
     let cur_ts = util::timestamp();
@@ -20,41 +20,38 @@ pub fn humanise_time(ts: u64) -> String {
     let years = delta / SECS_IN_YEAR;
     if years == 1 {
         return String::from("1 year ago");
-    }
-    else if years > 1 {
+    } else if years > 1 {
         return format!("{} years ago", years);
     }
 
-    let days  = delta / SECS_IN_DAY;
+    let days = delta / SECS_IN_DAY;
     if days == 1 {
         return String::from("1 day ago");
-    }
-    else if days > 1 {
+    } else if days > 1 {
         return format!("{} days ago", days);
     }
 
     let hours = delta / SECS_IN_HOUR;
     if hours == 1 {
         return String::from("1 hour ago");
-    }
-    else if hours > 1 {
+    } else if hours > 1 {
         return format!("{} hours ago", hours);
     }
 
     let mins = delta / SECS_IN_MIN;
     if mins == 1 {
         return String::from("1 minute ago");
-    }
-    else if mins > 1 {
+    } else if mins > 1 {
         return format!("{} minutes ago", mins);
     }
-    
+
     String::from("less than a minute ago")
 }
 
 pub fn annotate_post(body: &str,
-                    board_urls: &HashMap<String, u64>,
-                    posts: &HashSet<u64>) -> String {
+                     board_urls: &HashMap<String, u64>,
+                     posts: &HashSet<u64>)
+                     -> String {
     lazy_static! {
         // Match quoted (greentext) lines
         static ref QUOTED: Regex = Regex::new(r"^\s*>(?:$|[^>])").unwrap();
@@ -76,7 +73,10 @@ pub fn annotate_post(body: &str,
 
             out.push_str(&line[left..start]);
 
-            let local = match reply.get(3) { Some(_) => false, None => true };
+            let local = match reply.get(3) {
+                Some(_) => false,
+                None => true,
+            };
             if local {
                 let post_num = reply.get(2).unwrap();
                 let right = post_num.end();
@@ -90,14 +90,12 @@ pub fn annotate_post(body: &str,
                         false => format!("./{}", num),
                     };
                     out.push_str(&format!("<a href='{}'>>>{}</a>", &link, num));
-                }
-                else {
+                } else {
                     out.push_str(&line[start..right]);
                 }
 
-                left = right; 
-            }
-            else {
+                left = right;
+            } else {
                 let board_id = reply.get(3).unwrap();
                 let post_num = reply.get(4).unwrap();
                 let right = post_num.end();
@@ -109,8 +107,7 @@ pub fn annotate_post(body: &str,
                 if let (Ok(num), true) = (&parsed_post_num, board_exists) {
                     // TODO: This link might be flaky (should it really be absolute path?)
                     out.push_str(&format!("<a href='/{0}/thread/{1}'>>>>/{0}/{1}</a>", &url, &num));
-                }
-                else {
+                } else {
                     out.push_str(&line[start..right]);
                 }
 

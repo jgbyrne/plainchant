@@ -4,7 +4,7 @@ use bytes::Bytes;
 use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
-use std::io::{Read, Write, Cursor};
+use std::io::{Cursor, Read, Write};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
@@ -76,8 +76,7 @@ impl fr::FileRack for FSFileRack {
         let thumb_id = FSFileRack::thumb_id(file_id);
         let thumb_path = self.file_dir.join(&thumb_id);
         let mut thumb_buf: Vec<u8> = vec![];
-        if thumb.write_to(&mut Cursor::new(&mut thumb_buf),
-                          image::ImageFormat::Jpeg)
+        if thumb.write_to(&mut Cursor::new(&mut thumb_buf), image::ImageFormat::Jpeg)
                 .is_err()
         {
             return Err(fr::static_err("Could not write thumbnail buffer"));

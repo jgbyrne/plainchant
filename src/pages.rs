@@ -117,7 +117,9 @@ impl Pages {
                 values.insert(String::from("orig_post_num"),
                               thread.original.post_num().to_string());
                 values.insert(String::from("orig_post_body"),
-                              format::annotate_post(thread.original.body(), &self.board_urls, &posts));
+                              format::annotate_post(thread.original.body(),
+                                                    &self.board_urls,
+                                                    &posts));
 
                 let mut replies = vec![];
                 for reply in thread.replies {

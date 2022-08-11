@@ -136,7 +136,7 @@ impl FSDatabase {
 
             unimplemented!();
 
-            /* 
+            /*
 
             Ok(site::Reply::new(board_id,
                                 post_num,
@@ -173,24 +173,24 @@ impl db::Database for FSDatabase {
     fn get_boards(&self) -> Result<Vec<site::Board>, util::PlainchantErr> {
         Ok(self.boards
                .iter()
-               .map(|b| site::Board { id:         b.0,
-                                      url:        b.1.clone(),
-                                      title:      b.2.clone(),
-                                      post_cap:   b.4,
+               .map(|b| site::Board { id: b.0,
+                                      url: b.1.clone(),
+                                      title: b.2.clone(),
+                                      post_cap: b.4,
                                       bump_limit: b.5,
-                                      next_post_num: b.3 })
+                                      next_post_num: b.3, })
                .collect())
     }
 
     fn get_board(&self, board_id: u64) -> Result<site::Board, util::PlainchantErr> {
         for b in &self.boards {
             if b.0 == board_id {
-                return Ok(site::Board { id:         b.0,
-                                        url:        b.1.clone(),
-                                        title:      b.2.clone(),
-                                        post_cap:   b.4,
+                return Ok(site::Board { id: b.0,
+                                        url: b.1.clone(),
+                                        title: b.2.clone(),
+                                        post_cap: b.4,
                                         bump_limit: b.5,
-                                        next_post_num: b.3 });
+                                        next_post_num: b.3, });
             }
         }
         Err(db::static_err("No such board!"))
@@ -337,7 +337,7 @@ impl db::Database for FSDatabase {
 
             unimplemented!();
 
-            /* 
+            /*
 
 
 
@@ -508,7 +508,13 @@ impl db::Database for FSDatabase {
         }
     }
 
-    fn update_reply(&mut self, reply: site::Reply) -> Result<(), util::PlainchantErr> { unimplemented!() }
-    fn delete_reply(&mut self, board_id: u64, post_num: u64) -> Result<(), util::PlainchantErr> { unimplemented!() }
-    fn delete_post(&mut self, board_id: u64, post_num: u64) -> Result<(), util::PlainchantErr> { unimplemented!() }
+    fn update_reply(&mut self, reply: site::Reply) -> Result<(), util::PlainchantErr> {
+        unimplemented!()
+    }
+    fn delete_reply(&mut self, board_id: u64, post_num: u64) -> Result<(), util::PlainchantErr> {
+        unimplemented!()
+    }
+    fn delete_post(&mut self, board_id: u64, post_num: u64) -> Result<(), util::PlainchantErr> {
+        unimplemented!()
+    }
 }

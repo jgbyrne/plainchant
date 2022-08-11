@@ -10,10 +10,10 @@ use futures::StreamExt;
 
 use std::collections::HashMap;
 use std::convert::Infallible;
-use std::sync::{Arc, Mutex, MutexGuard};
 use std::net::SocketAddr;
+use std::sync::{Arc, Mutex, MutexGuard};
 
-use warp::http::{Response, StatusCode, header, HeaderValue};
+use warp::http::{header, HeaderValue, Response, StatusCode};
 use warp::multipart;
 use warp::reply;
 use warp::reply::Reply;
@@ -119,8 +119,7 @@ async fn create_submit<DB: 'static + db::Database + Sync + Send,
     db: Ptr<DB>,
     fr: Ptr<FR>)
     -> Result<reply::Response, warp::reject::Rejection> {
-    
-    let addr = addr.expect("create_submit: unwrap address failed (???)"); 
+    let addr = addr.expect("create_submit: unwrap address failed (???)");
 
     // Look-up Board URL to retrieve ID
     let board_id = {
@@ -235,8 +234,7 @@ async fn create_reply<DB: 'static + db::Database + Sync + Send,
     db: Ptr<DB>,
     fr: Ptr<FR>)
     -> Result<reply::Response, warp::reject::Rejection> {
-
-    let addr = addr.expect("create_reply: unwrap address failed (???)"); 
+    let addr = addr.expect("create_reply: unwrap address failed (???)");
 
     // Look-up board ID from URL
     let board_id = {
