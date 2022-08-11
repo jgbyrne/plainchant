@@ -38,29 +38,35 @@ struct StaticPages {
 fn error_page(sp: &StaticPages, message: &str) -> impl Reply {
     let mut vals = HashMap::new();
     vals.insert(String::from("message"), String::from(message));
-    reply::html(sp.error_tmpl
-                  .render(&Data::new(vals, HashMap::new(), HashMap::new())))
+    reply::html(
+        sp.error_tmpl
+            .render(&Data::new(vals, HashMap::new(), HashMap::new())),
+    )
 }
 
 // Produce a Message page Reply
 fn message_page(sp: &StaticPages, message: &str) -> impl Reply {
     let mut vals = HashMap::new();
     vals.insert(String::from("message"), String::from(message));
-    reply::html(sp.message_tmpl
-                  .render(&Data::new(vals, HashMap::new(), HashMap::new())))
+    reply::html(
+        sp.message_tmpl
+            .render(&Data::new(vals, HashMap::new(), HashMap::new())),
+    )
 }
 
 // Lock an Arc<Mutex<>>, returning a rendered error page if this fails
-fn acquire_lock<'l, T>(lock: &'l Ptr<T>,
-                       sp: &StaticPages,
-                       name: &str)
-                       -> Result<MutexGuard<'l, T>, reply::Response> {
+fn acquire_lock<'l, T>(
+    lock: &'l Ptr<T>,
+    sp: &StaticPages,
+    name: &str,
+) -> Result<MutexGuard<'l, T>, reply::Response> {
     match lock.lock() {
         Ok(guard) => Ok(guard),
-        Err(_) => Err(warp::reply::with_status(error_page(sp,
-                                                          &format!("Could not acquire lock: {}",
-                                                                   name)),
-                                               StatusCode::INTERNAL_SERVER_ERROR).into_response()),
+        Err(_) => Err(warp::reply::with_status(
+            error_page(sp, &format!("Could not acquire lock: {}", name)),
+            StatusCode::INTERNAL_SERVER_ERROR,
+        )
+        .into_response()),
     }
 }
 
@@ -108,8 +114,10 @@ async fn part_string(part: multipart::Part, buf_size: usize) -> Option<String> {
 }
 
 // Handle multipart POST submission of new thread
-async fn create_submit<DB: 'static + db::Database + Sync + Send,
-                       FR: 'static + fr::FileRack + Sync + Send>(
+async fn create_submit<
+    DB: 'static + db::Database + Sync + Send,
+    FR: 'static + fr::FileRack + Sync + Send,
+>(
     board: String,
     mut data: multipart::FormData,
     addr: Option<SocketAddr>,
@@ -117,8 +125,8 @@ async fn create_submit<DB: 'static + db::Database + Sync + Send,
     p: Ptr<pages::Pages>,
     a: Ptr<actions::Actions>,
     db: Ptr<DB>,
-    fr: Ptr<FR>)
-    -> Result<reply::Response, warp::reject::Rejection> {
+    fr: Ptr<FR>,
+) -> Result<reply::Response, warp::reject::Rejection> {
     let addr = addr.expect("create_submit: unwrap address failed (???)");
 
     // Look-up Board URL to retrieve ID
@@ -189,7 +197,13 @@ async fn create_submit<DB: 'static + db::Database + Sync + Send,
 
     let file_id = match actions.upload_file(rack, file) {
         Ok(file_id) => file_id,
-        Err(_) => return Ok(message_page(sp.as_ref(), "File upload failed - filetype may not be supported").into_response()),
+        Err(_) => {
+            return Ok(message_page(
+                sp.as_ref(),
+                "File upload failed - filetype may not be supported",
+            )
+            .into_response())
+        },
     };
 
     // Submit the post to the Database
@@ -200,30 +214,37 @@ async fn create_submit<DB: 'static + db::Database + Sync + Send,
     };
     let database = &mut *dg;
 
-    let sub_res = actions.submit_original(database,
-                                          board_id,
-                                          addr.ip().to_string(),
-                                          body.unwrap_or_else(|| String::from("")),
-                                          Some(name.unwrap_or_else(|| String::from(""))),
-                                          file_id,
-                                          String::new(),
-                                          Some(title.unwrap_or_else(|| String::from(""))));
+    let sub_res = actions.submit_original(
+        database,
+        board_id,
+        addr.ip().to_string(),
+        body.unwrap_or_else(|| String::from("")),
+        Some(name.unwrap_or_else(|| String::from(""))),
+        file_id,
+        String::new(),
+        Some(title.unwrap_or_else(|| String::from(""))),
+    );
 
     // Handle the outcome of the submission
     match sub_res {
-        Ok(_) => {
-            match actions.enforce_post_cap(database, rack, board_id) {
-                Ok(_) => Ok(warp::redirect(format!("/{}/catalog", board).parse::<Uri>().expect("Could not parse catalog Uri")).into_response()),
-                Err(_) => Err(warp::reject()),
-            }
+        Ok(_) => match actions.enforce_post_cap(database, rack, board_id) {
+            Ok(_) => Ok(warp::redirect(
+                format!("/{}/catalog", board)
+                    .parse::<Uri>()
+                    .expect("Could not parse catalog Uri"),
+            )
+            .into_response()),
+            Err(_) => Err(warp::reject()),
         },
         Err(_) => Err(warp::reject()),
     }
 }
 
 // Handle multipart submission of thread reply
-async fn create_reply<DB: 'static + db::Database + Sync + Send,
-                      FR: 'static + fr::FileRack + Sync + Send>(
+async fn create_reply<
+    DB: 'static + db::Database + Sync + Send,
+    FR: 'static + fr::FileRack + Sync + Send,
+>(
     board: String,
     thread: u64,
     mut data: multipart::FormData,
@@ -232,8 +253,8 @@ async fn create_reply<DB: 'static + db::Database + Sync + Send,
     p: Ptr<pages::Pages>,
     a: Ptr<actions::Actions>,
     db: Ptr<DB>,
-    fr: Ptr<FR>)
-    -> Result<reply::Response, warp::reject::Rejection> {
+    fr: Ptr<FR>,
+) -> Result<reply::Response, warp::reject::Rejection> {
     let addr = addr.expect("create_reply: unwrap address failed (???)");
 
     // Look-up board ID from URL
@@ -293,7 +314,13 @@ async fn create_reply<DB: 'static + db::Database + Sync + Send,
 
             match actions.upload_file(rack, file) {
                 Ok(file_id) => Some(file_id),
-                Err(_) => return Ok(message_page(sp.as_ref(), "File upload failed - filetype may not be supported").into_response()),
+                Err(_) => {
+                    return Ok(message_page(
+                        sp.as_ref(),
+                        "File upload failed - filetype may not be supported",
+                    )
+                    .into_response())
+                },
             }
         },
         FormBuffer::Overflow => {
@@ -311,35 +338,41 @@ async fn create_reply<DB: 'static + db::Database + Sync + Send,
         };
         let database = &mut *dg;
 
-        actions.submit_reply(database,
-                             board_id,
-                             addr.ip().to_string(),
-                             body.unwrap_or_else(|| String::from("")),
-                             Some(name.unwrap_or_else(|| String::from(""))),
-                             file_id,
-                             Some(String::new()),
-                             thread)
+        actions.submit_reply(
+            database,
+            board_id,
+            addr.ip().to_string(),
+            body.unwrap_or_else(|| String::from("")),
+            Some(name.unwrap_or_else(|| String::from(""))),
+            file_id,
+            Some(String::new()),
+            thread,
+        )
     };
 
     // Handle outcome of submission
     match sub_res {
-        Ok(_) => {
-            Ok(warp::redirect(format!("/{}/thread/{}", board, thread)
-                                        .parse::<Uri>()
-                                        .expect("Could not parse thread Uri"))
-                     .into_response())
-        },
+        Ok(_) => Ok(warp::redirect(
+            format!("/{}/thread/{}", board, thread)
+                .parse::<Uri>()
+                .expect("Could not parse thread Uri"),
+        )
+        .into_response()),
         Err(_) => Err(warp::reject()),
     }
 }
 
 // Some handlers for common responses
 
-async fn not_found(sp: Arc<StaticPages>,
-                   _rej: warp::reject::Rejection)
-                   -> Result<reply::Response, Infallible> {
-    Ok(warp::reply::with_status(message_page(sp.as_ref(), "404 Not Found"),
-                                StatusCode::NOT_FOUND).into_response())
+async fn not_found(
+    sp: Arc<StaticPages>,
+    _rej: warp::reject::Rejection,
+) -> Result<reply::Response, Infallible> {
+    Ok(warp::reply::with_status(
+        message_page(sp.as_ref(), "404 Not Found"),
+        StatusCode::NOT_FOUND,
+    )
+    .into_response())
 }
 
 async fn index_redir(_rej: warp::reject::Rejection) -> Result<reply::Response, Infallible> {
@@ -348,22 +381,23 @@ async fn index_redir(_rej: warp::reject::Rejection) -> Result<reply::Response, I
 
 // Main server method - using tokio runtime
 #[tokio::main]
-pub async fn serve<DB: 'static + db::Database + Sync + Send,
-                   FR: 'static + fr::FileRack + Sync + Send>(
+pub async fn serve<
+    DB: 'static + db::Database + Sync + Send,
+    FR: 'static + fr::FileRack + Sync + Send,
+>(
     config: Config,
     pages: pages::Pages,
     actions: actions::Actions,
     database: DB,
-    file_rack: FR) {
+    file_rack: FR,
+) {
     // Move static pages into a filter
-    let sp = StaticPages { error_tmpl:
-                               Template::from_file(config.templates_dir
-                                                         .join("error.html.tmpl")
-                                                         .as_path()).unwrap_or_else(|err| err.die()),
-                           message_tmpl:
-                               Template::from_file(config.templates_dir
-                                                         .join("message.html.tmpl")
-                                                         .as_path()).unwrap_or_else(|err| err.die()), };
+    let sp = StaticPages {
+        error_tmpl:   Template::from_file(config.templates_dir.join("error.html.tmpl").as_path())
+            .unwrap_or_else(|err| err.die()),
+        message_tmpl: Template::from_file(config.templates_dir.join("message.html.tmpl").as_path())
+            .unwrap_or_else(|err| err.die()),
+    };
 
     let sp = Arc::new(sp);
     let sp_retain = sp.clone();
@@ -386,39 +420,51 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
     let file_rack = warp::any().map(move || file_rack.clone());
 
     // Serve catalog pages
-    let catalog =
-        warp::path!(String / "catalog").and(static_pages.clone())
-                                       .and(pages.clone())
-                                       .and(database.clone())
-                                       .map(|board: String, sp: Arc<StaticPages>, p: Ptr<pages::Pages>, db: Ptr<DB>| {
-                                           // Acquire lock on Pages
-                                           let p_lock = acquire_lock(&p, sp.as_ref(), "Pages");
-                                           let mut pg = match p_lock {
-                                               Ok(pg) => pg,
-                                               Err(r) => return Ok(r),
-                                           };
-                                           let pages = &mut *pg;
+    let catalog = warp::path!(String / "catalog")
+        .and(static_pages.clone())
+        .and(pages.clone())
+        .and(database.clone())
+        .map(
+            |board: String, sp: Arc<StaticPages>, p: Ptr<pages::Pages>, db: Ptr<DB>| {
+                // Acquire lock on Pages
+                let p_lock = acquire_lock(&p, sp.as_ref(), "Pages");
+                let mut pg = match p_lock {
+                    Ok(pg) => pg,
+                    Err(r) => return Ok(r),
+                };
+                let pages = &mut *pg;
 
-                                           // Retrieve Catalog page for board
-                                           if let Some(board_id) = pages.board_url_to_id(&board) {
-                                               let db_lock = acquire_lock(&db, sp.as_ref(), "Database");
-                                               let mut dg = match db_lock {
-                                                   Ok(dg) => dg,
-                                                   Err(r) => return Ok(r),
-                                               };
-                                               let database = &mut *dg;
+                // Retrieve Catalog page for board
+                if let Some(board_id) = pages.board_url_to_id(&board) {
+                    let db_lock = acquire_lock(&db, sp.as_ref(), "Database");
+                    let mut dg = match db_lock {
+                        Ok(dg) => dg,
+                        Err(r) => return Ok(r),
+                    };
+                    let database = &mut *dg;
 
-                                               let page_ref = pages::PageRef::Catalog(board_id);
-                                               let page = pages.get_page(database, &page_ref)
-                                                               .expect("Could not access catalog for extant board")
-                                                               .page_text
-                                                               .to_string();
+                    let page_ref = pages::PageRef::Catalog(board_id);
+                    let page = pages
+                        .get_page(database, &page_ref)
+                        .expect("Could not access catalog for extant board")
+                        .page_text
+                        .to_string();
 
-                                               Ok(reply::with_header(reply::html(page), "Content-Type", "text/html; charset=utf-8").into_response())
-                                           } else {
-                                               Ok(warp::reply::with_status(message_page(sp.as_ref(), "No such board"), StatusCode::NOT_FOUND).into_response())
-                                           }
-                                       });
+                    Ok(reply::with_header(
+                        reply::html(page),
+                        "Content-Type",
+                        "text/html; charset=utf-8",
+                    )
+                    .into_response())
+                } else {
+                    Ok(warp::reply::with_status(
+                        message_page(sp.as_ref(), "No such board"),
+                        StatusCode::NOT_FOUND,
+                    )
+                    .into_response())
+                }
+            },
+        );
 
     // Serve thread pages
     let thread = warp::path!(String / "thread" / u64)
@@ -426,170 +472,224 @@ pub async fn serve<DB: 'static + db::Database + Sync + Send,
         .and(pages.clone())
         .and(database.clone())
         .map(
-            |board: String, post_num: u64, sp: Arc<StaticPages>, p: Ptr<pages::Pages>, db: Arc<Mutex<DB>>| {
-               // Acquire lock on Pages
-               let p_lock = acquire_lock(&p, sp.as_ref(), "Pages");
-               let mut pg = match p_lock {
-                   Ok(pg) => pg,
-                   Err(r) => return Ok(r),
-               };
-               let pages = &mut *pg;
+            |board: String,
+             post_num: u64,
+             sp: Arc<StaticPages>,
+             p: Ptr<pages::Pages>,
+             db: Arc<Mutex<DB>>| {
+                // Acquire lock on Pages
+                let p_lock = acquire_lock(&p, sp.as_ref(), "Pages");
+                let mut pg = match p_lock {
+                    Ok(pg) => pg,
+                    Err(r) => return Ok(r),
+                };
+                let pages = &mut *pg;
 
-               // Retrieve Thread
-               if let Some(board_id) = pages.board_url_to_id(&board) {
-                   let db_lock = acquire_lock(&db, sp.as_ref(), "Database");
-                   let mut dg = match db_lock {
-                       Ok(dg) => dg,
-                       Err(r) => return Ok(r),
-                   };
-                   let database = &mut *dg;
+                // Retrieve Thread
+                if let Some(board_id) = pages.board_url_to_id(&board) {
+                    let db_lock = acquire_lock(&db, sp.as_ref(), "Database");
+                    let mut dg = match db_lock {
+                        Ok(dg) => dg,
+                        Err(r) => return Ok(r),
+                    };
+                    let database = &mut *dg;
 
-                   let page_ref = pages::PageRef::Thread(board_id, post_num);
-                   let page = pages.get_page(database, &page_ref);
+                    let page_ref = pages::PageRef::Thread(board_id, post_num);
+                    let page = pages.get_page(database, &page_ref);
 
-                   match page {
-                       Ok(page) => Ok(reply::with_header(reply::html(page.page_text.to_string()), "Content-Type", "text/html; charset=utf-8").into_response()),
-                       Err(_) => {
-                           // The board exists but the OP does not; let's try and get it as a reply
-                           let repl = database.get_reply(board_id, post_num);
-                           match repl {
-                               Ok(repl) => {
-                                   // We don't use warp::redirect because it requires a value
-                                   // of type http::Uri, and that type does not support anchors.
-                                   // Thus we need build our own redirect reply.
-                                   let uri = format!("/{}/thread/{}#{}", &board, repl.orig_num(), post_num);
-                                   Ok(warp::reply::with_header(StatusCode::MOVED_PERMANENTLY,
-                                                               header::LOCATION,
-                                                               HeaderValue::from_str(&uri).unwrap()).into_response())
-                               },
-                               Err(_) => Ok(warp::reply::with_status(message_page(sp.as_ref(), "No such thread"), StatusCode::NOT_FOUND).into_response()),
-                           }
-                       },
-                   }
-
-               } else {
-                   Ok(warp::reply::with_status(message_page(sp.as_ref(), "No such board"), StatusCode::NOT_FOUND).into_response())
-               }
-
+                    match page {
+                        Ok(page) => Ok(reply::with_header(
+                            reply::html(page.page_text.to_string()),
+                            "Content-Type",
+                            "text/html; charset=utf-8",
+                        )
+                        .into_response()),
+                        Err(_) => {
+                            // The board exists but the OP does not; let's try and get it as a reply
+                            let repl = database.get_reply(board_id, post_num);
+                            match repl {
+                                Ok(repl) => {
+                                    // We don't use warp::redirect because it requires a value
+                                    // of type http::Uri, and that type does not support anchors.
+                                    // Thus we need build our own redirect reply.
+                                    let uri = format!(
+                                        "/{}/thread/{}#{}",
+                                        &board,
+                                        repl.orig_num(),
+                                        post_num
+                                    );
+                                    Ok(warp::reply::with_header(
+                                        StatusCode::MOVED_PERMANENTLY,
+                                        header::LOCATION,
+                                        HeaderValue::from_str(&uri).unwrap(),
+                                    )
+                                    .into_response())
+                                },
+                                Err(_) => Ok(warp::reply::with_status(
+                                    message_page(sp.as_ref(), "No such thread"),
+                                    StatusCode::NOT_FOUND,
+                                )
+                                .into_response()),
+                            }
+                        },
+                    }
+                } else {
+                    Ok(warp::reply::with_status(
+                        message_page(sp.as_ref(), "No such board"),
+                        StatusCode::NOT_FOUND,
+                    )
+                    .into_response())
+                }
             },
         );
 
     // Serve thread creation page
-    let create =
-        warp::path!(String / "create").and(static_pages.clone())
-                                      .and(pages.clone())
-                                      .and(database.clone())
-                                      .map(|board: String, sp: Arc<StaticPages>, p: Ptr<pages::Pages>, db: Ptr<DB>| {
-                                           // Acquire lock on Pages
-                                           let p_lock = acquire_lock(&p, sp.as_ref(), "Pages");
-                                           let mut pg = match p_lock {
-                                               Ok(pg) => pg,
-                                               Err(r) => return Ok(r),
-                                           };
-                                           let pages = &mut *pg;
+    let create = warp::path!(String / "create")
+        .and(static_pages.clone())
+        .and(pages.clone())
+        .and(database.clone())
+        .map(
+            |board: String, sp: Arc<StaticPages>, p: Ptr<pages::Pages>, db: Ptr<DB>| {
+                // Acquire lock on Pages
+                let p_lock = acquire_lock(&p, sp.as_ref(), "Pages");
+                let mut pg = match p_lock {
+                    Ok(pg) => pg,
+                    Err(r) => return Ok(r),
+                };
+                let pages = &mut *pg;
 
-                                           // Retrieve thread creation page for board
-                                           if let Some(board_id) = pages.board_url_to_id(&board) {
-                                              let db_lock = acquire_lock(&db, sp.as_ref(), "Database");
-                                              let mut dg = match db_lock {
-                                                  Ok(dg) => dg,
-                                                  Err(r) => return Ok(r),
-                                              };
-                                              let database = &mut *dg;
+                // Retrieve thread creation page for board
+                if let Some(board_id) = pages.board_url_to_id(&board) {
+                    let db_lock = acquire_lock(&db, sp.as_ref(), "Database");
+                    let mut dg = match db_lock {
+                        Ok(dg) => dg,
+                        Err(r) => return Ok(r),
+                    };
+                    let database = &mut *dg;
 
-                                              let page_ref = pages::PageRef::Create(board_id);
-                                              let page = pages.get_page(database, &page_ref)
-                                                              .expect("Could not access thread creation page for extant board")
-                                                              .page_text
-                                                              .to_string();
+                    let page_ref = pages::PageRef::Create(board_id);
+                    let page = pages
+                        .get_page(database, &page_ref)
+                        .expect("Could not access thread creation page for extant board")
+                        .page_text
+                        .to_string();
 
-                                              Ok(reply::with_header(reply::html(page), "Content-Type", "text/html; charset=utf-8").into_response())
-                                           } else {
-                                              Ok(warp::reply::with_status(message_page(sp.as_ref(), "No such board"), StatusCode::NOT_FOUND).into_response())
-                                           }
-                                      });
+                    Ok(reply::with_header(
+                        reply::html(page),
+                        "Content-Type",
+                        "text/html; charset=utf-8",
+                    )
+                    .into_response())
+                } else {
+                    Ok(warp::reply::with_status(
+                        message_page(sp.as_ref(), "No such board"),
+                        StatusCode::NOT_FOUND,
+                    )
+                    .into_response())
+                }
+            },
+        );
 
     // Serve submit action
-    let submit =
-        warp::path!(String / "submit").and(warp::multipart::form().max_length(FORM_MAX_LENGTH)
-                                                                  .and(warp::addr::remote())
-                                                                  .and(static_pages.clone())
-                                                                  .and(pages.clone())
-                                                                  .and(actions.clone())
-                                                                  .and(database.clone())
-                                                                  .and(file_rack.clone()))
-                                      .and_then(create_submit);
+    let submit = warp::path!(String / "submit")
+        .and(
+            warp::multipart::form()
+                .max_length(FORM_MAX_LENGTH)
+                .and(warp::addr::remote())
+                .and(static_pages.clone())
+                .and(pages.clone())
+                .and(actions.clone())
+                .and(database.clone())
+                .and(file_rack.clone()),
+        )
+        .and_then(create_submit);
 
     // Serve reply action
-    let reply =
-        warp::path!(String / "reply" / u64).and(warp::multipart::form().max_length(FORM_MAX_LENGTH)
-                                                                       .and(warp::addr::remote())
-                                                                       .and(static_pages.clone())
-                                                                       .and(pages.clone())
-                                                                       .and(actions.clone())
-                                                                       .and(database.clone())
-                                                                       .and(file_rack.clone()))
-                                           .and_then(create_reply);
+    let reply = warp::path!(String / "reply" / u64)
+        .and(
+            warp::multipart::form()
+                .max_length(FORM_MAX_LENGTH)
+                .and(warp::addr::remote())
+                .and(static_pages.clone())
+                .and(pages.clone())
+                .and(actions.clone())
+                .and(database.clone())
+                .and(file_rack.clone()),
+        )
+        .and_then(create_reply);
 
     // Serve rack files
-    let files = warp::path!("files" / String).and(static_pages.clone()).and(file_rack.clone())
-                                             .map(|file_id: String, sp: Arc<StaticPages>, fr: Ptr<FR>| {
-                                                 // Lock file rack
-                                                 let fr_lock = acquire_lock(&fr, sp.as_ref(), "FileRack");
-                                                 let mut rg = match fr_lock {
-                                                     Ok(rg) => rg,
-                                                     Err(r) => return Ok(r),
-                                                 };
-                                                 let file_rack = &mut *rg;
+    let files = warp::path!("files" / String)
+        .and(static_pages.clone())
+        .and(file_rack.clone())
+        .map(|file_id: String, sp: Arc<StaticPages>, fr: Ptr<FR>| {
+            // Lock file rack
+            let fr_lock = acquire_lock(&fr, sp.as_ref(), "FileRack");
+            let mut rg = match fr_lock {
+                Ok(rg) => rg,
+                Err(r) => return Ok(r),
+            };
+            let file_rack = &mut *rg;
 
-                                                 // Retrieve file from rack
-                                                 match file_rack.get_file(&file_id) {
-                                                    Ok(file) => Ok(Response::builder()
-                                                                    .header("Cache-Control", "public, max-age=604800, immutable")
-                                                                    .body(file).expect("Failed to build file response").into_response()),
-                                                    Err(_err) => Ok(Response::builder()
-                                                                    .status(404)
-                                                                    .body(Bytes::from("Not Found"))
-                                                                    .expect("Failed to build 404 response").into_response()),
-                                                 }
-                                             });
+            // Retrieve file from rack
+            match file_rack.get_file(&file_id) {
+                Ok(file) => Ok(Response::builder()
+                    .header("Cache-Control", "public, max-age=604800, immutable")
+                    .body(file)
+                    .expect("Failed to build file response")
+                    .into_response()),
+                Err(_err) => Ok(Response::builder()
+                    .status(404)
+                    .body(Bytes::from("Not Found"))
+                    .expect("Failed to build 404 response")
+                    .into_response()),
+            }
+        });
 
     // Serve thumbnail files
     // This is a bit more code duplication than I'd like, but
     // it's preferable to the wrong abstraction :-)
-    let thumbnails = warp::path!("thumbnails" / String).and(static_pages.clone()).and(file_rack.clone())
-                                             .map(|file_id: String, sp: Arc<StaticPages>, fr: Ptr<FR>| {
-                                                 // Lock file rack
-                                                 let fr_lock = acquire_lock(&fr, sp.as_ref(), "FileRack");
-                                                 let mut rg = match fr_lock {
-                                                     Ok(rg) => rg,
-                                                     Err(r) => return Ok(r),
-                                                 };
-                                                 let file_rack = &mut *rg;
+    let thumbnails = warp::path!("thumbnails" / String)
+        .and(static_pages.clone())
+        .and(file_rack.clone())
+        .map(|file_id: String, sp: Arc<StaticPages>, fr: Ptr<FR>| {
+            // Lock file rack
+            let fr_lock = acquire_lock(&fr, sp.as_ref(), "FileRack");
+            let mut rg = match fr_lock {
+                Ok(rg) => rg,
+                Err(r) => return Ok(r),
+            };
+            let file_rack = &mut *rg;
 
-                                                 // Retrieve file thumbnail from rack
-                                                 match file_rack.get_file_thumbnail(&file_id) {
-                                                    Ok(file) => Ok(Response::builder()
-                                                                    .header("Cache-Control", "public, max-age=604800, immutable")
-                                                                    .body(file).expect("Failed to build file response").into_response()),
-                                                    Err(_err) => Ok(Response::builder()
-                                                                    .status(404)
-                                                                    .body(Bytes::from("Not Found"))
-                                                                    .expect("Failed to build 404 response").into_response()),
-                                                 }
-                                             });
+            // Retrieve file thumbnail from rack
+            match file_rack.get_file_thumbnail(&file_id) {
+                Ok(file) => Ok(Response::builder()
+                    .header("Cache-Control", "public, max-age=604800, immutable")
+                    .body(file)
+                    .expect("Failed to build file response")
+                    .into_response()),
+                Err(_err) => Ok(Response::builder()
+                    .status(404)
+                    .body(Bytes::from("Not Found"))
+                    .expect("Failed to build 404 response")
+                    .into_response()),
+            }
+        });
 
     // Serve static resources
     let stat = warp::path("static").and(warp::fs::dir(config.static_dir));
 
     // Bundle routes together and run
-    let routes = warp::get().and(stat.or(files)
-                                     .or(thumbnails)
-                                     .or(catalog)
-                                     .or(thread)
-                                     .or(create))
-                            .or(warp::post().and(submit.or(reply).unify().recover(index_redir)))
-                            .recover(move |rej| not_found(sp_retain.clone(), rej));
+    let routes = warp::get()
+        .and(
+            stat.or(files)
+                .or(thumbnails)
+                .or(catalog)
+                .or(thread)
+                .or(create),
+        )
+        .or(warp::post().and(submit.or(reply).unify().recover(index_redir)))
+        .recover(move |rej| not_found(sp_retain.clone(), rej));
 
     warp::serve(routes).run(config.addr).await;
 }

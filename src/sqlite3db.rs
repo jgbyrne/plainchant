@@ -13,15 +13,19 @@ use std::path::{Path, PathBuf};
 
 impl From<rusqlite::Error> for PlainchantErr {
     fn from(err: rusqlite::Error) -> Self {
-        PlainchantErr { msg:    format!("{}", err),
-                        origin: util::ErrOrigin::Database, }
+        PlainchantErr {
+            msg:    format!("{}", err),
+            origin: util::ErrOrigin::Database,
+        }
     }
 }
 
 impl From<r2d2::Error> for PlainchantErr {
     fn from(err: r2d2::Error) -> Self {
-        PlainchantErr { msg:    format!("{}", err),
-                        origin: util::ErrOrigin::Database, }
+        PlainchantErr {
+            msg:    format!("{}", err),
+            origin: util::ErrOrigin::Database,
+        }
     }
 }
 
@@ -62,7 +66,7 @@ impl Sqlite3Database {
         let conn = pool.get()?;
 
         conn.execute(
-                     r#"
+            r#"
             CREATE TABLE IF NOT EXISTS Boards (
                 BoardId     INTEGER  PRIMARY KEY,
                 Url         TEXT     NOT NULL,
@@ -72,11 +76,11 @@ impl Sqlite3Database {
                 NextPostNum INTEGER  NOT NULL
             );
         "#,
-                     (),
+            (),
         )?;
 
         conn.execute(
-                     r#"
+            r#"
             CREATE TABLE IF NOT EXISTS Posts (
                 BoardId     INTEGER  NUT NULL,
                 PostNum     INTEGER  NOT NULL,
@@ -92,11 +96,11 @@ impl Sqlite3Database {
                 PRIMARY KEY(BoardId, PostNum)
             );
         "#,
-                     (),
+            (),
         )?;
 
         conn.execute(
-                     r#"
+            r#"
             CREATE TABLE IF NOT EXISTS Originals (
                 BoardId     INTEGER  NUT NULL,
                 PostNum     INTEGER  NOT NULL,
@@ -109,7 +113,7 @@ impl Sqlite3Database {
                 PRIMARY KEY(BoardId, PostNum)
             );
         "#,
-                     (),
+            (),
         )?;
 
         Ok(Sqlite3Database { path, pool })
@@ -117,70 +121,78 @@ impl Sqlite3Database {
 }
 
 fn row_to_board<'stmt>(row: &rusqlite::Row<'stmt>) -> rusqlite::Result<site::Board> {
-    Ok(site::Board { id: row.get(0)?,
-                     url: row.get(1)?,
-                     title: row.get(2)?,
-                     post_cap: row.get(3)?,
-                     bump_limit: row.get(4)?,
-                     next_post_num: row.get(5)?, })
+    Ok(site::Board {
+        id: row.get(0)?,
+        url: row.get(1)?,
+        title: row.get(2)?,
+        post_cap: row.get(3)?,
+        bump_limit: row.get(4)?,
+        next_post_num: row.get(5)?,
+    })
 }
 
 fn row_to_reply<'stmt>(row: &rusqlite::Row<'stmt>) -> rusqlite::Result<site::Reply> {
     let feather = decode_feather(row.get::<usize, Option<u16>>(6)?, row.get(7)?);
 
-    Ok(site::Reply { board_id: row.get(0)?,
-                     post_num: row.get(1)?,
-                     time: row.get(2)?,
-                     ip: row.get(3)?,
-                     poster: row.get(4)?,
-                     body: row.get(5)?,
-                     feather,
-                     file_id: row.get(8)?,
-                     file_name: row.get(9)?,
-                     orig_num: row.get::<usize, Option<u64>>(10)?.unwrap_or(0) })
+    Ok(site::Reply {
+        board_id: row.get(0)?,
+        post_num: row.get(1)?,
+        time: row.get(2)?,
+        ip: row.get(3)?,
+        poster: row.get(4)?,
+        body: row.get(5)?,
+        feather,
+        file_id: row.get(8)?,
+        file_name: row.get(9)?,
+        orig_num: row.get::<usize, Option<u64>>(10)?.unwrap_or(0),
+    })
 }
 
 fn row_to_original<'stmt>(row: &rusqlite::Row<'stmt>) -> rusqlite::Result<site::Original> {
     let feather = decode_feather(row.get::<usize, Option<u16>>(6)?, row.get(7)?);
 
-    Ok(site::Original { board_id: row.get(0)?,
-                        post_num: row.get(1)?,
-                        time: row.get(2)?,
-                        ip: row.get(3)?,
-                        poster: row.get(4)?,
-                        body: row.get(5)?,
-                        feather,
-                        file_id: row.get(8)?,
-                        file_name: row.get(9)?,
-                        title: row.get(10)?,
-                        bump_time: row.get(11)?,
-                        replies: row.get(12)?,
-                        img_replies: row.get(13)?,
-                        pinned: row.get(14)?,
-                        archived: row.get(15)? })
+    Ok(site::Original {
+        board_id: row.get(0)?,
+        post_num: row.get(1)?,
+        time: row.get(2)?,
+        ip: row.get(3)?,
+        poster: row.get(4)?,
+        body: row.get(5)?,
+        feather,
+        file_id: row.get(8)?,
+        file_name: row.get(9)?,
+        title: row.get(10)?,
+        bump_time: row.get(11)?,
+        replies: row.get(12)?,
+        img_replies: row.get(13)?,
+        pinned: row.get(14)?,
+        archived: row.get(15)?,
+    })
 }
 
-fn query_board<T: Deref<Target = rusqlite::Connection>>(conn: &T,
-                                                        board_id: u64)
-                                                        -> Result<site::Board, PlainchantErr> {
+fn query_board<T: Deref<Target = rusqlite::Connection>>(
+    conn: &T,
+    board_id: u64,
+) -> Result<site::Board, PlainchantErr> {
     let mut query = conn.prepare(
-                                 r#"
+        r#"
             SELECT BoardId, Url, Title, PostCap, BumpLimit, NextPostNum FROM Boards
                 WHERE BoardId=?1;
         "#,
     )?;
 
-    query.query_row((board_id,), row_to_board)
-         .map_err(|e| e.into())
+    query
+        .query_row((board_id,), row_to_board)
+        .map_err(|e| e.into())
 }
 
 fn query_original<T: Deref<Target = rusqlite::Connection>>(
     conn: &T,
     board_id: u64,
-    post_num: u64)
-    -> Result<site::Original, PlainchantErr> {
+    post_num: u64,
+) -> Result<site::Original, PlainchantErr> {
     let mut query = conn.prepare(
-                                 r#"
+        r#"
         SELECT p.BoardId, p.PostNum, p.Time, p.Ip, p.Poster, p.Body,
                p.FeatherType, p.FeatherText, p.FileId, p.FileName,
                o.Title, o.BumpTime, o.Replies, o.ImgReplies,
@@ -193,16 +205,18 @@ fn query_original<T: Deref<Target = rusqlite::Connection>>(
     "#,
     )?;
 
-    query.query_row((board_id, post_num), row_to_original)
-         .map_err(|e| e.into())
+    query
+        .query_row((board_id, post_num), row_to_original)
+        .map_err(|e| e.into())
 }
 
-fn query_reply<T: Deref<Target = rusqlite::Connection>>(conn: &T,
-                                                        board_id: u64,
-                                                        post_num: u64)
-                                                        -> Result<site::Reply, PlainchantErr> {
+fn query_reply<T: Deref<Target = rusqlite::Connection>>(
+    conn: &T,
+    board_id: u64,
+    post_num: u64,
+) -> Result<site::Reply, PlainchantErr> {
     let mut query = conn.prepare(
-                                 r#"
+        r#"
         SELECT BoardId, PostNum, Time, Ip, Poster, Body,
                FeatherType, FeatherText, FileId, FileName, OrigNum FROM Posts 
             WHERE (BoardId, PostNum) = (?1, ?2);
@@ -212,8 +226,10 @@ fn query_reply<T: Deref<Target = rusqlite::Connection>>(conn: &T,
     let post = query.query_row((board_id, post_num), row_to_reply)?;
 
     if post.orig_num == 1 {
-        Err(PlainchantErr { origin: util::ErrOrigin::Database,
-                            msg:    format!("Post ({}, {}) is an Original", board_id, post_num), })
+        Err(PlainchantErr {
+            origin: util::ErrOrigin::Database,
+            msg:    format!("Post ({}, {}) is an Original", board_id, post_num),
+        })
     } else {
         Ok(post)
     }
@@ -221,14 +237,16 @@ fn query_reply<T: Deref<Target = rusqlite::Connection>>(conn: &T,
 
 fn increment_next_post_num<T: Deref<Target = rusqlite::Connection>>(
     conn: &T,
-    board_id: u64)
-    -> Result<(), PlainchantErr> {
-    conn.execute(r#"
+    board_id: u64,
+) -> Result<(), PlainchantErr> {
+    conn.execute(
+        r#"
                 UPDATE Boards
                 SET NextPostNum = NextPostNum + 1
                 WHERE BoardId = ?1;
                 "#,
-                 (board_id,))?;
+        (board_id,),
+    )?;
 
     Ok(())
 }
@@ -237,7 +255,7 @@ impl db::Database for Sqlite3Database {
     fn get_boards(&self) -> Result<Vec<site::Board>, PlainchantErr> {
         let conn = self.pool.get()?;
         let mut query = conn.prepare(
-                                     r#"
+            r#"
             SELECT BoardId, Url, Title, PostCap, BumpLimit, NextPostNum FROM Boards;
         "#,
         )?;
@@ -261,7 +279,7 @@ impl db::Database for Sqlite3Database {
     fn get_catalog(&self, board_id: u64) -> Result<site::Catalog, PlainchantErr> {
         let conn = self.pool.get()?;
         let mut query = conn.prepare(
-                                     r#"
+            r#"
             SELECT p.BoardId, p.PostNum, p.Time, p.Ip, p.Poster, p.Body,
                    p.FeatherType, p.FeatherText, p.FileId, p.FileName,
                    o.Title, o.BumpTime, o.Replies, o.ImgReplies,
@@ -283,9 +301,11 @@ impl db::Database for Sqlite3Database {
             originals.push(o?);
         }
 
-        Ok(site::Catalog { board_id,
-                           time: util::timestamp(),
-                           originals })
+        Ok(site::Catalog {
+            board_id,
+            time: util::timestamp(),
+            originals,
+        })
     }
 
     fn get_original(&self, board_id: u64, post_num: u64) -> Result<site::Original, PlainchantErr> {
@@ -298,7 +318,7 @@ impl db::Database for Sqlite3Database {
         let original = query_original(&conn, board_id, post_num)?;
 
         let mut replies_query = conn.prepare(
-                                             r#"
+            r#"
             SELECT BoardId, PostNum, Time, Ip, Poster, Body,
                    FeatherType, FeatherText, FileId, FileName, OrigNum FROM Posts 
                 WHERE (BoardId, OrigNum) = (?1, ?2);
@@ -322,7 +342,7 @@ impl db::Database for Sqlite3Database {
     fn get_post(&self, board_id: u64, post_num: u64) -> Result<Box<dyn site::Post>, PlainchantErr> {
         let conn = self.pool.get()?;
         let mut query = conn.prepare(
-                                     r#"
+            r#"
             SELECT BoardId, PostNum, Time, Ip, Poster, Body,
                    FeatherType, FeatherText, FileId, FileName, OrigNum FROM Posts 
                 WHERE (BoardId, PostNum)=(?1, ?2);
@@ -348,39 +368,39 @@ impl db::Database for Sqlite3Database {
         let (feather_type, feather_text) = encode_feather(&orig.feather);
 
         tx.execute(
-                   r#"
+            r#"
             INSERT INTO Posts
             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, NULL);
             "#,
-                   (
-            orig.board_id,
-            orig.post_num,
-            orig.time,
-            &orig.ip,
-            &orig.poster,
-            &orig.body,
-            feather_type,
-            feather_text,
-            &orig.file_id,
-            &orig.file_name,
-        ),
+            (
+                orig.board_id,
+                orig.post_num,
+                orig.time,
+                &orig.ip,
+                &orig.poster,
+                &orig.body,
+                feather_type,
+                feather_text,
+                &orig.file_id,
+                &orig.file_name,
+            ),
         )?;
 
         tx.execute(
-                   r#"
+            r#"
             INSERT INTO Originals
             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8);
             "#,
-                   (
-            orig.board_id,
-            orig.post_num,
-            &orig.title,
-            orig.bump_time,
-            orig.replies,
-            orig.img_replies,
-            orig.pinned,
-            orig.archived,
-        ),
+            (
+                orig.board_id,
+                orig.post_num,
+                &orig.title,
+                orig.bump_time,
+                orig.replies,
+                orig.img_replies,
+                orig.pinned,
+                orig.archived,
+            ),
         )?;
 
         tx.commit()?;
@@ -415,38 +435,38 @@ impl db::Database for Sqlite3Database {
         let (feather_type, feather_text) = encode_feather(&reply.feather);
 
         tx.execute(
-                   r#"
+            r#"
             INSERT INTO Posts
             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11);
             "#,
-                   (
-            reply.board_id,
-            reply.post_num,
-            reply.time,
-            &reply.ip,
-            &reply.poster,
-            &reply.body,
-            feather_type,
-            feather_text,
-            &reply.file_id,
-            &reply.file_name,
-            orig.post_num,
-        ),
+            (
+                reply.board_id,
+                reply.post_num,
+                reply.time,
+                &reply.ip,
+                &reply.poster,
+                &reply.body,
+                feather_type,
+                feather_text,
+                &reply.file_id,
+                &reply.file_name,
+                orig.post_num,
+            ),
         )?;
 
         tx.execute(
-                   r#"
+            r#"
             UPDATE Originals
             SET BumpTime = ?3, Replies = ?4, ImgReplies = ?5
             WHERE (BoardId, PostNum) = (?1, ?2);
             "#,
-                   (
-            reply.board_id,
-            orig.post_num,
-            new_bump_time,
-            new_reply_count,
-            new_img_reply_count,
-        ),
+            (
+                reply.board_id,
+                orig.post_num,
+                new_bump_time,
+                new_reply_count,
+                new_img_reply_count,
+            ),
         )?;
 
         tx.commit()?;
@@ -458,24 +478,24 @@ impl db::Database for Sqlite3Database {
         let tx = conn.transaction()?;
 
         tx.execute(
-                   r#"
+            r#"
             DELETE FROM Posts WHERE (BoardId, PostNum)=(?1, ?2);
             "#,
-                   (board_id, post_num),
+            (board_id, post_num),
         )?;
 
         tx.execute(
-                   r#"
+            r#"
             DELETE FROM Originals WHERE (BoardId, PostNum)=(?1, ?2);
             "#,
-                   (board_id, post_num),
+            (board_id, post_num),
         )?;
 
         tx.execute(
-                   r#"
+            r#"
             DELETE FROM Posts WHERE (BoardId, OrigNum)=(?1, ?2);
             "#,
-                   (board_id, post_num),
+            (board_id, post_num),
         )?;
 
         tx.commit()?;
@@ -499,24 +519,24 @@ impl db::Database for Sqlite3Database {
         let tx = conn.transaction()?;
 
         tx.execute(
-                   r#"
+            r#"
             DELETE FROM Posts WHERE (BoardId, PostNum)=(?1, ?2);
             "#,
-                   (board_id, post_num),
+            (board_id, post_num),
         )?;
 
         tx.execute(
-                   r#"
+            r#"
             UPDATE Originals
             SET Replies = ?3, ImgReplies = ?4
             WHERE (BoardId, PostNum) = (?1, ?2);
             "#,
-                   (
-            reply.board_id,
-            orig.post_num,
-            new_reply_count,
-            new_img_reply_count,
-        ),
+            (
+                reply.board_id,
+                orig.post_num,
+                new_reply_count,
+                new_img_reply_count,
+            ),
         )?;
 
         tx.commit()?;
@@ -528,18 +548,18 @@ impl db::Database for Sqlite3Database {
         let mut conn = self.pool.get()?;
 
         conn.execute(
-                     r#"
+            r#"
             INSERT INTO Boards
             VALUES (?1, ?2, ?3, ?4, ?5, ?6);
             "#,
-                     (
-            board.id,
-            board.url,
-            board.title,
-            board.post_cap,
-            board.bump_limit,
-            board.next_post_num,
-        ),
+            (
+                board.id,
+                board.url,
+                board.title,
+                board.post_cap,
+                board.bump_limit,
+                board.next_post_num,
+            ),
         )?;
 
         Ok(())
@@ -551,24 +571,24 @@ impl db::Database for Sqlite3Database {
         let tx = conn.transaction()?;
 
         tx.execute(
-                   r#"
+            r#"
             DELETE FROM Posts WHERE BoardId = ?1;
             "#,
-                   (board_id,),
+            (board_id,),
         )?;
 
         tx.execute(
-                   r#"
+            r#"
             DELETE FROM Originals WHERE BoardId = ?1;
             "#,
-                   (board_id,),
+            (board_id,),
         )?;
 
         tx.execute(
-                   r#"
+            r#"
             DELETE FROM Boards WHERE BoardId = ?1;
             "#,
-                   (board_id,),
+            (board_id,),
         )?;
 
         tx.commit()?;

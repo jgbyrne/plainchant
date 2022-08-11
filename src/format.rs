@@ -48,10 +48,11 @@ pub fn humanise_time(ts: u64) -> String {
     String::from("less than a minute ago")
 }
 
-pub fn annotate_post(body: &str,
-                     board_urls: &HashMap<String, u64>,
-                     posts: &HashSet<u64>)
-                     -> String {
+pub fn annotate_post(
+    body: &str,
+    board_urls: &HashMap<String, u64>,
+    posts: &HashSet<u64>,
+) -> String {
     lazy_static! {
         // Match quoted (greentext) lines
         static ref QUOTED: Regex = Regex::new(r"^\s*>(?:$|[^>])").unwrap();
@@ -106,7 +107,10 @@ pub fn annotate_post(body: &str,
 
                 if let (Ok(num), true) = (&parsed_post_num, board_exists) {
                     // TODO: This link might be flaky (should it really be absolute path?)
-                    out.push_str(&format!("<a href='/{0}/thread/{1}'>>>>/{0}/{1}</a>", &url, &num));
+                    out.push_str(&format!(
+                        "<a href='/{0}/thread/{1}'>>>>/{0}/{1}</a>",
+                        &url, &num
+                    ));
                 } else {
                     out.push_str(&line[start..right]);
                 }

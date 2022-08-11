@@ -17,8 +17,10 @@ impl FSFileRack {
     pub fn from_dir(dir: &Path) -> Result<FSFileRack, util::PlainchantErr> {
         let fr_path = dir.join("rack").to_path_buf();
         match fr_path.is_dir() {
-            true => Ok(FSFileRack { file_dir: fr_path,
-                                    cache:    HashMap::new(), }),
+            true => Ok(FSFileRack {
+                file_dir: fr_path,
+                cache:    HashMap::new(),
+            }),
             false => Err(fr::static_err("FS File Rack directory is not a directory")),
         }
     }
@@ -76,8 +78,9 @@ impl fr::FileRack for FSFileRack {
         let thumb_id = FSFileRack::thumb_id(file_id);
         let thumb_path = self.file_dir.join(&thumb_id);
         let mut thumb_buf: Vec<u8> = vec![];
-        if thumb.write_to(&mut Cursor::new(&mut thumb_buf), image::ImageFormat::Jpeg)
-                .is_err()
+        if thumb
+            .write_to(&mut Cursor::new(&mut thumb_buf), image::ImageFormat::Jpeg)
+            .is_err()
         {
             return Err(fr::static_err("Could not write thumbnail buffer"));
         }
