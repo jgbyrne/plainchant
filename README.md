@@ -32,6 +32,8 @@ Plainchant is implemented in Rust. Web functionality is provided by Warp, while 
 
 ## Running Plainchant
 
+**Note 2022-08-11: the following is outdated and will not work on master. Checkout legacy if you wish to deploy with these instructions**
+
 Plainchant is alpha software and should not be used for any serious purpose. However the interested reader may use the following instructions to try it out for themselves. Note that all directories specified here are simply recommendations and that others may be used, provided the config file `plainchant.toml` is updated appropriately.
 
 1. Create a directory `/etc/plainchant`, and into it copy from this repository the file `demo/plainchant.toml` and the folders `templates` and `static`. † 
