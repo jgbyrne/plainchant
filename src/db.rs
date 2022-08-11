@@ -28,6 +28,7 @@ pub trait Database {
                 post_num: u64)
                 -> Result<Box<dyn site::Post>, util::PlainchantErr>;
 
+    // These methods are called with dummy post IDs, which are auto-filled and returned
     fn create_original(&mut self, orig: site::Original) -> Result<u64, util::PlainchantErr>;
     fn create_reply(&mut self, reply: site::Reply) -> Result<u64, util::PlainchantErr>;
 
@@ -37,4 +38,7 @@ pub trait Database {
     fn delete_original(&mut self, board_id: u64, post_num: u64) -> Result<(), util::PlainchantErr>;
     fn delete_reply(&mut self, board_id: u64, post_num: u64) -> Result<(), util::PlainchantErr>;
     //    fn delete_post(&mut self, board_id: u64, post_num: u64) -> Result<(), util::PlainchantErr>;
+
+    fn create_board(&mut self, board: site::Board) -> Result<(), util::PlainchantErr>;
+    fn delete_board(&mut self, board_id: u64) -> Result<(), util::PlainchantErr>;
 }

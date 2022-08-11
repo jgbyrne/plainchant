@@ -160,19 +160,18 @@ fn row_to_original<'stmt>(row: &rusqlite::Row<'stmt>) -> rusqlite::Result<site::
                         archived: row.get(15)? })
 }
 
-fn query_board<T: Deref<Target = rusqlite::Connection>>(
-    conn: &T,
-    board_id: u64)
-    -> Result<site::Board, PlainchantErr> {
-        let mut query = conn.prepare(
-                                     r#"
+fn query_board<T: Deref<Target = rusqlite::Connection>>(conn: &T,
+                                                        board_id: u64)
+                                                        -> Result<site::Board, PlainchantErr> {
+    let mut query = conn.prepare(
+                                 r#"
             SELECT BoardId, Url, Title, PostCap, BumpLimit, NextPostNum FROM Boards
                 WHERE BoardId=?1;
         "#,
-        )?;
+    )?;
 
-        query.query_row((board_id,), row_to_board)
-             .map_err(|e| e.into())
+    query.query_row((board_id,), row_to_board)
+         .map_err(|e| e.into())
 }
 
 fn query_original<T: Deref<Target = rusqlite::Connection>>(
@@ -518,6 +517,58 @@ impl db::Database for Sqlite3Database {
             new_reply_count,
             new_img_reply_count,
         ),
+        )?;
+
+        tx.commit()?;
+
+        Ok(())
+    }
+
+    fn create_board(&mut self, board: site::Board) -> Result<(), PlainchantErr> {
+        let mut conn = self.pool.get()?;
+
+        conn.execute(
+                     r#"
+            INSERT INTO Boards
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6);
+            "#,
+                     (
+            board.id,
+            board.url,
+            board.title,
+            board.post_cap,
+            board.bump_limit,
+            board.next_post_num,
+        ),
+        )?;
+
+        Ok(())
+    }
+
+    fn delete_board(&mut self, board_id: u64) -> Result<(), PlainchantErr> {
+        let mut conn = self.pool.get()?;
+
+        let tx = conn.transaction()?;
+
+        tx.execute(
+                   r#"
+            DELETE FROM Posts WHERE BoardId = ?1;
+            "#,
+                   (board_id,),
+        )?;
+
+        tx.execute(
+                   r#"
+            DELETE FROM Originals WHERE BoardId = ?1;
+            "#,
+                   (board_id,),
+        )?;
+
+        tx.execute(
+                   r#"
+            DELETE FROM Boards WHERE BoardId = ?1;
+            "#,
+                   (board_id,),
         )?;
 
         tx.commit()?;
