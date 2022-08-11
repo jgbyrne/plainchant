@@ -25,6 +25,30 @@ impl From<r2d2::Error> for PlainchantErr {
     }
 }
 
+fn encode_feather<'f>(feather: &'f site::Feather) -> (Option<u8>, Option<&'f str>) {
+    match feather {
+        site::Feather::None => (None, None),
+        site::Feather::Trip(ref s) => (Some(1), Some(s)),
+        site::Feather::Moderator => (Some(2), None),
+        site::Feather::Admin => (Some(3), None),
+    }
+}
+
+fn decode_feather(feather_type: Option<u16>, feather_text: Option<String>) -> site::Feather {
+    // This really should fail for (Some(1), None) and for (Some(x), *) : x not in {1, 2, 3}
+    // However I do not know a clean way to generate my own errors in rusqlite handlers
+    // I don't think it'll be a problem, anyway...
+    match feather_type {
+        Some(1) => match feather_text {
+            Some(txt) => site::Feather::Trip(txt),
+            None => site::Feather::Trip(String::new()),
+        },
+        Some(2) => site::Feather::Moderator,
+        Some(3) => site::Feather::Admin,
+        _ => site::Feather::None,
+    }
+}
+
 pub struct Sqlite3Database {
     path: PathBuf,
     pool: Pool<SqliteConnectionManager>,
@@ -102,21 +126,7 @@ fn row_to_board<'stmt>(row: &rusqlite::Row<'stmt>) -> rusqlite::Result<site::Boa
 }
 
 fn row_to_reply<'stmt>(row: &rusqlite::Row<'stmt>) -> rusqlite::Result<site::Reply> {
-    let feather = match row.get::<usize, Option<u16>>(6)? {
-        Some(1) => {
-            match row.get(7)? {
-                None => {
-                    // this shouldn't really happen...
-                    site::Feather::Trip(String::new())
-                },
-                Some(txt) => site::Feather::Trip(txt),
-            }
-        },
-        Some(2) => site::Feather::Moderator,
-        Some(3) => site::Feather::Admin,
-        _ => site::Feather::None,
-        // this should have error handling...
-    };
+    let feather = decode_feather(row.get::<usize, Option<u16>>(6)?, row.get(7)?);
 
     Ok(site::Reply { board_id: row.get(0)?,
                      post_num: row.get(1)?,
@@ -131,21 +141,7 @@ fn row_to_reply<'stmt>(row: &rusqlite::Row<'stmt>) -> rusqlite::Result<site::Rep
 }
 
 fn row_to_original<'stmt>(row: &rusqlite::Row<'stmt>) -> rusqlite::Result<site::Original> {
-    let feather = match row.get::<usize, Option<u16>>(6)? {
-        Some(1) => {
-            match row.get(7)? {
-                None => {
-                    // this shouldn't really happen...
-                    site::Feather::Trip(String::new())
-                },
-                Some(txt) => site::Feather::Trip(txt),
-            }
-        },
-        Some(2) => site::Feather::Moderator,
-        Some(3) => site::Feather::Admin,
-        _ => site::Feather::None,
-        // this should have error handling...
-    };
+    let feather = decode_feather(row.get::<usize, Option<u16>>(6)?, row.get(7)?);
 
     Ok(site::Original { board_id: row.get(0)?,
                         post_num: row.get(1)?,
@@ -187,6 +183,28 @@ fn query_original<T: Deref<Target = rusqlite::Connection>>(
          .map_err(|e| e.into())
 }
 
+fn query_reply<T: Deref<Target = rusqlite::Connection>>(conn: &T,
+                                                        board_id: u64,
+                                                        post_num: u64)
+                                                        -> Result<site::Reply, PlainchantErr> {
+    let mut query = conn.prepare(
+                                 r#"
+        SELECT BoardId, PostNum, Time, Ip, Poster, Body,
+               FeatherType, FeatherText, FileId, FileName, OrigNum FROM Posts 
+            WHERE (BoardId, PostNum) = (?1, ?2);
+    "#,
+    )?;
+
+    let post = query.query_row((board_id, post_num), row_to_reply)?;
+
+    if post.orig_num == 1 {
+        Err(PlainchantErr { origin: util::ErrOrigin::Database,
+                            msg:    format!("Post ({}, {}) is an Original", board_id, post_num), })
+    } else {
+        Ok(post)
+    }
+}
+
 fn increment_next_post_num<T: Deref<Target = rusqlite::Connection>>(
     conn: &T,
     board_id: u64)
@@ -199,15 +217,6 @@ fn increment_next_post_num<T: Deref<Target = rusqlite::Connection>>(
                  (board_id,))?;
 
     Ok(())
-}
-
-fn encode_feather<'f>(feather: &'f site::Feather) -> (Option<u8>, Option<&'f str>) {
-    match feather {
-        site::Feather::None => (None, None),
-        site::Feather::Trip(ref s) => (Some(1), Some(s)),
-        site::Feather::Moderator => (Some(2), None),
-        site::Feather::Admin => (Some(3), None),
-    }
 }
 
 impl db::Database for Sqlite3Database {
@@ -301,23 +310,7 @@ impl db::Database for Sqlite3Database {
 
     fn get_reply(&self, board_id: u64, post_num: u64) -> Result<site::Reply, PlainchantErr> {
         let conn = self.pool.get()?;
-        let mut query = conn.prepare(
-                                     r#"
-            SELECT BoardId, PostNum, Time, Ip, Poster, Body,
-                   FeatherType, FeatherText, FileId, FileName, OrigNum FROM Posts 
-                WHERE (BoardId, PostNum) = (?1, ?2);
-        "#,
-        )?;
-
-        // we use a Reply structure to fetch all posts, it won't matter when we cast to Post
-        let post = query.query_row((board_id, post_num), row_to_reply)?;
-
-        if post.orig_num == 1 {
-            Err(PlainchantErr { origin: util::ErrOrigin::Database,
-                                msg:    format!("Post ({}, {}) is an Original", board_id, post_num), })
-        } else {
-            Ok(post)
-        }
+        query_reply(&conn, board_id, post_num)
     }
 
     fn get_post(&self, board_id: u64, post_num: u64) -> Result<Box<dyn site::Post>, PlainchantErr> {
@@ -388,11 +381,13 @@ impl db::Database for Sqlite3Database {
     }
 
     fn create_reply(&mut self, mut reply: site::Reply) -> Result<u64, PlainchantErr> {
+        let mut conn = self.pool.get()?;
+
         let mut board = self.get_board(reply.board_id)?;
         reply.post_num = board.next_post_num;
         board.next_post_num += 1;
 
-        let orig = self.get_original(reply.board_id, reply.orig_num)?;
+        let orig = query_original(&conn, reply.board_id, reply.orig_num)?;
 
         let new_reply_count = orig.replies + 1;
         let new_img_reply_count = if reply.file_id.is_some() {
@@ -407,7 +402,6 @@ impl db::Database for Sqlite3Database {
             orig.bump_time
         };
 
-        let mut conn = self.pool.get()?;
         let tx = conn.transaction()?;
         increment_next_post_num(&tx, reply.board_id)?;
 
@@ -453,9 +447,73 @@ impl db::Database for Sqlite3Database {
     }
 
     fn delete_original(&mut self, board_id: u64, post_num: u64) -> Result<(), PlainchantErr> {
-        unimplemented!()
+        let mut conn = self.pool.get()?;
+        let tx = conn.transaction()?;
+
+        tx.execute(
+                   r#"
+            DELETE FROM Posts WHERE (BoardId, PostNum)=(?1, ?2);
+            "#,
+                   (board_id, post_num),
+        )?;
+
+        tx.execute(
+                   r#"
+            DELETE FROM Originals WHERE (BoardId, PostNum)=(?1, ?2);
+            "#,
+                   (board_id, post_num),
+        )?;
+
+        tx.execute(
+                   r#"
+            DELETE FROM Posts WHERE (BoardId, OrigNum)=(?1, ?2);
+            "#,
+                   (board_id, post_num),
+        )?;
+
+        tx.commit()?;
+
+        Ok(())
     }
+
     fn delete_reply(&mut self, board_id: u64, post_num: u64) -> Result<(), PlainchantErr> {
-        unimplemented!()
+        let mut conn = self.pool.get()?;
+
+        let reply = query_reply(&conn, board_id, post_num)?;
+        let orig = query_original(&conn, board_id, reply.orig_num)?;
+
+        let new_reply_count = orig.replies - 1;
+        let new_img_reply_count = if reply.file_id.is_some() {
+            orig.img_replies - 1
+        } else {
+            orig.img_replies
+        };
+
+        let tx = conn.transaction()?;
+
+        tx.execute(
+                   r#"
+            DELETE FROM Posts WHERE (BoardId, PostNum)=(?1, ?2);
+            "#,
+                   (board_id, post_num),
+        )?;
+
+        tx.execute(
+                   r#"
+            UPDATE Originals
+            SET Replies = ?3, ImgReplies = ?4
+            WHERE (BoardId, PostNum) = (?1, ?2);
+            "#,
+                   (
+            reply.board_id,
+            orig.post_num,
+            new_reply_count,
+            new_img_reply_count,
+        ),
+        )?;
+
+        tx.commit()?;
+
+        Ok(())
     }
 }
