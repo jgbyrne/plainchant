@@ -397,18 +397,15 @@ impl db::Database for Sqlite3Database {
         let new_reply_count = orig.replies + 1;
         let new_img_reply_count = if reply.file_id.is_some() {
             orig.img_replies + 1
-        }
-        else {
+        } else {
             orig.img_replies
         };
-        
+
         let new_bump_time = if new_reply_count <= board.bump_limit {
             util::timestamp()
-        }
-        else {
+        } else {
             orig.bump_time
         };
-
 
         let mut conn = self.pool.get()?;
         let tx = conn.transaction()?;
@@ -437,12 +434,18 @@ impl db::Database for Sqlite3Database {
         )?;
 
         tx.execute(
-            r#"
+                   r#"
             UPDATE Originals
             SET BumpTime = ?3, Replies = ?4, ImgReplies = ?5
             WHERE (BoardId, PostNum) = (?1, ?2);
-            "#, (reply.board_id, orig.post_num,
-                 new_bump_time, new_reply_count, new_img_reply_count)
+            "#,
+                   (
+            reply.board_id,
+            orig.post_num,
+            new_bump_time,
+            new_reply_count,
+            new_img_reply_count,
+        ),
         )?;
 
         tx.commit()?;

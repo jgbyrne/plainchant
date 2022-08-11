@@ -373,9 +373,9 @@ impl db::Database for FSDatabase {
         }
     }
 
-    /* 
+    /*
     // change of logic: updating reply counts to be done within create_reply in new impls of DB
-    
+
     fn update_original(&mut self, orig: site::Original) -> Result<(), util::PlainchantErr> {
         let board_path = self.root.join(orig.board_id().to_string());
         if !board_path.exists() {
