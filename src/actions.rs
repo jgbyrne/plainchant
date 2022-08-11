@@ -90,7 +90,7 @@ impl Actions {
                                           orig_num: u64)
                                           -> Result<u64, util::PlainchantErr> {
         let board = database.get_board(board_id)?;
-        let mut orig = database.get_original(board_id, orig_num)?;
+        //let mut orig = database.get_original(board_id, orig_num)?;
 
         let cur_time = util::timestamp();
         let reply = site::Reply { board_id,
@@ -104,18 +104,18 @@ impl Actions {
                                   file_name,
                                   orig_num };
         let post_id = database.create_reply(reply)?;
-        let new_reply_count = orig.replies() + 1;
+        //let new_reply_count = orig.replies() + 1;
 
-        if new_reply_count <= board.bump_limit {
-            orig.set_bump_time(cur_time);
-        }
+        //if new_reply_count <= board.bump_limit {
+        //    orig.set_bump_time(cur_time);
+        //}
 
-        orig.set_replies(new_reply_count);
-        if file_id.is_some() {
-            orig.set_img_replies(orig.img_replies() + 1);
-        }
+        //orig.set_replies(new_reply_count);
+        //if file_id.is_some() {
+        //    orig.set_img_replies(orig.img_replies() + 1);
+        //}
 
-        database.update_original(orig)?;
+        //database.update_original(orig)?;
 
         Ok(post_id)
     }

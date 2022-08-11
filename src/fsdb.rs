@@ -373,6 +373,9 @@ impl db::Database for FSDatabase {
         }
     }
 
+    /* 
+    // change of logic: updating reply counts to be done within create_reply in new impls of DB
+    
     fn update_original(&mut self, orig: site::Original) -> Result<(), util::PlainchantErr> {
         let board_path = self.root.join(orig.board_id().to_string());
         if !board_path.exists() {
@@ -398,6 +401,7 @@ impl db::Database for FSDatabase {
         self.write_boards_file()?;
         Ok(())
     }
+    */
 
     fn create_original(&mut self, mut orig: site::Original) -> Result<u64, util::PlainchantErr> {
         // Create thread directory
@@ -508,13 +512,10 @@ impl db::Database for FSDatabase {
         }
     }
 
-    fn update_reply(&mut self, reply: site::Reply) -> Result<(), util::PlainchantErr> {
-        unimplemented!()
-    }
+    //fn update_reply(&mut self, reply: site::Reply) -> Result<(), util::PlainchantErr> {
+    //    unimplemented!()
+    //}
     fn delete_reply(&mut self, board_id: u64, post_num: u64) -> Result<(), util::PlainchantErr> {
-        unimplemented!()
-    }
-    fn delete_post(&mut self, board_id: u64, post_num: u64) -> Result<(), util::PlainchantErr> {
         unimplemented!()
     }
 }

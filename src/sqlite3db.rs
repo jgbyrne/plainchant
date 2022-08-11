@@ -201,6 +201,15 @@ fn increment_next_post_num<T: Deref<Target = rusqlite::Connection>>(
     Ok(())
 }
 
+fn encode_feather<'f>(feather: &'f site::Feather) -> (Option<u8>, Option<&'f str>) {
+    match feather {
+        site::Feather::None => (None, None),
+        site::Feather::Trip(ref s) => (Some(1), Some(s)),
+        site::Feather::Moderator => (Some(2), None),
+        site::Feather::Admin => (Some(3), None),
+    }
+}
+
 impl db::Database for Sqlite3Database {
     fn get_boards(&self) -> Result<Vec<site::Board>, PlainchantErr> {
         let conn = self.pool.get()?;
@@ -336,12 +345,7 @@ impl db::Database for Sqlite3Database {
         let tx = conn.transaction()?;
         increment_next_post_num(&tx, orig.board_id)?;
 
-        let (feather_type, feather_text) = match orig.feather {
-            site::Feather::None => (None, None),
-            site::Feather::Trip(ref s) => (Some(1), Some(s)),
-            site::Feather::Moderator => (Some(2), None),
-            site::Feather::Admin => (Some(3), None),
-        };
+        let (feather_type, feather_text) = encode_feather(&orig.feather);
 
         tx.execute(
                    r#"
@@ -383,24 +387,72 @@ impl db::Database for Sqlite3Database {
         Ok(orig.post_num)
     }
 
-    fn create_reply(&mut self, reply: site::Reply) -> Result<u64, PlainchantErr> {
-        unimplemented!()
-    }
+    fn create_reply(&mut self, mut reply: site::Reply) -> Result<u64, PlainchantErr> {
+        let mut board = self.get_board(reply.board_id)?;
+        reply.post_num = board.next_post_num;
+        board.next_post_num += 1;
 
-    fn update_original(&mut self, orig: site::Original) -> Result<(), PlainchantErr> {
-        unimplemented!()
-    }
-    fn update_reply(&mut self, reply: site::Reply) -> Result<(), PlainchantErr> {
-        unimplemented!()
+        let orig = self.get_original(reply.board_id, reply.orig_num)?;
+
+        let new_reply_count = orig.replies + 1;
+        let new_img_reply_count = if reply.file_id.is_some() {
+            orig.img_replies + 1
+        }
+        else {
+            orig.img_replies
+        };
+        
+        let new_bump_time = if new_reply_count <= board.bump_limit {
+            util::timestamp()
+        }
+        else {
+            orig.bump_time
+        };
+
+
+        let mut conn = self.pool.get()?;
+        let tx = conn.transaction()?;
+        increment_next_post_num(&tx, reply.board_id)?;
+
+        let (feather_type, feather_text) = encode_feather(&reply.feather);
+
+        tx.execute(
+                   r#"
+            INSERT INTO Posts
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11);
+            "#,
+                   (
+            reply.board_id,
+            reply.post_num,
+            reply.time,
+            &reply.ip,
+            &reply.poster,
+            &reply.body,
+            feather_type,
+            feather_text,
+            &reply.file_id,
+            &reply.file_name,
+            orig.post_num,
+        ),
+        )?;
+
+        tx.execute(
+            r#"
+            UPDATE Originals
+            SET BumpTime = ?3, Replies = ?4, ImgReplies = ?5
+            WHERE (BoardId, PostNum) = (?1, ?2);
+            "#, (reply.board_id, orig.post_num,
+                 new_bump_time, new_reply_count, new_img_reply_count)
+        )?;
+
+        tx.commit()?;
+        Ok(reply.post_num)
     }
 
     fn delete_original(&mut self, board_id: u64, post_num: u64) -> Result<(), PlainchantErr> {
         unimplemented!()
     }
     fn delete_reply(&mut self, board_id: u64, post_num: u64) -> Result<(), PlainchantErr> {
-        unimplemented!()
-    }
-    fn delete_post(&mut self, board_id: u64, post_num: u64) -> Result<(), PlainchantErr> {
         unimplemented!()
     }
 }
