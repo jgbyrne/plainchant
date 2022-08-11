@@ -114,10 +114,7 @@ async fn part_string(part: multipart::Part, buf_size: usize) -> Option<String> {
 }
 
 // Handle multipart POST submission of new thread
-async fn create_submit<
-    DB: 'static + db::Database + Sync + Send,
-    FR: 'static + fr::FileRack + Sync + Send,
->(
+async fn create_submit<DB, FR>(
     board: String,
     mut data: multipart::FormData,
     addr: Option<SocketAddr>,
@@ -126,7 +123,11 @@ async fn create_submit<
     a: Ptr<actions::Actions>,
     db: Ptr<DB>,
     fr: Ptr<FR>,
-) -> Result<reply::Response, warp::reject::Rejection> {
+) -> Result<reply::Response, warp::reject::Rejection>
+where
+    DB: 'static + db::Database + Sync + Send,
+    FR: 'static + fr::FileRack + Sync + Send,
+{
     let addr = addr.expect("create_submit: unwrap address failed (???)");
 
     // Look-up Board URL to retrieve ID
@@ -241,10 +242,7 @@ async fn create_submit<
 }
 
 // Handle multipart submission of thread reply
-async fn create_reply<
-    DB: 'static + db::Database + Sync + Send,
-    FR: 'static + fr::FileRack + Sync + Send,
->(
+async fn create_reply<DB, FR>(
     board: String,
     thread: u64,
     mut data: multipart::FormData,
@@ -254,7 +252,11 @@ async fn create_reply<
     a: Ptr<actions::Actions>,
     db: Ptr<DB>,
     fr: Ptr<FR>,
-) -> Result<reply::Response, warp::reject::Rejection> {
+) -> Result<reply::Response, warp::reject::Rejection>
+where
+    DB: 'static + db::Database + Sync + Send,
+    FR: 'static + fr::FileRack + Sync + Send,
+{
     let addr = addr.expect("create_reply: unwrap address failed (???)");
 
     // Look-up board ID from URL
@@ -381,16 +383,16 @@ async fn index_redir(_rej: warp::reject::Rejection) -> Result<reply::Response, I
 
 // Main server method - using tokio runtime
 #[tokio::main]
-pub async fn serve<
-    DB: 'static + db::Database + Sync + Send,
-    FR: 'static + fr::FileRack + Sync + Send,
->(
+pub async fn serve<DB, FR>(
     config: Config,
     pages: pages::Pages,
     actions: actions::Actions,
     database: DB,
     file_rack: FR,
-) {
+) where
+    DB: 'static + db::Database + Sync + Send,
+    FR: 'static + fr::FileRack + Sync + Send,
+{
     // Move static pages into a filter
     let sp = StaticPages {
         error_tmpl:   Template::from_file(config.templates_dir.join("error.html.tmpl").as_path())
