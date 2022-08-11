@@ -12,8 +12,8 @@ pub trait Post {
     fn post_num(&self) -> u64;
     fn time(&self) -> u64;
     fn ip(&self) -> &str;
-    fn body(&self) -> &str;
     fn poster(&self) -> Option<&str>;
+    fn body(&self) -> &str;
     fn set_feather(&mut self, feather: Feather);
     fn feather(&self) -> &Feather;
     fn file_id(&self) -> Option<&str>;
@@ -26,8 +26,8 @@ pub struct Original {
     pub post_num:    u64,
     pub time:        u64,
     pub ip:          String,
-    pub body:        String,
     pub poster:      Option<String>,
+    pub body:        String,
     pub feather:     Feather,
     pub file_id:     Option<String>,
     pub file_name:   Option<String>,
@@ -45,8 +45,8 @@ pub struct Reply {
     pub post_num:  u64,
     pub time:      u64,
     pub ip:        String,
-    pub body:      String,
     pub poster:    Option<String>,
+    pub body:      String,
     pub feather:   Feather,
     pub file_id:   Option<String>,
     pub file_name: Option<String>,
@@ -124,12 +124,12 @@ macro_rules! impl_post {
                 &self.ip
             }
 
-            fn body(&self) -> &str {
-                &self.body
-            }
-
             fn poster(&self) -> Option<&str> {
                 self.poster.as_deref()
+            }
+
+            fn body(&self) -> &str {
+                &self.body
             }
 
             fn feather(&self) -> &Feather {
@@ -141,7 +141,7 @@ macro_rules! impl_post {
             }
 
             fn file_id(&self) -> Option<&str> {
-                self.poster.as_deref()
+                self.file_id.as_deref()
             }
 
             fn file_name(&self) -> Option<&str> {

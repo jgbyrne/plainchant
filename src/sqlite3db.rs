@@ -4,10 +4,11 @@ use crate::util;
 use crate::util::PlainchantErr;
 
 use r2d2;
-use r2d2::Pool;
+use r2d2::{Pool, PooledConnection};
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite;
 
+use core::ops::Deref;
 use std::path::{Path, PathBuf};
 
 impl From<rusqlite::Error> for PlainchantErr {
@@ -121,8 +122,8 @@ fn row_to_reply<'stmt>(row: &rusqlite::Row<'stmt>) -> rusqlite::Result<site::Rep
                      post_num: row.get(1)?,
                      time: row.get(2)?,
                      ip: row.get(3)?,
-                     body: row.get(4)?,
-                     poster: row.get(5)?,
+                     poster: row.get(4)?,
+                     body: row.get(5)?,
                      feather,
                      file_id: row.get(8)?,
                      file_name: row.get(9)?,
@@ -150,8 +151,8 @@ fn row_to_original<'stmt>(row: &rusqlite::Row<'stmt>) -> rusqlite::Result<site::
                         post_num: row.get(1)?,
                         time: row.get(2)?,
                         ip: row.get(3)?,
-                        body: row.get(4)?,
-                        poster: row.get(5)?,
+                        poster: row.get(4)?,
+                        body: row.get(5)?,
                         feather,
                         file_id: row.get(8)?,
                         file_name: row.get(9)?,
@@ -161,6 +162,43 @@ fn row_to_original<'stmt>(row: &rusqlite::Row<'stmt>) -> rusqlite::Result<site::
                         img_replies: row.get(13)?,
                         pinned: row.get(14)?,
                         archived: row.get(15)? })
+}
+
+fn query_original<T: Deref<Target = rusqlite::Connection>>(
+    conn: &T,
+    board_id: u64,
+    post_num: u64)
+    -> Result<site::Original, PlainchantErr> {
+    let mut query = conn.prepare(
+                                 r#"
+        SELECT p.BoardId, p.PostNum, p.Time, p.Ip, p.Poster, p.Body,
+               p.FeatherType, p.FeatherText, p.FileId, p.FileName,
+               o.Title, o.BumpTime, o.Replies, o.ImgReplies,
+               o.Pinned, o.Archived
+
+        FROM   Posts p INNER JOIN Originals o
+                    ON (p.BoardId, p.PostNum) = (o.BoardId, o.PostNum)
+
+        WHERE (p.BoardId, p.PostNum) = (?1, ?2);
+    "#,
+    )?;
+
+    query.query_row((board_id, post_num), row_to_original)
+         .map_err(|e| e.into())
+}
+
+fn increment_next_post_num<T: Deref<Target = rusqlite::Connection>>(
+    conn: &T,
+    board_id: u64)
+    -> Result<(), PlainchantErr> {
+    conn.execute(r#"
+                UPDATE Boards
+                SET NextPostNum = NextPostNum + 1
+                WHERE BoardId = ?1;
+                "#,
+                 (board_id,))?;
+
+    Ok(())
 }
 
 impl db::Database for Sqlite3Database {
@@ -208,7 +246,8 @@ impl db::Database for Sqlite3Database {
             FROM   Posts p INNER JOIN Originals o
                         ON (p.BoardId, p.PostNum) = (o.BoardId, o.PostNum)
 
-            WHERE p.BoardId = ?1;
+            WHERE p.BoardId = ?1
+            ORDER BY o.BumpTime DESC;
         "#,
         )?;
 
@@ -225,28 +264,30 @@ impl db::Database for Sqlite3Database {
                            originals })
     }
 
-    fn get_thread(&self, board_id: u64, post_num: u64) -> Result<db::Thread, PlainchantErr> {
-        unimplemented!()
-    }
-
     fn get_original(&self, board_id: u64, post_num: u64) -> Result<site::Original, PlainchantErr> {
         let conn = self.pool.get()?;
-        let mut query = conn.prepare(
-                                     r#"
-            SELECT p.BoardId, p.PostNum, p.Time, p.Ip, p.Poster, p.Body,
-                   p.FeatherType, p.FeatherText, p.FileId, p.FileName,
-                   o.Title, o.BumpTime, o.Replies, o.ImgReplies,
-                   o.Pinned, o.Archived
+        query_original(&conn, board_id, post_num)
+    }
 
-            FROM   Posts p INNER JOIN Originals o
-                        ON (p.BoardId, p.PostNum) = (o.BoardId, o.PostNum)
+    fn get_thread(&self, board_id: u64, post_num: u64) -> Result<db::Thread, PlainchantErr> {
+        let conn = self.pool.get()?;
+        let original = query_original(&conn, board_id, post_num)?;
 
-            WHERE (p.BoardId, p.PostNum) = (?1, ?2);
+        let mut replies_query = conn.prepare(
+                                             r#"
+            SELECT BoardId, PostNum, Time, Ip, Poster, Body,
+                   FeatherType, FeatherText, FileId, FileName, OrigNum FROM Posts 
+                WHERE (BoardId, OrigNum) = (?1, ?2);
         "#,
         )?;
 
-        query.query_row((board_id, post_num), row_to_original)
-             .map_err(|e| e.into())
+        let replies_iter = replies_query.query_map((board_id, post_num), row_to_reply)?;
+        let mut replies = vec![];
+        for r in replies_iter {
+            replies.push(r?);
+        }
+
+        Ok(db::Thread { original, replies })
     }
 
     fn get_reply(&self, board_id: u64, post_num: u64) -> Result<site::Reply, PlainchantErr> {
@@ -286,9 +327,62 @@ impl db::Database for Sqlite3Database {
         Ok(Box::new(post) as Box<dyn site::Post>)
     }
 
-    fn create_original(&mut self, orig: site::Original) -> Result<u64, PlainchantErr> {
-        unimplemented!()
+    fn create_original(&mut self, mut orig: site::Original) -> Result<u64, PlainchantErr> {
+        let mut board = self.get_board(orig.board_id)?;
+        orig.post_num = board.next_post_num;
+        board.next_post_num += 1;
+
+        let mut conn = self.pool.get()?;
+        let tx = conn.transaction()?;
+        increment_next_post_num(&tx, orig.board_id)?;
+
+        let (feather_type, feather_text) = match orig.feather {
+            site::Feather::None => (None, None),
+            site::Feather::Trip(ref s) => (Some(1), Some(s)),
+            site::Feather::Moderator => (Some(2), None),
+            site::Feather::Admin => (Some(3), None),
+        };
+
+        tx.execute(
+                   r#"
+            INSERT INTO Posts
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, NULL);
+            "#,
+                   (
+            orig.board_id,
+            orig.post_num,
+            orig.time,
+            &orig.ip,
+            &orig.poster,
+            &orig.body,
+            feather_type,
+            feather_text,
+            &orig.file_id,
+            &orig.file_name,
+        ),
+        )?;
+
+        tx.execute(
+                   r#"
+            INSERT INTO Originals
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8);
+            "#,
+                   (
+            orig.board_id,
+            orig.post_num,
+            &orig.title,
+            orig.bump_time,
+            orig.replies,
+            orig.img_replies,
+            orig.pinned,
+            orig.archived,
+        ),
+        )?;
+
+        tx.commit()?;
+        Ok(orig.post_num)
     }
+
     fn create_reply(&mut self, reply: site::Reply) -> Result<u64, PlainchantErr> {
         unimplemented!()
     }
