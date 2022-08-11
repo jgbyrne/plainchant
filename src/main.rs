@@ -6,7 +6,6 @@ mod fr;
 
 mod actions;
 mod format;
-mod fsdb;
 mod fsfr;
 mod pages;
 mod server;
