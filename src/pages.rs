@@ -51,10 +51,7 @@ impl Pages {
                 let boards = database.get_boards()?;
 
                 for board in boards {
-                    values.insert(
-                        format!("board.{}.url", board.id),
-                        String::from(board.url),
-                    );
+                    values.insert(format!("board.{}.url", board.id), String::from(board.url));
                     values.insert(
                         format!("board.{}.title", board.id),
                         String::from(board.title),

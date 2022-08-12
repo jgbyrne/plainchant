@@ -167,7 +167,6 @@ pub struct Catalog {
 
 #[derive(Debug)]
 pub struct Site {
-    pub name: String,
+    pub name:        String,
     pub description: String,
 }
-

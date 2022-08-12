@@ -528,7 +528,10 @@ where
 // not_found: Handler for 404 fallback
 
 async fn not_found(sp: Arc<StaticPages>, uri: Uri) -> (StatusCode, impl IntoResponse) {
-    (StatusCode::NOT_FOUND, message_page(&sp, &format!("404 Not Found ({})", uri)))
+    (
+        StatusCode::NOT_FOUND,
+        message_page(&sp, &format!("404 Not Found ({})", uri)),
+    )
 }
 
 async fn redirect(path: String) -> response::Redirect {
@@ -588,11 +591,9 @@ pub async fn serve<DB, FR>(
         )
         .route(
             "/:board/",
-            routing::get(
-                move |extract::Path(board): extract::Path<String>| {
-                    redirect(format!("/{}/catalog", board))
-                }
-            )
+            routing::get(move |extract::Path(board): extract::Path<String>| {
+                redirect(format!("/{}/catalog", board))
+            }),
         )
         .route(
             "/:board/catalog",

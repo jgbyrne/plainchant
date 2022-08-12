@@ -281,12 +281,12 @@ impl db::Database for Sqlite3Database {
             r#"
             SELECT Name, Description FROM Site
             WHERE Identity = 1;
-            "#
+            "#,
         )?;
 
         let site = query.query_row((), |row| {
-            Ok(site::Site{
-                name: row.get(0)?,
+            Ok(site::Site {
+                name:        row.get(0)?,
                 description: row.get(1)?,
             })
         })?;
