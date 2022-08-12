@@ -23,9 +23,7 @@ impl Data {
         }
     }
 
-    pub fn values(
-        values: HashMap<String, String>
-    ) -> Data {
+    pub fn values(values: HashMap<String, String>) -> Data {
         Data {
             values,
             flags: None,
@@ -130,46 +128,52 @@ impl Template {
                                             false
                                         }
                                     } else {
-                                        false 
+                                        false
                                     }
                                 },
                                 None => *flags.get(name).unwrap_or(&false),
                             };
                             if !flag {
-                                skip = Some(format!("{}.{}", name, obj.as_ref().unwrap_or(&empty_str)));
+                                skip = Some(format!(
+                                    "{}.{}",
+                                    name,
+                                    obj.as_ref().unwrap_or(&empty_str)
+                                ));
                             }
                         }
                     }
                 },
-                Chunk::Control(obj) => if let Some(ref collections) = data.collections {
-                    match ptrs.get(obj) {
-                        Some(start_ptr) => {
-                            if skip.is_none() && *start_ptr != cptr {
-                                let mut ctr = *ctrs.get(obj).unwrap();
-                                ctr += 1;
-                                if ctr == collections.get(obj).unwrap().len() {
-                                    ptrs.remove(obj);
-                                    ctrs.remove(obj);
-                                } else {
-                                    ctrs.insert(String::from(obj), ctr);
-                                    cptr = *start_ptr;
+                Chunk::Control(obj) => {
+                    if let Some(ref collections) = data.collections {
+                        match ptrs.get(obj) {
+                            Some(start_ptr) => {
+                                if skip.is_none() && *start_ptr != cptr {
+                                    let mut ctr = *ctrs.get(obj).unwrap();
+                                    ctr += 1;
+                                    if ctr == collections.get(obj).unwrap().len() {
+                                        ptrs.remove(obj);
+                                        ctrs.remove(obj);
+                                    } else {
+                                        ctrs.insert(String::from(obj), ctr);
+                                        cptr = *start_ptr;
+                                    }
                                 }
-                            }
-                        },
-                        None => {
-                            if let Some(ref s) = skip {
-                                if s == obj {
-                                    skip = None;
+                            },
+                            None => {
+                                if let Some(ref s) = skip {
+                                    if s == obj {
+                                        skip = None;
+                                    }
+                                } else if let Some(col) = collections.get(obj) {
+                                    if col.is_empty() {
+                                        skip = Some(obj.clone());
+                                    } else {
+                                        ptrs.insert(String::from(obj), cptr);
+                                        ctrs.insert(String::from(obj), 0);
+                                    }
                                 }
-                            } else if let Some(col) = collections.get(obj) {
-                                if col.is_empty() {
-                                    skip = Some(obj.clone());
-                                } else {
-                                    ptrs.insert(String::from(obj), cptr);
-                                    ctrs.insert(String::from(obj), 0);
-                                }
-                            }
-                        },
+                            },
+                        }
                     }
                 },
             }

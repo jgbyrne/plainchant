@@ -36,7 +36,6 @@ pub trait Database {
     fn create_original(&self, orig: site::Original) -> Result<u64, util::PlainchantErr>;
     fn create_reply(&self, reply: site::Reply) -> Result<u64, util::PlainchantErr>;
 
-
     fn delete_original(&self, board_id: u64, post_num: u64) -> Result<(), util::PlainchantErr>;
     fn delete_reply(&self, board_id: u64, post_num: u64) -> Result<(), util::PlainchantErr>;
 
