@@ -60,6 +60,30 @@ impl Actions {
         database.create_original(original)
     }
 
+    pub fn delete_thread<DB: db::Database, FR: fr::FileRack> (
+        &self,
+        database: &DB,
+        file_rack: &mut FR,
+        board_id: u64,
+        post_num: u64,
+    ) -> Result<(), util::PlainchantErr> {
+        let thread = database.get_thread(board_id, post_num)?;
+
+        database.delete_original(board_id, thread.original.post_num())?;
+
+        if let Some(id) = thread.original.file_id() {
+            file_rack.delete_file(id)?;
+        }
+
+        for reply in thread.replies {
+            if let Some(id) = reply.file_id() {
+                file_rack.delete_file(id)?;
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn enforce_post_cap<DB: db::Database, FR: fr::FileRack>(
         &self,
         database: &DB,
@@ -74,10 +98,7 @@ impl Actions {
         if catalog.originals.len() > post_cap {
             let excess: Vec<site::Original> = catalog.originals.drain(post_cap..).collect();
             for orig in excess.iter() {
-                database.delete_original(board_id, orig.post_num())?;
-                if let Some(id) = orig.file_id() {
-                    file_rack.delete_file(id)?;
-                }
+                self.delete_thread(database, file_rack, board_id, orig.post_num)?;
             }
         }
         Ok(())
