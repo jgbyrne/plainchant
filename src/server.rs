@@ -186,6 +186,53 @@ where
     }
 }
 
+async fn multipart_text_field<'f>(
+    sp: &StaticPages,
+    field: extract::multipart::Field<'f>,
+    max_length: usize,
+) -> Result<String, (StatusCode, Html<String>)> {
+    let txt = field
+        .text()
+        .await
+        .map_err(|err| bad_request(sp, "Could not parse text field"))?;
+
+    if txt.len() > max_length {
+        Err(bad_request(sp, "Text field too long"))
+    } else {
+        Ok(txt)
+    }
+}
+
+async fn multipart_file_field<'f>(
+    sp: &StaticPages,
+    mut field: extract::multipart::Field<'f>,
+    max_length: usize,
+) -> Result<(Option<String>, Option<Bytes>), (StatusCode, Html<String>)> {
+    let file_name = field.file_name().map(|s| s.to_string());
+
+    let mut buffer = BytesMut::with_capacity(32_768);
+    let mut space = max_length;
+
+    while let Some(chunk) = field
+        .chunk()
+        .await
+        .map_err(|err| bad_request(&sp, "Could not read file"))?
+    {
+        if space < chunk.len() {
+            while let Ok(Some(_)) = field.chunk().await {}
+            return Err(bad_request(&sp, "File size limit exceeded"));
+        }
+        space -= chunk.len();
+        buffer.put(chunk)
+    }
+
+    if !buffer.is_empty() {
+        Ok((file_name, Some(buffer.freeze())))
+    } else {
+        Ok((file_name, None))
+    }
+}
+
 type Submission = extract::ContentLengthLimit<extract::Multipart, FORM_MAX_LENGTH>;
 
 async fn create_submit<DB, FR>(
@@ -211,10 +258,7 @@ where
                 },
             },
             Err(err) => {
-                return Err(internal_error(
-                    sp.as_ref(),
-                    "Could not acquire lock on pages",
-                ));
+                return Err(internal_error(&sp, "Could not acquire lock on pages"));
             },
         }
     };
@@ -228,50 +272,16 @@ where
     while let Ok(Some(mut field)) = multipart.next_field().await {
         match field.name() {
             Some("name") => {
-                name = Some(
-                    field
-                        .text()
-                        .await
-                        .map_err(|err| bad_request(sp.as_ref(), "Could not parse text field"))?,
-                );
+                name = Some(multipart_text_field(&sp, field, 4096).await?);
             },
             Some("title") => {
-                title = Some(
-                    field
-                        .text()
-                        .await
-                        .map_err(|err| bad_request(sp.as_ref(), "Could not parse title field"))?,
-                );
+                title = Some(multipart_text_field(&sp, field, 4096).await?);
             },
             Some("body") => {
-                body = Some(
-                    field
-                        .text()
-                        .await
-                        .map_err(|err| bad_request(sp.as_ref(), "Could not parse body field"))?,
-                );
+                body = Some(multipart_text_field(&sp, field, 16_384).await?);
             },
             Some("file") => {
-                file_name = field.file_name().map(|s| s.to_string());
-
-                let mut buffer = BytesMut::with_capacity(32_768);
-                let mut space = 524_288;
-                while let Some(chunk) = field
-                    .chunk()
-                    .await
-                    .map_err(|err| bad_request(sp.as_ref(), "Could not read file"))?
-                {
-                    if space < chunk.len() {
-                        while let Ok(Some(_)) = field.chunk().await {}
-                        return Err(bad_request(sp.as_ref(), "File size limit exceeded"));
-                    }
-                    space -= chunk.len();
-                    buffer.put(chunk)
-                }
-
-                if !buffer.is_empty() {
-                    file = Some(buffer.freeze());
-                }
+                (file_name, file) = multipart_file_field(&sp, field, 524_288).await?;
             },
             _ => {},
         }
@@ -279,7 +289,7 @@ where
 
     let file = match file {
         Some(f) => f,
-        None => return Err(bad_request(sp.as_ref(), "You must upload a file")),
+        None => return Err(bad_request(&sp, "You must upload a file")),
     };
 
     match fr.lock() {
@@ -289,7 +299,7 @@ where
                 Ok(id) => id,
                 Err(_) => {
                     return Err(bad_request(
-                        sp.as_ref(),
+                        &sp,
                         "File upload failed - filetype may not be supported",
                     ));
                 },
@@ -308,20 +318,109 @@ where
 
             if let Err(err) = actions.enforce_post_cap(db.as_ref(), file_rack, board_id) {
                 return Err(internal_error(
-                    sp.as_ref(),
+                    &sp,
                     "Server failure while enforcing post cap",
                 ));
             }
 
             match submission_result {
                 Ok(_) => Ok(response::Redirect::to(&format!("/{}/catalog", board))),
-                Err(_) => Err(internal_error(sp.as_ref(), "Failed to submit post")),
+                Err(_) => Err(internal_error(&sp, "Failed to submit post")),
             }
         },
-        Err(err) => Err(internal_error(
-            sp.as_ref(),
-            "Could not obtain lock for filerack",
-        )),
+        Err(err) => Err(internal_error(&sp, "Could not obtain lock for filerack")),
+    }
+}
+
+async fn create_reply<DB, FR>(
+    sp: Arc<StaticPages>,
+    pages: Arc<Mutex<pages::Pages>>,
+    actions: Arc<actions::Actions>,
+    db: Arc<DB>,
+    fr: Arc<Mutex<FR>>,
+    extract::ConnectInfo(addr): extract::ConnectInfo<SocketAddr>,
+    extract::Path((board, orig_num)): extract::Path<(String, u64)>,
+    extract::ContentLengthLimit(mut multipart): Submission,
+) -> impl IntoResponse
+where
+    DB: 'static + db::Database + Sync + Send,
+    FR: 'static + fr::FileRack + Sync + Send,
+{
+    let board_id = {
+        match pages.lock() {
+            Ok(guard) => match guard.deref().board_url_to_id(&board) {
+                Some(board_id) => board_id,
+                None => {
+                    return Ok(response::Redirect::to("/"));
+                },
+            },
+            Err(err) => {
+                return Err(internal_error(&sp, "Could not acquire lock on pages"));
+            },
+        }
+    };
+
+    let mut name = None;
+    let mut body = None;
+    let mut file_name = None;
+    let mut file = None;
+
+    while let Ok(Some(mut field)) = multipart.next_field().await {
+        match field.name() {
+            Some("name") => {
+                name = Some(multipart_text_field(&sp, field, 4096).await?);
+            },
+            Some("body") => {
+                body = Some(multipart_text_field(&sp, field, 16_384).await?);
+            },
+            Some("file") => {
+                (file_name, file) = multipart_file_field(&sp, field, 524_288).await?;
+            },
+            _ => {},
+        }
+    }
+
+    let mut file_id = None;
+
+    if let Some(file) = file {
+        match fr.lock() {
+            Ok(mut guard) => {
+                let file_rack = guard.deref_mut();
+                match actions.upload_file(file_rack, file) {
+                    Ok(id) => {
+                        file_id = Some(id);
+                    },
+                    Err(_) => {
+                        return Err(bad_request(
+                            &sp,
+                            "File upload failed - filetype may not be supported",
+                        ));
+                    },
+                }
+            },
+            Err(err) => {
+                return Err(internal_error(&sp, "Could not obtain lock for filerack"));
+            },
+        }
+    }
+
+    let submission_result = actions.submit_reply(
+        db.as_ref(),
+        board_id,
+        addr.ip().to_string(),
+        body.unwrap_or_else(|| String::from("")),
+        name,
+        file_id,
+        file_name,
+        orig_num,
+    );
+
+    match submission_result {
+        Ok(_) => Ok(response::Redirect::to(&format!(
+            "/{}/thread/{}",
+            board, orig_num
+        ))),
+        Err(_) => Err(internal_error(&sp, "Failed to submit post")),
     }
 }
 
@@ -351,14 +450,10 @@ where
 
             match file_rack.get_file(&file_id) {
                 Ok(file) => Ok((StatusCode::OK, file_headers(&file), file)),
-                Err(_) => Err((
-                    StatusCode::NOT_FOUND,
-                    message_page(sp.as_ref(), "No such file"),
-                )
-                    .into()),
+                Err(_) => Err((StatusCode::NOT_FOUND, message_page(&sp, "No such file")).into()),
             }
         },
-        Err(err) => Err(internal_error(sp.as_ref(), "Could not acquire lock on filerack").into()),
+        Err(err) => Err(internal_error(&sp, "Could not acquire lock on filerack").into()),
     }
 }
 
@@ -378,7 +473,7 @@ where
                 Ok(file) => Ok((StatusCode::OK, file_headers(&file), file)),
                 Err(_) => Err((
                     StatusCode::NOT_FOUND,
-                    message_page(sp.as_ref(), "No such thumbnail"),
+                    message_page(&sp, "No such thumbnail"),
                 )
                     .into()),
             }
@@ -476,6 +571,19 @@ pub async fn serve<DB, FR>(
                     fr.clone(),
                 );
                 move |conn, path, form| create_submit(sp, pages, actions, db, fr, conn, path, form)
+            }),
+        )
+        .route(
+            "/:board/reply/:orig_num",
+            routing::post({
+                let (sp, pages, actions, db, fr) = (
+                    sp.clone(),
+                    pages.clone(),
+                    actions.clone(),
+                    db.clone(),
+                    fr.clone(),
+                );
+                move |conn, path, form| create_reply(sp, pages, actions, db, fr, conn, path, form)
             }),
         )
         .fallback(
