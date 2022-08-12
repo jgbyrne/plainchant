@@ -15,14 +15,24 @@ pub struct FSFileRack {
 
 impl FSFileRack {
     pub fn from_dir(dir: &Path) -> Result<FSFileRack, util::PlainchantErr> {
+        if !dir.is_dir() {
+            return Err(fr::static_err("FS File Rack directory is not a directory"));
+        }
+
         let fr_path = dir.join("rack").to_path_buf();
-        match fr_path.is_dir() {
-            true => Ok(FSFileRack {
+
+        if !fr_path.is_dir() {
+            if !fs::create_dir(&fr_path).is_ok() {
+                return Err(fr::static_err("Failed to create fsfr /rack directory"));
+            }
+        }
+
+        Ok(
+            FSFileRack {
                 file_dir: fr_path,
                 cache:    HashMap::new(),
-            }),
-            false => Err(fr::static_err("FS File Rack directory is not a directory")),
-        }
+            }
+        )
     }
 
     fn thumb_id(file_id: &str) -> String {
