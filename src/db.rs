@@ -21,20 +21,24 @@ pub trait Database {
 
     fn get_boards(&self) -> Result<Vec<site::Board>, util::PlainchantErr>;
     fn get_board(&self, board_id: u64) -> Result<site::Board, util::PlainchantErr>;
+
     fn get_catalog(&self, board_id: u64) -> Result<site::Catalog, util::PlainchantErr>;
-    fn get_thread(&self, board_id: u64, post_num: u64) -> Result<Thread, util::PlainchantErr>;
 
     fn get_original(
         &self,
         board_id: u64,
         post_num: u64,
     ) -> Result<site::Original, util::PlainchantErr>;
+
     fn get_reply(&self, board_id: u64, post_num: u64) -> Result<site::Reply, util::PlainchantErr>;
+
     fn get_post(
         &self,
         board_id: u64,
         post_num: u64,
     ) -> Result<Box<dyn site::Post>, util::PlainchantErr>;
+
+    fn get_thread(&self, board_id: u64, post_num: u64) -> Result<Thread, util::PlainchantErr>;
 
     // These two methods are called with dummy post IDs, which are auto-filled and returned
     fn create_original(&self, orig: site::Original) -> Result<u64, util::PlainchantErr>;

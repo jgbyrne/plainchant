@@ -60,6 +60,35 @@ impl Actions {
         database.create_original(original)
     }
 
+    pub fn submit_reply<DB: db::Database>(
+        &self,
+        database: &DB,
+        board_id: u64,
+        ip: String,
+        body: String,
+        poster: Option<String>,
+        file_id: Option<String>,
+        file_name: Option<String>,
+        orig_num: u64,
+    ) -> Result<u64, util::PlainchantErr> {
+        let cur_time = util::timestamp();
+        let reply = site::Reply {
+            board_id,
+            post_num: 0,
+            time: cur_time,
+            ip,
+            body,
+            poster,
+            feather: site::Feather::None,
+            file_id: file_id.clone(),
+            file_name,
+            orig_num,
+        };
+
+        let post_id = database.create_reply(reply)?;
+        Ok(post_id)
+    }
+
     pub fn delete_thread<DB: db::Database, FR: fr::FileRack>(
         &self,
         database: &DB,
@@ -102,34 +131,5 @@ impl Actions {
             }
         }
         Ok(())
-    }
-
-    pub fn submit_reply<DB: db::Database>(
-        &self,
-        database: &DB,
-        board_id: u64,
-        ip: String,
-        body: String,
-        poster: Option<String>,
-        file_id: Option<String>,
-        file_name: Option<String>,
-        orig_num: u64,
-    ) -> Result<u64, util::PlainchantErr> {
-        let cur_time = util::timestamp();
-        let reply = site::Reply {
-            board_id,
-            post_num: 0,
-            time: cur_time,
-            ip,
-            body,
-            poster,
-            feather: site::Feather::None,
-            file_id: file_id.clone(),
-            file_name,
-            orig_num,
-        };
-
-        let post_id = database.create_reply(reply)?;
-        Ok(post_id)
     }
 }

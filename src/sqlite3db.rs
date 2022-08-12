@@ -628,26 +628,9 @@ impl db::Database for Sqlite3Database {
 
         let tx = conn.transaction()?;
 
-        tx.execute(
-            r#"
-            DELETE FROM Posts WHERE BoardId = ?1;
-            "#,
-            (board_id,),
-        )?;
-
-        tx.execute(
-            r#"
-            DELETE FROM Originals WHERE BoardId = ?1;
-            "#,
-            (board_id,),
-        )?;
-
-        tx.execute(
-            r#"
-            DELETE FROM Boards WHERE BoardId = ?1;
-            "#,
-            (board_id,),
-        )?;
+        tx.execute("DELETE FROM Posts WHERE BoardId = ?1;", (board_id,))?;
+        tx.execute("DELETE FROM Originals WHERE BoardId = ?1;", (board_id,))?;
+        tx.execute("DELETE FROM Boards WHERE BoardId = ?1;", (board_id,))?;
 
         tx.commit()?;
 
