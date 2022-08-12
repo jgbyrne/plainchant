@@ -7,7 +7,7 @@ use crate::Config;
 
 use axum::http::{StatusCode, Uri};
 use axum::{body, extract, response, routing, Extension, Router};
-use axum::response::{IntoResponse, ErrorResponse};
+use axum::response::{IntoResponse, IntoResponseParts, ErrorResponse};
 use axum::handler::Handler;
 
 use tokio;
@@ -162,11 +162,20 @@ where
     }
 }
 
+fn file_headers(file: &Bytes) -> impl IntoResponseParts {
+    [ 
+        ("Cache-Control", "public, max-age=604800, immutable".to_string()),
+        ("Content-Length", file.len().to_string()),
+        ("Content-Type", "image".to_string()),
+        ("Content-Disposition", "inline".to_string())
+    ]
+}
+
 async fn files<FR>(
     sp: Arc<StaticPages>,
     fr: Arc<Mutex<FR>>,
     extract::Path(file_id): extract::Path<String>,
-) -> Result<(StatusCode, response::AppendHeaders<&'static str, &'static str, 2>, Bytes), ErrorResponse>
+) -> Result<(StatusCode, impl IntoResponseParts, Bytes), ErrorResponse>
 where
      FR: 'static + fr::FileRack + Sync + Send
 {
@@ -178,21 +187,51 @@ where
                 Ok(file) => {
                     Ok((
                         StatusCode::OK,
-                        response::AppendHeaders([
-                            ("Content-Disposition", "inline"),
-                            ("Cache-Control", "public, max-age=604800, immutable")
-                        ]),
+                        file_headers(&file),
                         file,
                     ))
                 },
-                Err(_) => Ok((
-                    StatusCode::NOT_FOUND,
-                    response::AppendHeaders([
-                        ("Content-Disposition", "inline"),
-                        ("Cache-Control", "no-cache")
-                    ]),
-                    Bytes::from("Not Found"),
-                )),
+                Err(_) => {
+                    Err((
+                        StatusCode::NOT_FOUND,
+                        message_page(sp.as_ref(), "No such file"),
+                    ).into())
+                },
+            }
+        },
+        Err(err) => {
+            Err((StatusCode::INTERNAL_SERVER_ERROR,
+                error_page(sp.as_ref(), "Could not acquire lock on filerack")).into())
+        }
+    }
+}
+
+async fn thumbnails<FR>(
+    sp: Arc<StaticPages>,
+    fr: Arc<Mutex<FR>>,
+    extract::Path(file_id): extract::Path<String>,
+) -> Result<(StatusCode, impl IntoResponseParts, Bytes), ErrorResponse>
+where
+     FR: 'static + fr::FileRack + Sync + Send
+{
+    match fr.lock() {
+        Ok(mut guard) => {
+            let file_rack = guard.deref_mut();
+
+            match file_rack.get_file_thumbnail(&file_id) {
+                Ok(file) => {
+                    Ok((
+                        StatusCode::OK,
+                        file_headers(&file),
+                        file,
+                    ))
+                },
+                Err(_) => {
+                    Err((
+                        StatusCode::NOT_FOUND,
+                        message_page(sp.as_ref(), "No such thumbnail"),
+                    ).into())
+                },
             }
         },
         Err(err) => {
@@ -250,6 +289,10 @@ pub async fn serve<DB, FR>(
         .route("/files/:file_id", routing::get({
             let (sp, fr) = (sp.clone(), fr.clone());
             move |path| files(sp, fr, path)
+        }))
+        .route("/thumbnails/:file_id", routing::get({
+            let (sp, fr) = (sp.clone(), fr.clone());
+            move |path| thumbnails(sp, fr, path)
         }))
         .fallback({
             let sp = sp.clone();
