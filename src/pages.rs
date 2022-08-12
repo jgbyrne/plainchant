@@ -124,6 +124,10 @@ impl Pages {
                     format!("/files/{}", thread.original.file_id().unwrap_or("")),
                 );
                 values.insert(
+                    String::from("orig_file_name"),
+                    thread.original.file_name().unwrap_or("").to_string()
+                );
+                values.insert(
                     String::from("orig_thumbnail_url"),
                     format!("/thumbnails/{}", thread.original.file_id().unwrap_or("")),
                 );
@@ -162,6 +166,11 @@ impl Pages {
                     values.insert(
                         format!("reply.{}.thumbnail_url", reply.post_num()),
                         format!("/thumbnails/{}", reply.file_id().unwrap_or("")),
+                    );
+
+                    values.insert(
+                        format!("reply.{}.file_name", reply.post_num()),
+                        reply.file_name().unwrap_or("").to_string(),
                     );
 
                     flags.insert(

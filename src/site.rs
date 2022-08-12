@@ -145,7 +145,7 @@ macro_rules! impl_post {
             }
 
             fn file_name(&self) -> Option<&str> {
-                self.poster.as_deref()
+                self.file_name.as_deref()
             }
         })+
     }
