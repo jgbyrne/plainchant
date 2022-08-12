@@ -60,7 +60,7 @@ impl Actions {
         database.create_original(original)
     }
 
-    pub fn delete_thread<DB: db::Database, FR: fr::FileRack> (
+    pub fn delete_thread<DB: db::Database, FR: fr::FileRack>(
         &self,
         database: &DB,
         file_rack: &mut FR,

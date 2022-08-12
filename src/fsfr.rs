@@ -27,12 +27,10 @@ impl FSFileRack {
             }
         }
 
-        Ok(
-            FSFileRack {
-                file_dir: fr_path,
-                cache:    HashMap::new(),
-            }
-        )
+        Ok(FSFileRack {
+            file_dir: fr_path,
+            cache:    HashMap::new(),
+        })
     }
 
     fn thumb_id(file_id: &str) -> String {
