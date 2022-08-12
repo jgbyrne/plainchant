@@ -42,25 +42,25 @@
                 </div>
             </div>
             {%reply%}
-            <div class="post reply">
-                <div class="post-text">
-                <div class="info-line">
-	    	    <a id="{{reply.post_num}}"></a>
-                    <span class="post-nick">{{reply.poster}}</span> :
-                    <span class="post-time" title="{{reply.timestamp}}">{{reply.time}}</span> :
-                    <a class="subtle-link" href="/{{board_url}}/thread/{{orig_post_num}}#{{reply.post_num}}">
-			<span class="post-num">No.{{reply.post_num}}</span>
-		    </a>
-                </div>
-
-	  	    {:reply.has_image:}
-		        <div class="post-image-frame">
-		             <a href="{{reply.file_url}}"><img class="post-image" src="{{reply.thumbnail_url}}"></img></a>
+                <div class="post reply">
+                    <div class="post-text">
+                        <div class="info-line">
+                            <a id="{{reply.post_num}}"></a>
+                            <span class="post-nick">{{reply.poster}}</span> :
+                            <span class="post-time" title="{{reply.timestamp}}">{{reply.time}}</span> :
+                            <a class="subtle-link" href="/{{board_url}}/thread/{{orig_post_num}}#{{reply.post_num}}">
+                                <span class="post-num">No.{{reply.post_num}}</span>
+                            </a>
                         </div>
-		    {:reply.has_image:}
-                    <p class="post-body">{{reply.post_body}}</p>
+
+                        {:reply.has_image:}
+                            <div class="post-image-frame">
+                                 <a href="{{reply.file_url}}"><img class="post-image" src="{{reply.thumbnail_url}}"></img></a>
+                            </div>
+                        {:reply.has_image:}
+                        <p class="post-body">{{reply.post_body}}</p>
+                    </div>
                 </div>
-            </div>
             {%reply%}
 	    <hr/>
 	    <div class="reply-form">

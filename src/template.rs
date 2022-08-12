@@ -6,8 +6,8 @@ use std::path::Path;
 
 pub struct Data {
     values:      HashMap<String, String>,
-    flags:       HashMap<String, bool>,
-    collections: HashMap<String, Vec<String>>,
+    flags:       Option<HashMap<String, bool>>,
+    collections: Option<HashMap<String, Vec<String>>>,
 }
 
 impl Data {
@@ -18,8 +18,18 @@ impl Data {
     ) -> Data {
         Data {
             values,
-            flags,
-            collections,
+            flags: Some(flags),
+            collections: Some(collections),
+        }
+    }
+
+    pub fn values(
+        values: HashMap<String, String>
+    ) -> Data {
+        Data {
+            values,
+            flags: None,
+            collections: None,
         }
     }
 }
@@ -67,18 +77,20 @@ impl Template {
                     if skip.is_none() {
                         match obj {
                             Some(obj_name) => {
-                                if let Some(obj_ctr) = ctrs.get(obj_name) {
-                                    if let Some(obj_col) = data.collections.get(obj_name) {
-                                        let obj_id = &obj_col[*obj_ctr];
-                                        let mut valpath = String::from(obj_name);
-                                        valpath.push('.');
-                                        valpath.push_str(&obj_id);
-                                        valpath.push('.');
-                                        valpath.push_str(name);
-                                        buf.push_str(
-                                            data.values.get(&valpath).unwrap_or(&empty_str),
-                                        );
-                                    };
+                                if let Some(ref collections) = data.collections {
+                                    if let Some(obj_ctr) = ctrs.get(obj_name) {
+                                        if let Some(obj_col) = collections.get(obj_name) {
+                                            let obj_id = &obj_col[*obj_ctr];
+                                            let mut valpath = String::from(obj_name);
+                                            valpath.push('.');
+                                            valpath.push_str(&obj_id);
+                                            valpath.push('.');
+                                            valpath.push_str(name);
+                                            buf.push_str(
+                                                data.values.get(&valpath).unwrap_or(&empty_str),
+                                            );
+                                        };
+                                    }
                                 }
                             },
                             None => match name.as_str() {
@@ -93,64 +105,72 @@ impl Template {
                     }
                 },
                 Chunk::Condition(ref name, ref obj) => {
-                    if let Some(ref s) = skip {
-                        if *s == format!("{}.{}", name, obj.as_ref().unwrap_or(&empty_str)) {
-                            skip = None;
-                        }
-                    } else {
-                        let flag = match obj {
-                            Some(obj_name) => {
-                                if let Some(obj_ctr) = ctrs.get(obj_name) {
-                                    if let Some(obj_col) = data.collections.get(obj_name) {
-                                        let obj_id = &obj_col[*obj_ctr];
-                                        let mut valpath = String::from(obj_name);
-                                        valpath.push('.');
-                                        valpath.push_str(&obj_id);
-                                        valpath.push('.');
-                                        valpath.push_str(name);
-                                        *data.flags.get(&valpath).unwrap_or(&false)
+                    if let Some(ref flags) = data.flags {
+                        if let Some(ref s) = skip {
+                            if *s == format!("{}.{}", name, obj.as_ref().unwrap_or(&empty_str)) {
+                                skip = None;
+                            }
+                        } else {
+                            let flag = match obj {
+                                Some(obj_name) => {
+                                    if let Some(ref collections) = data.collections {
+                                        if let Some(obj_ctr) = ctrs.get(obj_name) {
+                                            if let Some(obj_col) = collections.get(obj_name) {
+                                                let obj_id = &obj_col[*obj_ctr];
+                                                let mut valpath = String::from(obj_name);
+                                                valpath.push('.');
+                                                valpath.push_str(&obj_id);
+                                                valpath.push('.');
+                                                valpath.push_str(name);
+                                                *flags.get(&valpath).unwrap_or(&false)
+                                            } else {
+                                                false
+                                            }
+                                        } else {
+                                            false
+                                        }
                                     } else {
-                                        false
+                                        false 
                                     }
-                                } else {
-                                    false
-                                }
-                            },
-                            None => *data.flags.get(name).unwrap_or(&false),
-                        };
-                        if !flag {
-                            skip = Some(format!("{}.{}", name, obj.as_ref().unwrap_or(&empty_str)));
+                                },
+                                None => *flags.get(name).unwrap_or(&false),
+                            };
+                            if !flag {
+                                skip = Some(format!("{}.{}", name, obj.as_ref().unwrap_or(&empty_str)));
+                            }
                         }
                     }
                 },
-                Chunk::Control(obj) => match ptrs.get(obj) {
-                    Some(start_ptr) => {
-                        if skip.is_none() && *start_ptr != cptr {
-                            let mut ctr = *ctrs.get(obj).unwrap();
-                            ctr += 1;
-                            if ctr == data.collections.get(obj).unwrap().len() {
-                                ptrs.remove(obj);
-                                ctrs.remove(obj);
-                            } else {
-                                ctrs.insert(String::from(obj), ctr);
-                                cptr = *start_ptr;
+                Chunk::Control(obj) => if let Some(ref collections) = data.collections {
+                    match ptrs.get(obj) {
+                        Some(start_ptr) => {
+                            if skip.is_none() && *start_ptr != cptr {
+                                let mut ctr = *ctrs.get(obj).unwrap();
+                                ctr += 1;
+                                if ctr == collections.get(obj).unwrap().len() {
+                                    ptrs.remove(obj);
+                                    ctrs.remove(obj);
+                                } else {
+                                    ctrs.insert(String::from(obj), ctr);
+                                    cptr = *start_ptr;
+                                }
                             }
-                        }
-                    },
-                    None => {
-                        if let Some(ref s) = skip {
-                            if s == obj {
-                                skip = None;
+                        },
+                        None => {
+                            if let Some(ref s) = skip {
+                                if s == obj {
+                                    skip = None;
+                                }
+                            } else if let Some(col) = collections.get(obj) {
+                                if col.is_empty() {
+                                    skip = Some(obj.clone());
+                                } else {
+                                    ptrs.insert(String::from(obj), cptr);
+                                    ctrs.insert(String::from(obj), 0);
+                                }
                             }
-                        } else if let Some(col) = data.collections.get(obj) {
-                            if col.is_empty() {
-                                skip = Some(obj.clone());
-                            } else {
-                                ptrs.insert(String::from(obj), cptr);
-                                ctrs.insert(String::from(obj), 0);
-                            }
-                        }
-                    },
+                        },
+                    }
                 },
             }
             cptr += 1;

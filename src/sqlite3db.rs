@@ -355,7 +355,7 @@ impl db::Database for Sqlite3Database {
         Ok(Box::new(post) as Box<dyn site::Post>)
     }
 
-    fn create_original(&mut self, mut orig: site::Original) -> Result<u64, PlainchantErr> {
+    fn create_original(&self, mut orig: site::Original) -> Result<u64, PlainchantErr> {
         let mut conn = self.pool.get()?;
 
         let mut board = query_board(&conn, orig.board_id)?;
@@ -407,7 +407,7 @@ impl db::Database for Sqlite3Database {
         Ok(orig.post_num)
     }
 
-    fn create_reply(&mut self, mut reply: site::Reply) -> Result<u64, PlainchantErr> {
+    fn create_reply(&self, mut reply: site::Reply) -> Result<u64, PlainchantErr> {
         let mut conn = self.pool.get()?;
 
         let mut board = query_board(&conn, reply.board_id)?;
@@ -473,7 +473,7 @@ impl db::Database for Sqlite3Database {
         Ok(reply.post_num)
     }
 
-    fn delete_original(&mut self, board_id: u64, post_num: u64) -> Result<(), PlainchantErr> {
+    fn delete_original(&self, board_id: u64, post_num: u64) -> Result<(), PlainchantErr> {
         let mut conn = self.pool.get()?;
         let tx = conn.transaction()?;
 
@@ -503,7 +503,7 @@ impl db::Database for Sqlite3Database {
         Ok(())
     }
 
-    fn delete_reply(&mut self, board_id: u64, post_num: u64) -> Result<(), PlainchantErr> {
+    fn delete_reply(&self, board_id: u64, post_num: u64) -> Result<(), PlainchantErr> {
         let mut conn = self.pool.get()?;
 
         let reply = query_reply(&conn, board_id, post_num)?;
@@ -544,7 +544,7 @@ impl db::Database for Sqlite3Database {
         Ok(())
     }
 
-    fn create_board(&mut self, board: site::Board) -> Result<(), PlainchantErr> {
+    fn create_board(&self, board: site::Board) -> Result<(), PlainchantErr> {
         let mut conn = self.pool.get()?;
 
         conn.execute(
@@ -565,7 +565,7 @@ impl db::Database for Sqlite3Database {
         Ok(())
     }
 
-    fn delete_board(&mut self, board_id: u64) -> Result<(), PlainchantErr> {
+    fn delete_board(&self, board_id: u64) -> Result<(), PlainchantErr> {
         let mut conn = self.pool.get()?;
 
         let tx = conn.transaction()?;

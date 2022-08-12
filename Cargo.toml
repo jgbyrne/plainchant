@@ -9,7 +9,8 @@ edition = "2021"
 [dependencies]
 walkdir = "2"
 tokio = { version = "1", features = ["full"] }
-warp = "0.3"
+tokio-util = { version = "0.7", features = ["io"] }
+axum = "0.5"
 chrono = "0.4"
 futures = "0.3"
 bytes = "1.1"
@@ -21,3 +22,4 @@ regex = "1.5"
 rusqlite = "0.28"
 r2d2 = "0.8"
 r2d2_sqlite = "0.21"
+mime_guess = "2.0"

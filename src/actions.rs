@@ -14,7 +14,7 @@ impl Actions {
     }
 
     pub fn upload_file<FR: fr::FileRack>(
-        &mut self,
+        &self,
         file_rack: &mut FR,
         file: bytes::Bytes,
     ) -> Result<String, util::PlainchantErr> {
@@ -29,8 +29,8 @@ impl Actions {
     }
 
     pub fn submit_original<DB: db::Database>(
-        &mut self,
-        database: &mut DB,
+        &self,
+        database: &DB,
         board_id: u64,
         ip: String,
         body: String,
@@ -61,8 +61,8 @@ impl Actions {
     }
 
     pub fn enforce_post_cap<DB: db::Database, FR: fr::FileRack>(
-        &mut self,
-        database: &mut DB,
+        &self,
+        database: &DB,
         file_rack: &mut FR,
         board_id: u64,
     ) -> Result<(), util::PlainchantErr> {
@@ -84,8 +84,8 @@ impl Actions {
     }
 
     pub fn submit_reply<DB: db::Database>(
-        &mut self,
-        database: &mut DB,
+        &self,
+        database: &DB,
         board_id: u64,
         ip: String,
         body: String,
@@ -95,7 +95,6 @@ impl Actions {
         orig_num: u64,
     ) -> Result<u64, util::PlainchantErr> {
         let board = database.get_board(board_id)?;
-        //let mut orig = database.get_original(board_id, orig_num)?;
 
         let cur_time = util::timestamp();
         let reply = site::Reply {
@@ -110,20 +109,8 @@ impl Actions {
             file_name,
             orig_num,
         };
+
         let post_id = database.create_reply(reply)?;
-        //let new_reply_count = orig.replies() + 1;
-
-        //if new_reply_count <= board.bump_limit {
-        //    orig.set_bump_time(cur_time);
-        //}
-
-        //orig.set_replies(new_reply_count);
-        //if file_id.is_some() {
-        //    orig.set_img_replies(orig.img_replies() + 1);
-        //}
-
-        //database.update_original(orig)?;
-
         Ok(post_id)
     }
 }
