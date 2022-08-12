@@ -44,7 +44,7 @@ Plainchant is alpha software and should not be used for any serious purpose. How
 
 4. Ensure that the user that you intend to run the server has read access to `/etc/plainchant/` and read-write access to `/var/lib/plainchant/`
 
-5. To create the database at `/var/lib/plainchant/db.sqlite3`, run `plainchant`, either with `cargo run` or by invoking the binary directly. You need provide just one argument, the path to the site config file - if you have exactly followed the directions above, that's `/etc/plainchant/plainchant.toml`. .
+5. To create the database at `/var/lib/plainchant/db.sqlite3`, run `plainchant`, either with `cargo run` or by invoking the binary directly. You need provide just one argument, the path to the site config file - if you have exactly followed the directions above, that's `/etc/plainchant/plainchant.toml`.
 
 6. Using a tool of your choice, add each board that you wish to serve into the `Boards` table of the sqlite3 database. The schema is (`BoardId`, `Url`, `Title`, `PostCap`, `BumpLimit`, `NextPostNum`). For example:
 
