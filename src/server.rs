@@ -14,6 +14,7 @@ use tokio;
 use tokio_util::io::ReaderStream;
 
 use mime_guess;
+use bytes::Bytes;
 
 use std::collections::HashMap;
 use std::path;
@@ -83,7 +84,7 @@ where
 {
     match pages.lock() {
         Ok(mut guard) => {
-            let pages = guard.deref_mut();
+            let mut pages = guard.deref_mut();
             if let Some(board_id) = pages.board_url_to_id(&board) {
                 let page_ref = pages::PageRef::Thread(board_id, post_num);
 
@@ -156,8 +157,48 @@ where
         },
         Err(err) => {
             (StatusCode::INTERNAL_SERVER_ERROR,
-             error_page(sp.as_ref(), &format!("Could not acquire lock on pages"))) 
+             error_page(sp.as_ref(), "Could not acquire lock on pages")) 
         },
+    }
+}
+
+async fn files<FR>(
+    sp: Arc<StaticPages>,
+    fr: Arc<Mutex<FR>>,
+    extract::Path(file_id): extract::Path<String>,
+) -> Result<(StatusCode, response::AppendHeaders<&'static str, &'static str, 2>, Bytes), ErrorResponse>
+where
+     FR: 'static + fr::FileRack + Sync + Send
+{
+    match fr.lock() {
+        Ok(mut guard) => {
+            let file_rack = guard.deref_mut();
+
+            match file_rack.get_file(&file_id) {
+                Ok(file) => {
+                    Ok((
+                        StatusCode::OK,
+                        response::AppendHeaders([
+                            ("Content-Disposition", "inline"),
+                            ("Cache-Control", "public, max-age=604800, immutable")
+                        ]),
+                        file,
+                    ))
+                },
+                Err(_) => Ok((
+                    StatusCode::NOT_FOUND,
+                    response::AppendHeaders([
+                        ("Content-Disposition", "inline"),
+                        ("Cache-Control", "no-cache")
+                    ]),
+                    Bytes::from("Not Found"),
+                )),
+            }
+        },
+        Err(err) => {
+            Err((StatusCode::INTERNAL_SERVER_ERROR,
+                error_page(sp.as_ref(), "Could not acquire lock on filerack")).into())
+        }
     }
 }
 
@@ -206,6 +247,10 @@ pub async fn serve<DB, FR>(
             let (sp, pages, db) = (sp.clone(), pages.clone(), db.clone());
             move |path| catalog(sp, pages, db, path)
         }))
+        .route("/files/:file_id", routing::get({
+            let (sp, fr) = (sp.clone(), fr.clone());
+            move |path| files(sp, fr, path)
+        }))
         .fallback({
             let sp = sp.clone();
             move |uri| not_found(sp, uri)
@@ -213,6 +258,7 @@ pub async fn serve<DB, FR>(
 
     axum::Server::bind(&config.addr)
         .serve(router.into_make_service())
-        .await;
+        .await
+        .expect("Server quit unexpectedly");
 }
 
