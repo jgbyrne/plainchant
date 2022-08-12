@@ -125,6 +125,31 @@ where
     }
 }
 
+// homepage: Handler to serve homepage
+
+async fn homepage<DB>(
+    sp: Arc<StaticPages>,
+    pages: Arc<Mutex<pages::Pages>>,
+    db: Arc<DB>,
+) -> (StatusCode, Html<String>)
+where
+    DB: 'static + db::Database + Sync + Send,
+{
+    match pages.lock() {
+        Ok(mut guard) => {
+            let pages = guard.deref_mut();
+            let page_ref = pages::PageRef::Homepage;
+            let page = pages
+                .get_page(db.as_ref(), &page_ref)
+                .expect("Could not access homepage")
+                .page_text
+                .to_string();
+            (StatusCode::OK, Html(page))
+        },
+        Err(_err) => internal_error(&sp, "Could not acquire lock on pages"),
+    }
+}
+
 // catalog: Handler to serve catalog pages
 
 async fn catalog<DB>(
@@ -504,6 +529,10 @@ async fn not_found(sp: Arc<StaticPages>, uri: Uri) -> (StatusCode, impl IntoResp
     (StatusCode::NOT_FOUND, message_page(&sp, &format!("404 Not Found ({})", uri)))
 }
 
+async fn redirect(path: String) -> response::Redirect {
+    response::Redirect::to(&path)
+}
+
 // Main server method - using tokio runtime
 
 #[tokio::main]
@@ -535,6 +564,13 @@ pub async fn serve<DB, FR>(
 
     let router = Router::new()
         .route(
+            "/",
+            routing::get({
+                let (sp, pages, db) = (sp.clone(), pages.clone(), db.clone());
+                move || homepage(sp, pages, db)
+            }),
+        )
+        .route(
             "/static/*path",
             routing::get({
                 let config = config.clone();
@@ -547,6 +583,14 @@ pub async fn serve<DB, FR>(
                 let (sp, pages, db) = (sp.clone(), pages.clone(), db.clone());
                 move |path| thread(sp, pages, db, path)
             }),
+        )
+        .route(
+            "/:board/",
+            routing::get(
+                move |extract::Path(board): extract::Path<String>| {
+                    redirect(format!("/{}/catalog", board))
+                }
+            )
         )
         .route(
             "/:board/catalog",

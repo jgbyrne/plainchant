@@ -16,6 +16,9 @@ pub fn static_err(msg: &'static str) -> util::PlainchantErr {
 }
 
 pub trait Database {
+    fn get_site(&self) -> Result<site::Site, util::PlainchantErr>;
+    fn set_site(&self, site: site::Site) -> Result<(), util::PlainchantErr>;
+
     fn get_boards(&self) -> Result<Vec<site::Board>, util::PlainchantErr>;
     fn get_board(&self, board_id: u64) -> Result<site::Board, util::PlainchantErr>;
     fn get_catalog(&self, board_id: u64) -> Result<site::Catalog, util::PlainchantErr>;

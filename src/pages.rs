@@ -7,6 +7,7 @@ use std::collections::{HashMap, HashSet};
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy)]
 pub enum PageRef {
+    Homepage,
     Catalog(u64),
     Thread(u64, u64),
     Create(u64),
@@ -19,9 +20,10 @@ pub struct Page {
 }
 
 pub struct SiteTemplates {
-    pub catalog_tmpl: template::Template,
-    pub thread_tmpl:  template::Template,
-    pub create_tmpl:  template::Template,
+    pub homepage_tmpl: template::Template,
+    pub catalog_tmpl:  template::Template,
+    pub thread_tmpl:   template::Template,
+    pub create_tmpl:   template::Template,
 }
 
 pub struct Pages {
@@ -38,6 +40,43 @@ impl Pages {
         pr: &PageRef,
     ) -> Result<&Page, util::PlainchantErr> {
         match pr {
+            PageRef::Homepage => {
+                let site = database.get_site()?;
+                let mut values = HashMap::new();
+
+                values.insert(String::from("site_name"), site.name);
+                values.insert(String::from("site_description"), site.description);
+
+                let mut board_ids = vec![];
+                let boards = database.get_boards()?;
+
+                for board in boards {
+                    values.insert(
+                        format!("board.{}.url", board.id),
+                        String::from(board.url),
+                    );
+                    values.insert(
+                        format!("board.{}.title", board.id),
+                        String::from(board.title),
+                    );
+
+                    board_ids.push(board.id.to_string());
+                }
+
+                let mut collections = HashMap::new();
+                collections.insert("board".to_string(), board_ids);
+
+                let render_data = template::Data::new(values, HashMap::new(), collections);
+
+                let page_text = self.templates.homepage_tmpl.render(&render_data);
+                let page = Page {
+                    page_ref: *pr,
+                    render_time: util::timestamp(),
+                    page_text,
+                };
+                self.pages.insert(*pr, page);
+                Ok(self.pages.get(pr).unwrap())
+            },
             PageRef::Catalog(board_id) => {
                 let board = database.get_board(*board_id)?;
                 let mut values = HashMap::new();
@@ -243,6 +282,7 @@ impl Pages {
 
     pub fn page_exists<DB: db::Database>(&self, database: &DB, pr: &PageRef) -> bool {
         match pr {
+            PageRef::Homepage => true,
             PageRef::Catalog(board_id) => database.get_board(*board_id).is_ok(),
             PageRef::Thread(board_id, orig_num) => {
                 database.get_thread(*board_id, *orig_num).is_ok()

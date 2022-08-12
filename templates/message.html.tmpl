@@ -6,9 +6,11 @@
         <link rel = "stylesheet" href="/static/global.css">
     </head>
     <body>
-        <h4>Server Message</h4>
-	<p>{{message}}</p>
+        <div class="content">
+            <h4>Server Message</h4>
+            <p>{{message}}</p>
+        </div>
         <hr/>
-        <small>{{$PLAINCHANT}}  ({{$TIME}})</small>
+        <small class="footer">{{$PLAINCHANT}}  ({{$TIME}})</small>
     </body>
 </html>

@@ -120,6 +120,10 @@ fn main() {
 
     // Load templates from template files
     let templates = pages::SiteTemplates {
+        homepage_tmpl: template::Template::from_file(
+            config.templates_dir.join("homepage.html.tmpl").as_path(),
+        )
+        .unwrap_or_else(|err| err.die()),
         catalog_tmpl: template::Template::from_file(
             config.templates_dir.join("catalog.html.tmpl").as_path(),
         )

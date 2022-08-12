@@ -1,11 +1,13 @@
-.header {
-
+html {
+    height: 100%;
 }
 
 body {
     background-color: #f7efef;
     font-family: "Source Serif", "serif";
     font-size: 13pt;
+    display: flex;
+    flex-direction: column;
 }
 
 .board-title {
@@ -21,6 +23,7 @@ hr {
     display: inline-block;
     text-align: left;
     width: 100%;
+    max-width: 1300px;
     font-family: "Linux Libertine O", "Linux Libertine", "Times New Roman", "serif";
 }
 
@@ -83,3 +86,28 @@ hr {
     color: #111188;
     text-decoration: underline;
 }
+
+.content {
+    width: 98%;
+    max-width: 1200px;
+    flex-grow: 1;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 97%;
+    align-items: center;
+}
+
+hr {
+    width: 98%;
+    max-width: 1300px;
+}
+
+.footer {
+    width: 98%;
+    max-width: 1300px;
+    margin-left: 10px;
+}
+

@@ -68,6 +68,28 @@ impl Sqlite3Database {
 
         conn.execute(
             r#"
+            CREATE TABLE IF NOT EXISTS Site (
+                Identity    INTEGER  PRIMARY KEY,
+                Name        TEXT     NOT NULL,
+                Description TEXT     NOT NULL
+            );
+        "#,
+            (),
+        )?;
+
+        conn.execute(
+            r#"
+            INSERT OR IGNORE INTO Site VALUES (
+                1,
+                'Plainchant',
+                'A lightweight and libre imageboard.'
+            );
+        "#,
+            (),
+        )?;
+
+        conn.execute(
+            r#"
             CREATE TABLE IF NOT EXISTS Boards (
                 BoardId     INTEGER  PRIMARY KEY,
                 Url         TEXT     NOT NULL,
@@ -253,6 +275,41 @@ fn increment_next_post_num<T: Deref<Target = rusqlite::Connection>>(
 }
 
 impl db::Database for Sqlite3Database {
+    fn get_site(&self) -> Result<site::Site, PlainchantErr> {
+        let conn = self.pool.get()?;
+        let mut query = conn.prepare(
+            r#"
+            SELECT Name, Description FROM Site
+            WHERE Identity = 1;
+            "#
+        )?;
+
+        let site = query.query_row((), |row| {
+            Ok(site::Site{
+                name: row.get(0)?,
+                description: row.get(1)?,
+            })
+        })?;
+
+        Ok(site)
+    }
+
+    fn set_site(&self, site: site::Site) -> Result<(), PlainchantErr> {
+        let conn = self.pool.get()?;
+        conn.execute(
+            r#"
+            REPLACE INTO Site VALUES (
+                1,
+                ?1,
+                ?2
+            );
+            "#,
+            (site.name, site.description),
+        )?;
+
+        Ok(())
+    }
+
     fn get_boards(&self) -> Result<Vec<site::Board>, PlainchantErr> {
         let conn = self.pool.get()?;
         let mut query = conn.prepare(

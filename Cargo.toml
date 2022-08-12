@@ -1,6 +1,6 @@
 [package]
 name = "plainchant"
-version = "0.4.0"
+version = "0.4.1"
 authors = ["Jack Byrne <jgbyrne9@gmail.com>"]
 edition = "2021"
 

@@ -164,3 +164,10 @@ pub struct Catalog {
     pub time:      u64,
     pub originals: Vec<Original>,
 }
+
+#[derive(Debug)]
+pub struct Site {
+    pub name: String,
+    pub description: String,
+}
+
