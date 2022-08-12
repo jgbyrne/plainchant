@@ -8,7 +8,7 @@ use crate::Config;
 use axum::handler::Handler;
 use axum::http::{StatusCode, Uri};
 use axum::response::{ErrorResponse, Html, IntoResponse, IntoResponseParts};
-use axum::{body, extract, response, routing, Extension, Router};
+use axum::{body, extract, response, routing, Router};
 
 use tokio;
 use tokio_util::io::ReaderStream;
@@ -73,7 +73,7 @@ async fn static_dir(
 
             Ok((headers, body))
         },
-        Err(err) => Err((
+        Err(_err) => Err((
             StatusCode::NOT_FOUND,
             format!("Could not retrieve static file: {}", path.to_string_lossy()),
         )),
@@ -93,7 +93,7 @@ where
 {
     match pages.lock() {
         Ok(mut guard) => {
-            let mut pages = guard.deref_mut();
+            let pages = guard.deref_mut();
             if let Some(board_id) = pages.board_url_to_id(&board) {
                 let page_ref = pages::PageRef::Thread(board_id, post_num);
 
@@ -108,21 +108,17 @@ where
                                     format!("/{}/thread/{}#{}", &board, reply.orig_num, post_num,);
                                 Err(response::Redirect::permanent(&uri).into())
                             },
-                            Err(_) => Ok((
-                                StatusCode::NOT_FOUND,
-                                message_page(&sp, "No such thread"),
-                            )),
+                            Err(_) => {
+                                Ok((StatusCode::NOT_FOUND, message_page(&sp, "No such thread")))
+                            },
                         }
                     },
                 }
             } else {
-                Ok((
-                    StatusCode::NOT_FOUND,
-                    message_page(&sp, "No such board"),
-                ))
+                Ok((StatusCode::NOT_FOUND, message_page(&sp, "No such board")))
             }
         },
-        Err(err) => Ok(internal_error(
+        Err(_err) => Ok(internal_error(
             &sp,
             &format!("Could not acquire lock on pages"),
         )),
@@ -153,13 +149,10 @@ where
 
                 (StatusCode::OK, Html::from(page))
             } else {
-                (
-                    StatusCode::NOT_FOUND,
-                    message_page(&sp, "No such board"),
-                )
+                (StatusCode::NOT_FOUND, message_page(&sp, "No such board"))
             }
         },
-        Err(err) => internal_error(&sp, "Could not acquire lock on pages"),
+        Err(_err) => internal_error(&sp, "Could not acquire lock on pages"),
     }
 }
 
@@ -186,13 +179,10 @@ where
                     .to_string();
                 (StatusCode::OK, Html(page))
             } else {
-                (
-                    StatusCode::NOT_FOUND,
-                    message_page(&sp, "No such board"),
-                )
+                (StatusCode::NOT_FOUND, message_page(&sp, "No such board"))
             }
         },
-        Err(err) => internal_error(&sp, "Could not acquire lock on pages"),
+        Err(_err) => internal_error(&sp, "Could not acquire lock on pages"),
     }
 }
 
@@ -206,7 +196,7 @@ async fn multipart_text_field<'f>(
     let txt = field
         .text()
         .await
-        .map_err(|err| bad_request(sp, "Could not parse text field"))?;
+        .map_err(|_err| bad_request(sp, "Could not parse text field"))?;
 
     if txt.len() > max_length {
         Err(bad_request(sp, "Text field too long"))
@@ -230,7 +220,7 @@ async fn multipart_file_field<'f>(
     while let Some(chunk) = field
         .chunk()
         .await
-        .map_err(|err| bad_request(&sp, "Could not read file"))?
+        .map_err(|_err| bad_request(&sp, "Could not read file"))?
     {
         if space < chunk.len() {
             // Consume the remainder of the upload to avoid killing the connection
@@ -275,7 +265,7 @@ where
                     return Ok(response::Redirect::to("/"));
                 },
             },
-            Err(err) => {
+            Err(_err) => {
                 return Err(internal_error(&sp, "Could not acquire lock on pages"));
             },
         }
@@ -287,7 +277,7 @@ where
     let mut file_name = None;
     let mut file = None;
 
-    while let Ok(Some(mut field)) = multipart.next_field().await {
+    while let Ok(Some(field)) = multipart.next_field().await {
         match field.name() {
             Some("name") => {
                 name = Some(multipart_text_field(&sp, field, 4096).await?);
@@ -312,7 +302,7 @@ where
 
     match fr.lock() {
         Ok(mut guard) => {
-            let mut file_rack = guard.deref_mut();
+            let file_rack = guard.deref_mut();
             let file_id = match actions.upload_file(file_rack, file) {
                 Ok(id) => id,
                 Err(_) => {
@@ -334,7 +324,7 @@ where
                 title,
             );
 
-            if let Err(err) = actions.enforce_post_cap(db.as_ref(), file_rack, board_id) {
+            if let Err(_err) = actions.enforce_post_cap(db.as_ref(), file_rack, board_id) {
                 return Err(internal_error(
                     &sp,
                     "Server failure while enforcing post cap",
@@ -346,7 +336,7 @@ where
                 Err(_) => Err(internal_error(&sp, "Failed to submit post")),
             }
         },
-        Err(err) => Err(internal_error(&sp, "Could not obtain lock for filerack")),
+        Err(_err) => Err(internal_error(&sp, "Could not obtain lock for filerack")),
     }
 }
 
@@ -374,7 +364,7 @@ where
                     return Ok(response::Redirect::to("/"));
                 },
             },
-            Err(err) => {
+            Err(_err) => {
                 return Err(internal_error(&sp, "Could not acquire lock on pages"));
             },
         }
@@ -385,7 +375,7 @@ where
     let mut file_name = None;
     let mut file = None;
 
-    while let Ok(Some(mut field)) = multipart.next_field().await {
+    while let Ok(Some(field)) = multipart.next_field().await {
         match field.name() {
             Some("name") => {
                 name = Some(multipart_text_field(&sp, field, 4096).await?);
@@ -418,7 +408,7 @@ where
                     },
                 }
             },
-            Err(err) => {
+            Err(_err) => {
                 return Err(internal_error(&sp, "Could not obtain lock for filerack"));
             },
         }
@@ -477,7 +467,7 @@ where
                 Err(_) => Err((StatusCode::NOT_FOUND, message_page(&sp, "No such file")).into()),
             }
         },
-        Err(err) => Err(internal_error(&sp, "Could not acquire lock on filerack").into()),
+        Err(_err) => Err(internal_error(&sp, "Could not acquire lock on filerack").into()),
     }
 }
 
@@ -504,17 +494,14 @@ where
                     .into()),
             }
         },
-        Err(err) => Err(internal_error(&sp, "Could not acquire lock on filerack").into()),
+        Err(_err) => Err(internal_error(&sp, "Could not acquire lock on filerack").into()),
     }
 }
 
 // not_found: Handler for 404 fallback
 
 async fn not_found(sp: Arc<StaticPages>, uri: Uri) -> (StatusCode, impl IntoResponse) {
-    (
-        StatusCode::NOT_FOUND,
-        message_page(&sp, "404 Not Found"),
-    )
+    (StatusCode::NOT_FOUND, message_page(&sp, &format!("404 Not Found ({})", uri)))
 }
 
 // Main server method - using tokio runtime

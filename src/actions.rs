@@ -94,8 +94,6 @@ impl Actions {
         file_name: Option<String>,
         orig_num: u64,
     ) -> Result<u64, util::PlainchantErr> {
-        let board = database.get_board(board_id)?;
-
         let cur_time = util::timestamp();
         let reply = site::Reply {
             board_id,

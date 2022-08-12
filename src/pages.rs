@@ -125,7 +125,7 @@ impl Pages {
                 );
                 values.insert(
                     String::from("orig_file_name"),
-                    thread.original.file_name().unwrap_or("").to_string()
+                    thread.original.file_name().unwrap_or("").to_string(),
                 );
                 values.insert(
                     String::from("orig_thumbnail_url"),

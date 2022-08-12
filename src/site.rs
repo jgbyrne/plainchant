@@ -53,6 +53,7 @@ pub struct Reply {
     pub orig_num:  u64,
 }
 
+#[allow(unused)]
 impl Original {
     pub fn title(&self) -> Option<&str> {
         if let Some(ref t) = self.title {
@@ -92,12 +93,6 @@ impl Original {
 
     pub fn set_pinned(&mut self, pinned: bool) {
         self.pinned = pinned;
-    }
-}
-
-impl Reply {
-    pub fn orig_num(&self) -> u64 {
-        self.orig_num
     }
 }
 

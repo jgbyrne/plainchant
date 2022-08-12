@@ -7,6 +7,7 @@ pub struct Thread {
     pub replies:  Vec<site::Reply>,
 }
 
+#[allow(unused)]
 pub fn static_err(msg: &'static str) -> util::PlainchantErr {
     util::PlainchantErr {
         origin: util::ErrOrigin::Database,
@@ -32,7 +33,7 @@ pub trait Database {
         post_num: u64,
     ) -> Result<Box<dyn site::Post>, util::PlainchantErr>;
 
-    // These methods are called with dummy post IDs, which are auto-filled and returned
+    // These two methods are called with dummy post IDs, which are auto-filled and returned
     fn create_original(&self, orig: site::Original) -> Result<u64, util::PlainchantErr>;
     fn create_reply(&self, reply: site::Reply) -> Result<u64, util::PlainchantErr>;
 

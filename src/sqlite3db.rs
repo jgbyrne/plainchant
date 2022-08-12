@@ -4,12 +4,12 @@ use crate::util;
 use crate::util::PlainchantErr;
 
 use r2d2;
-use r2d2::{Pool, PooledConnection};
+use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite;
 
 use core::ops::Deref;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 impl From<rusqlite::Error> for PlainchantErr {
     fn from(err: rusqlite::Error) -> Self {
@@ -54,6 +54,7 @@ fn decode_feather(feather_type: Option<u16>, feather_text: Option<String>) -> si
 }
 
 pub struct Sqlite3Database {
+    #[allow(unused)]
     path: PathBuf,
     pool: Pool<SqliteConnectionManager>,
 }
@@ -545,7 +546,7 @@ impl db::Database for Sqlite3Database {
     }
 
     fn create_board(&self, board: site::Board) -> Result<(), PlainchantErr> {
-        let mut conn = self.pool.get()?;
+        let conn = self.pool.get()?;
 
         conn.execute(
             r#"
