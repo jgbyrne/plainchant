@@ -1,0 +1,14 @@
+.content {
+    margin-left: 50px;
+    margin-right: 50px;
+    padding-top: 10px;
+    width: 98%;
+    max-width: 1000px;
+    flex-grow: 1;
+}
+
+.site-description {
+    margin-top: 10px;
+    margin-bottom: 20px;
+    font-style: italic;
+}
