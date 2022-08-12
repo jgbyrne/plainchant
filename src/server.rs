@@ -217,7 +217,7 @@ async fn multipart_text_field<'f>(
     sp: &StaticPages,
     field: extract::multipart::Field<'f>,
     max_length: usize,
-) -> Result<String, (StatusCode, Html<String>)> {
+) -> Result<Option<String>, (StatusCode, Html<String>)> {
     let txt = field
         .text()
         .await
@@ -225,8 +225,10 @@ async fn multipart_text_field<'f>(
 
     if txt.len() > max_length {
         Err(bad_request(sp, "Text field too long"))
+    } else if txt.len() == 0 {
+        Ok(None)
     } else {
-        Ok(txt)
+        Ok(Some(txt))
     }
 }
 
@@ -305,13 +307,13 @@ where
     while let Ok(Some(field)) = multipart.next_field().await {
         match field.name() {
             Some("name") => {
-                name = Some(multipart_text_field(&sp, field, 4096).await?);
+                name = multipart_text_field(&sp, field, 4096).await?;
             },
             Some("title") => {
-                title = Some(multipart_text_field(&sp, field, 4096).await?);
+                title = multipart_text_field(&sp, field, 4096).await?;
             },
             Some("body") => {
-                body = Some(multipart_text_field(&sp, field, 16_384).await?);
+                body = multipart_text_field(&sp, field, 16_384).await?;
             },
             Some("file") => {
                 (file_name, file) = multipart_file_field(&sp, field, 524_288).await?;
@@ -403,10 +405,10 @@ where
     while let Ok(Some(field)) = multipart.next_field().await {
         match field.name() {
             Some("name") => {
-                name = Some(multipart_text_field(&sp, field, 4096).await?);
+                name = multipart_text_field(&sp, field, 4096).await?;
             },
             Some("body") => {
-                body = Some(multipart_text_field(&sp, field, 16_384).await?);
+                body = multipart_text_field(&sp, field, 16_384).await?;
             },
             Some("file") => {
                 (file_name, file) = multipart_file_field(&sp, field, 524_288).await?;
