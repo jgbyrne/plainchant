@@ -32,6 +32,8 @@ struct StaticPages {
     message_tmpl: Template,
 }
 
+// Utility functions to generate static pages
+
 fn error_page(sp: &StaticPages, message: &str) -> Html<String> {
     let mut vals = HashMap::new();
     vals.insert(String::from("message"), String::from(message));
@@ -51,6 +53,8 @@ fn internal_error(sp: &StaticPages, message: &str) -> (StatusCode, Html<String>)
 fn bad_request(sp: &StaticPages, message: &str) -> (StatusCode, Html<String>) {
     (StatusCode::BAD_REQUEST, message_page(sp, message))
 }
+
+// static_dir: Handler to serve static resources
 
 async fn static_dir(
     config: Arc<Config>,
@@ -75,6 +79,8 @@ async fn static_dir(
         )),
     }
 }
+
+// thread: Handler to serve thread pages
 
 async fn thread<DB>(
     sp: Arc<StaticPages>,
@@ -104,7 +110,7 @@ where
                             },
                             Err(_) => Ok((
                                 StatusCode::NOT_FOUND,
-                                message_page(sp.as_ref(), "No such thread"),
+                                message_page(&sp, "No such thread"),
                             )),
                         }
                     },
@@ -112,16 +118,18 @@ where
             } else {
                 Ok((
                     StatusCode::NOT_FOUND,
-                    message_page(sp.as_ref(), "No such board"),
+                    message_page(&sp, "No such board"),
                 ))
             }
         },
         Err(err) => Ok(internal_error(
-            sp.as_ref(),
+            &sp,
             &format!("Could not acquire lock on pages"),
         )),
     }
 }
+
+// catalog: Handler to serve catalog pages
 
 async fn catalog<DB>(
     sp: Arc<StaticPages>,
@@ -147,13 +155,15 @@ where
             } else {
                 (
                     StatusCode::NOT_FOUND,
-                    message_page(sp.as_ref(), "No such board"),
+                    message_page(&sp, "No such board"),
                 )
             }
         },
-        Err(err) => internal_error(sp.as_ref(), "Could not acquire lock on pages"),
+        Err(err) => internal_error(&sp, "Could not acquire lock on pages"),
     }
 }
+
+// create: Handler to serve original post creation page
 
 async fn create<DB>(
     sp: Arc<StaticPages>,
@@ -178,13 +188,15 @@ where
             } else {
                 (
                     StatusCode::NOT_FOUND,
-                    message_page(sp.as_ref(), "No such board"),
+                    message_page(&sp, "No such board"),
                 )
             }
         },
-        Err(err) => internal_error(sp.as_ref(), "Could not acquire lock on pages"),
+        Err(err) => internal_error(&sp, "Could not acquire lock on pages"),
     }
 }
+
+// Parse a multipart text field
 
 async fn multipart_text_field<'f>(
     sp: &StaticPages,
@@ -203,6 +215,8 @@ async fn multipart_text_field<'f>(
     }
 }
 
+// Parse a multipart file field
+
 async fn multipart_file_field<'f>(
     sp: &StaticPages,
     mut field: extract::multipart::Field<'f>,
@@ -219,6 +233,8 @@ async fn multipart_file_field<'f>(
         .map_err(|err| bad_request(&sp, "Could not read file"))?
     {
         if space < chunk.len() {
+            // Consume the remainder of the upload to avoid killing the connection
+            // Since we enforce a ContentLengthLimit there is no DOS risk
             while let Ok(Some(_)) = field.chunk().await {}
             return Err(bad_request(&sp, "File size limit exceeded"));
         }
@@ -234,6 +250,8 @@ async fn multipart_file_field<'f>(
 }
 
 type Submission = extract::ContentLengthLimit<extract::Multipart, FORM_MAX_LENGTH>;
+
+// create_submit: Handler for original post creation forms
 
 async fn create_submit<DB, FR>(
     sp: Arc<StaticPages>,
@@ -332,6 +350,8 @@ where
     }
 }
 
+// create_reply: Handler for reply post creation forms
+
 async fn create_reply<DB, FR>(
     sp: Arc<StaticPages>,
     pages: Arc<Mutex<pages::Pages>>,
@@ -424,6 +444,8 @@ where
     }
 }
 
+// Headers for filerack files (necessary to achieve display-in-browser)
+
 fn file_headers(file: &Bytes) -> impl IntoResponseParts {
     [
         (
@@ -435,6 +457,8 @@ fn file_headers(file: &Bytes) -> impl IntoResponseParts {
         ("Content-Disposition", "inline".to_string()),
     ]
 }
+
+// files: Handler for full-size filerack files
 
 async fn files<FR>(
     sp: Arc<StaticPages>,
@@ -457,6 +481,8 @@ where
     }
 }
 
+// thumbnails: Handler for thumbnail filerack files
+
 async fn thumbnails<FR>(
     sp: Arc<StaticPages>,
     fr: Arc<Mutex<FR>>,
@@ -478,18 +504,21 @@ where
                     .into()),
             }
         },
-        Err(err) => Err(internal_error(sp.as_ref(), "Could not acquire lock on filerack").into()),
+        Err(err) => Err(internal_error(&sp, "Could not acquire lock on filerack").into()),
     }
 }
+
+// not_found: Handler for 404 fallback
 
 async fn not_found(sp: Arc<StaticPages>, uri: Uri) -> (StatusCode, impl IntoResponse) {
     (
         StatusCode::NOT_FOUND,
-        message_page(sp.as_ref(), "404 Not Found"),
+        message_page(&sp, "404 Not Found"),
     )
 }
 
 // Main server method - using tokio runtime
+
 #[tokio::main]
 pub async fn serve<DB, FR>(
     config: Config,
