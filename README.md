@@ -44,17 +44,15 @@ Plainchant is alpha software and should not be used for any serious purpose. How
 
 4. To create the database at `/var/lib/plainchant/db.sqlite3`, run `plainchant`, either with `cargo run` or by invoking the binary directly. You need provide just one argument, the path to the site config file - if you have exactly followed the directions above, that's `/etc/plainchant/plainchant.toml`.
 
-5. To create the database at `/var/lib/plainchant/db.sqlite3`, run `plainchant`, either with `cargo run` or by invoking the binary directly. You need provide just one argument, the path to the site config file - if you have exactly followed the directions above, that's `/etc/plainchant/plainchant.toml`.
+5. Using a tool of your choice, add each board that you wish to serve into the `Boards` table of the sqlite3 database. The schema is (`BoardId`, `Url`, `Title`, `PostCap`, `BumpLimit`, `NextPostNum`). For example:
 
     `INSERT INTO Boards VALUES (1234, 'mu', 'Music', 20, 100, 10000);`
 
-    `INSERT INTO Boards VALUES (1234, 'mu', 'Music', 20, 100, 10000);`
+6. Using a tool of your choice, update the singleton row in the `Site` table of the database with a site name and description of your choice. For example:
 
     `REPLACE INTO Site VALUES (1, "sandcastlechan", "An imageboard all about sandcastles.");`
 
-    `REPLACE INTO Site VALUES (1, "sandcastlechan", "An imageboard all about sandcastles.");`
-
-8.  You can now run `plainchant` in earnest. By default it runs on `localhost:8088`.
+7.  You can now run `plainchant` in earnest. By default it runs on `localhost:8088`.
 
 † *You may find it useful to symlink these directories to your local copy of the repository for ease-of-hacking* 
 
