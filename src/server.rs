@@ -7,7 +7,7 @@ use crate::Config;
 
 use axum::handler::Handler;
 use axum::http::{StatusCode, Uri};
-use axum::response::{ErrorResponse, IntoResponse, IntoResponseParts};
+use axum::response::{ErrorResponse, Html, IntoResponse, IntoResponseParts};
 use axum::{body, extract, response, routing, Extension, Router};
 
 use tokio;
@@ -28,16 +28,16 @@ struct StaticPages {
     message_tmpl: Template,
 }
 
-fn error_page(sp: &StaticPages, message: &str) -> response::Html<String> {
+fn error_page(sp: &StaticPages, message: &str) -> Html<String> {
     let mut vals = HashMap::new();
     vals.insert(String::from("message"), String::from(message));
-    response::Html::from(sp.error_tmpl.render(&Data::values(vals)))
+    Html::from(sp.error_tmpl.render(&Data::values(vals)))
 }
 
-fn message_page(sp: &StaticPages, message: &str) -> response::Html<String> {
+fn message_page(sp: &StaticPages, message: &str) -> Html<String> {
     let mut vals = HashMap::new();
     vals.insert(String::from("message"), String::from(message));
-    response::Html::from(sp.message_tmpl.render(&Data::values(vals)))
+    Html::from(sp.message_tmpl.render(&Data::values(vals)))
 }
 
 async fn static_dir(
@@ -72,7 +72,7 @@ async fn thread<DB>(
     pages: Arc<Mutex<pages::Pages>>,
     db: Arc<DB>,
     extract::Path((board, post_num)): extract::Path<(String, u64)>,
-) -> Result<(StatusCode, response::Html<String>), ErrorResponse>
+) -> Result<(StatusCode, Html<String>), ErrorResponse>
 where
     DB: 'static + db::Database + Sync + Send,
 {
@@ -83,10 +83,7 @@ where
                 let page_ref = pages::PageRef::Thread(board_id, post_num);
 
                 match pages.get_page(db.as_ref(), &page_ref) {
-                    Ok(page) => Ok((
-                        StatusCode::OK,
-                        response::Html::from(page.page_text.to_string()),
-                    )),
+                    Ok(page) => Ok((StatusCode::OK, Html::from(page.page_text.to_string()))),
                     Err(_) => {
                         // The board exists but the original post does not
                         // Let's try and fetch it as a reply
@@ -122,7 +119,7 @@ async fn catalog<DB>(
     pages: Arc<Mutex<pages::Pages>>,
     db: Arc<DB>,
     extract::Path(board): extract::Path<String>,
-) -> (StatusCode, response::Html<String>)
+) -> (StatusCode, Html<String>)
 where
     DB: 'static + db::Database + Sync + Send,
 {
@@ -137,7 +134,41 @@ where
                     .page_text
                     .to_string();
 
-                (StatusCode::OK, response::Html::from(page))
+                (StatusCode::OK, Html::from(page))
+            } else {
+                (
+                    StatusCode::NOT_FOUND,
+                    message_page(sp.as_ref(), "No such board"),
+                )
+            }
+        },
+        Err(err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            error_page(sp.as_ref(), "Could not acquire lock on pages"),
+        ),
+    }
+}
+
+async fn create<DB>(
+    sp: Arc<StaticPages>,
+    pages: Arc<Mutex<pages::Pages>>,
+    db: Arc<DB>,
+    extract::Path(board): extract::Path<String>,
+) -> (StatusCode, Html<String>)
+where
+    DB: 'static + db::Database + Sync + Send,
+{
+    match pages.lock() {
+        Ok(mut guard) => {
+            let pages = guard.deref_mut();
+            if let Some(board_id) = pages.board_url_to_id(&board) {
+                let page_ref = pages::PageRef::Create(board_id);
+                let page = pages
+                    .get_page(db.as_ref(), &page_ref)
+                    .expect("Could not access thread creation page for extant board")
+                    .page_text
+                    .to_string();
+                (StatusCode::OK, Html(page))
             } else {
                 (
                     StatusCode::NOT_FOUND,
@@ -277,6 +308,13 @@ pub async fn serve<DB, FR>(
             routing::get({
                 let (sp, pages, db) = (sp.clone(), pages.clone(), db.clone());
                 move |path| catalog(sp, pages, db, path)
+            }),
+        )
+        .route(
+            "/:board/create",
+            routing::get({
+                let (sp, pages, db) = (sp.clone(), pages.clone(), db.clone());
+                move |path| create(sp, pages, db, path)
             }),
         )
         .route(
