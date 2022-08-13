@@ -15,7 +15,7 @@ impl Actions {
 
     pub fn upload_file<FR: fr::FileRack>(
         &self,
-        file_rack: &mut FR,
+        file_rack: &FR,
         file: bytes::Bytes,
     ) -> Result<String, util::PlainchantErr> {
         let mut rng = rand::thread_rng();
@@ -92,7 +92,7 @@ impl Actions {
     pub fn delete_thread<DB: db::Database, FR: fr::FileRack>(
         &self,
         database: &DB,
-        file_rack: &mut FR,
+        file_rack: &FR,
         board_id: u64,
         post_num: u64,
     ) -> Result<(), util::PlainchantErr> {
@@ -116,7 +116,7 @@ impl Actions {
     pub fn enforce_post_cap<DB: db::Database, FR: fr::FileRack>(
         &self,
         database: &DB,
-        file_rack: &mut FR,
+        file_rack: &FR,
         board_id: u64,
     ) -> Result<(), util::PlainchantErr> {
         let board = database.get_board(board_id)?;

@@ -20,7 +20,7 @@ use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::ops::DerefMut;
 use std::path;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 
 macro_rules! unwrap_or_return {
     ( $test:expr, $ret:expr ) => {
@@ -336,7 +336,7 @@ async fn create_submit<DB, FR>(
     pages: Arc<RwLock<pages::Pages>>,
     actions: Arc<actions::Actions>,
     db: Arc<DB>,
-    fr: Arc<Mutex<FR>>,
+    fr: Arc<FR>,
     extract::ConnectInfo(addr): extract::ConnectInfo<SocketAddr>,
     extract::Path(board): extract::Path<String>,
     extract::ContentLengthLimit(mut multipart): Submission,
@@ -384,37 +384,31 @@ where
         None => return Err(bad_request(&sp, "You must upload a file")),
     };
 
-    match fr.lock() {
-        Ok(mut guard) => {
-            let file_rack = guard.deref_mut();
-            let file_id = unwrap_or_return!(actions.upload_file(file_rack, file), {
-                Err(bad_request(&sp, "File upload failed - filetype may not be supported"))
-            });
+    let file_id = unwrap_or_return!(actions.upload_file(fr.as_ref(), file), {
+        Err(bad_request(&sp, "File upload failed - filetype may not be supported"))
+    });
 
-            let submission_result = actions.submit_original(
-                db.as_ref(),
-                board_id,
-                addr.ip().to_string(),
-                body.unwrap_or_else(|| String::from("")),
-                name,
-                file_id,
-                file_name.unwrap_or_else(|| String::from("")),
-                title,
-            );
+    let submission_result = actions.submit_original(
+        db.as_ref(),
+        board_id,
+        addr.ip().to_string(),
+        body.unwrap_or_else(|| String::from("")),
+        name,
+        file_id,
+        file_name.unwrap_or_else(|| String::from("")),
+        title,
+    );
 
-            if let Err(_err) = actions.enforce_post_cap(db.as_ref(), file_rack, board_id) {
-                return Err(internal_error(
-                    &sp,
-                    "Server failure while enforcing post cap",
-                ));
-            }
+    if let Err(err) = actions.enforce_post_cap(db.as_ref(), fr.as_ref(), board_id) {
+        return Err(internal_error(
+            &sp,
+            &format!("Server failure while enforcing post cap: {:?}", err),
+        ));
+    }
 
-            match submission_result {
-                Ok(_) => Ok(response::Redirect::to(&format!("/{}/catalog", board))),
-                Err(_) => Err(internal_error(&sp, "Failed to submit post")),
-            }
-        },
-        Err(_err) => Err(internal_error(&sp, "Could not obtain lock for filerack")),
+    match submission_result {
+        Ok(_) => Ok(response::Redirect::to(&format!("/{}/catalog", board))),
+        Err(_) => Err(internal_error(&sp, "Failed to submit post")),
     }
 }
 
@@ -425,7 +419,7 @@ async fn create_reply<DB, FR>(
     pages: Arc<RwLock<pages::Pages>>,
     actions: Arc<actions::Actions>,
     db: Arc<DB>,
-    fr: Arc<Mutex<FR>>,
+    fr: Arc<FR>,
     extract::ConnectInfo(addr): extract::ConnectInfo<SocketAddr>,
     extract::Path((board, orig_num)): extract::Path<(String, u64)>,
     extract::ContentLengthLimit(mut multipart): Submission,
@@ -467,17 +461,9 @@ where
     let mut file_id = None;
 
     if let Some(file) = file {
-        match fr.lock() {
-            Ok(mut guard) => {
-                let file_rack = guard.deref_mut();
-                file_id = Some(unwrap_or_return!(actions.upload_file(file_rack, file), {
-                    Err(bad_request(&sp, "File upload failed - filetype may not be supported"))
-                }));
-            },
-            Err(_err) => {
-                return Err(internal_error(&sp, "Could not obtain lock for filerack"));
-            },
-        }
+        file_id = Some(unwrap_or_return!(actions.upload_file(fr.as_ref(), file), {
+            Err(bad_request(&sp, "File upload failed - filetype may not be supported"))
+        }));
     }
 
     let submission_result = actions.submit_reply(
@@ -518,50 +504,30 @@ fn file_headers(file: &Bytes) -> impl IntoResponseParts {
 
 async fn files<FR>(
     sp: Arc<StaticPages>,
-    fr: Arc<Mutex<FR>>,
+    fr: Arc<FR>,
     extract::Path(file_id): extract::Path<String>,
 ) -> Result<(StatusCode, impl IntoResponseParts, Bytes), ErrorResponse>
 where
     FR: 'static + fr::FileRack + Sync + Send,
 {
-    match fr.lock() {
-        Ok(mut guard) => {
-            let file_rack = guard.deref_mut();
-
-            match file_rack.get_file(&file_id) {
-                Ok(file) => Ok((StatusCode::OK, file_headers(&file), file)),
-                Err(_) => Err((StatusCode::NOT_FOUND, message_page(&sp, "No such file")).into()),
-            }
-        },
-        Err(_err) => Err(internal_error(&sp, "Could not acquire lock on filerack").into()),
-    }
+    let file = fr.get_file(&file_id)
+        .map_err(|_| -> ErrorResponse { (StatusCode::NOT_FOUND, message_page(&sp, "No such file")).into() })?;
+    Ok((StatusCode::OK, file_headers(&file), file))
 }
 
 // thumbnails: Handler for thumbnail filerack files
 
 async fn thumbnails<FR>(
     sp: Arc<StaticPages>,
-    fr: Arc<Mutex<FR>>,
+    fr: Arc<FR>,
     extract::Path(file_id): extract::Path<String>,
 ) -> Result<(StatusCode, impl IntoResponseParts, Bytes), ErrorResponse>
 where
     FR: 'static + fr::FileRack + Sync + Send,
 {
-    match fr.lock() {
-        Ok(mut guard) => {
-            let file_rack = guard.deref_mut();
-
-            match file_rack.get_file_thumbnail(&file_id) {
-                Ok(file) => Ok((StatusCode::OK, file_headers(&file), file)),
-                Err(_) => Err((
-                    StatusCode::NOT_FOUND,
-                    message_page(&sp, "No such thumbnail"),
-                )
-                    .into()),
-            }
-        },
-        Err(_err) => Err(internal_error(&sp, "Could not acquire lock on filerack").into()),
-    }
+    let file = fr.get_file_thumbnail(&file_id)
+        .map_err(|_| -> ErrorResponse { (StatusCode::NOT_FOUND, message_page(&sp, "No such thumbnail")).into() })?;
+    Ok((StatusCode::OK, file_headers(&file), file))
 }
 
 // not_found: Handler for 404 fallback
@@ -604,7 +570,7 @@ pub async fn serve<DB, FR>(
     let actions = Arc::new(actions);
 
     let db = Arc::new(database);
-    let fr = Arc::new(Mutex::new(file_rack));
+    let fr = Arc::new(file_rack);
 
     let router = Router::new()
         .route(

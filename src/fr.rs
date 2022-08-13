@@ -10,8 +10,8 @@ pub fn static_err(msg: &'static str) -> util::PlainchantErr {
 }
 
 pub trait FileRack {
-    fn store_file(&mut self, file_id: &str, file: Bytes) -> Result<(), util::PlainchantErr>;
-    fn get_file(&mut self, file_id: &str) -> Result<Bytes, util::PlainchantErr>;
-    fn get_file_thumbnail(&mut self, file_id: &str) -> Result<Bytes, util::PlainchantErr>;
-    fn delete_file(&mut self, file_id: &str) -> Result<(), util::PlainchantErr>;
+    fn store_file(&self, file_id: &str, file: Bytes) -> Result<(), util::PlainchantErr>;
+    fn get_file(&self, file_id: &str) -> Result<Bytes, util::PlainchantErr>;
+    fn get_file_thumbnail(&self, file_id: &str) -> Result<Bytes, util::PlainchantErr>;
+    fn delete_file(&self, file_id: &str) -> Result<(), util::PlainchantErr>;
 }
