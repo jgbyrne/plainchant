@@ -5,9 +5,9 @@ use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io::{Cursor, Read, Write};
+use std::ops::DerefMut;
 use std::path::{Path, PathBuf};
 use std::sync::RwLock;
-use std::ops::DerefMut;
 
 #[derive(Debug)]
 pub struct FSFileRack {
@@ -41,7 +41,9 @@ impl FSFileRack {
 
     fn retrieve_file(&self, file_id: &str) -> Result<Bytes, util::PlainchantErr> {
         {
-            let cg = self.cache.read()
+            let cg = self
+                .cache
+                .read()
                 .map_err(|_| fr::static_err("Could not gain read access to file cache"))?;
             if let Some(bytes) = cg.get(file_id) {
                 return Ok((*bytes).clone());
@@ -56,8 +58,9 @@ impl FSFileRack {
                     Ok(bytes) => {
                         let bytes = Bytes::from(bytes);
                         {
-                            let mut cg = self.cache.write()
-                                .map_err(|_| fr::static_err("Could not gain write access to file cache"))?;
+                            let mut cg = self.cache.write().map_err(|_| {
+                                fr::static_err("Could not gain write access to file cache")
+                            })?;
                             let cache = cg.deref_mut();
                             cache.insert(file_id.to_string(), bytes.clone());
                         }
@@ -83,23 +86,30 @@ impl fr::FileRack for FSFileRack {
         let mut fd = File::create(self.file_dir.join(file_id))
             .map_err(|_| fr::static_err("Could not open requested write file"))?;
 
-        fd.write(&file).map_err(|_| fr::static_err("Could not write to requested file"))?; 
+        fd.write(&file)
+            .map_err(|_| fr::static_err("Could not write to requested file"))?;
 
         let thumb_id = FSFileRack::thumb_id(file_id);
         let thumb_path = self.file_dir.join(&thumb_id);
 
         let mut thumb_buf: Vec<u8> = vec![];
-        thumb.write_to(&mut Cursor::new(&mut thumb_buf), image::ImageFormat::Jpeg)
+        thumb
+            .write_to(&mut Cursor::new(&mut thumb_buf), image::ImageFormat::Jpeg)
             .map_err(|_| fr::static_err("Could not write thumbnail buffer"))?;
         let thumb_buf = Bytes::from(thumb_buf);
 
         let mut thumbfd = File::create(thumb_path)
             .map_err(|_| fr::static_err("Could not open thumbnail file for writing"))?;
-        thumbfd.write(&thumb_buf).map_err(|_| fr::static_err("Could not write to thumbnail file"))?;
+        thumbfd
+            .write(&thumb_buf)
+            .map_err(|_| fr::static_err("Could not write to thumbnail file"))?;
 
         {
-            let mut cg = self.cache.write().map_err(|_| fr::static_err("Could not gain write access to file cache"))?;
-            let cache = cg.deref_mut(); 
+            let mut cg = self
+                .cache
+                .write()
+                .map_err(|_| fr::static_err("Could not gain write access to file cache"))?;
+            let cache = cg.deref_mut();
             cache.insert(file_id.to_string(), file);
             cache.insert(thumb_id, thumb_buf);
         }
@@ -118,8 +128,11 @@ impl fr::FileRack for FSFileRack {
     fn delete_file(&self, file_id: &str) -> Result<(), util::PlainchantErr> {
         let thumb_id = FSFileRack::thumb_id(file_id);
         {
-            let mut cg = self.cache.write().map_err(|_| fr::static_err("Could not gain write access to file cache"))?;
-            let cache = cg.deref_mut(); 
+            let mut cg = self
+                .cache
+                .write()
+                .map_err(|_| fr::static_err("Could not gain write access to file cache"))?;
+            let cache = cg.deref_mut();
             cache.remove(file_id);
             cache.remove(&thumb_id);
         }
@@ -127,7 +140,8 @@ impl fr::FileRack for FSFileRack {
         let file_path = self.file_dir.join(file_id);
         fs::remove_file(file_path).map_err(|_| fr::static_err("Could not delete file"))?;
         let thumb_path = self.file_dir.join(&thumb_id);
-        fs::remove_file(thumb_path).map_err(|_| fr::static_err("Could not delete thumbnail file"))?;
+        fs::remove_file(thumb_path)
+            .map_err(|_| fr::static_err("Could not delete thumbnail file"))?;
 
         Ok(())
     }

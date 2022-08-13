@@ -385,7 +385,10 @@ where
     };
 
     let file_id = unwrap_or_return!(actions.upload_file(fr.as_ref(), file), {
-        Err(bad_request(&sp, "File upload failed - filetype may not be supported"))
+        Err(bad_request(
+            &sp,
+            "File upload failed - filetype may not be supported",
+        ))
     });
 
     let submission_result = actions.submit_original(
@@ -462,7 +465,10 @@ where
 
     if let Some(file) = file {
         file_id = Some(unwrap_or_return!(actions.upload_file(fr.as_ref(), file), {
-            Err(bad_request(&sp, "File upload failed - filetype may not be supported"))
+            Err(bad_request(
+                &sp,
+                "File upload failed - filetype may not be supported",
+            ))
         }));
     }
 
@@ -510,8 +516,9 @@ async fn files<FR>(
 where
     FR: 'static + fr::FileRack + Sync + Send,
 {
-    let file = fr.get_file(&file_id)
-        .map_err(|_| -> ErrorResponse { (StatusCode::NOT_FOUND, message_page(&sp, "No such file")).into() })?;
+    let file = fr
+        .get_file(&file_id)
+        .map_err(|_| -> ErrorResponse { not_found(&sp, "No such file").into() })?;
     Ok((StatusCode::OK, file_headers(&file), file))
 }
 
@@ -525,18 +532,16 @@ async fn thumbnails<FR>(
 where
     FR: 'static + fr::FileRack + Sync + Send,
 {
-    let file = fr.get_file_thumbnail(&file_id)
-        .map_err(|_| -> ErrorResponse { (StatusCode::NOT_FOUND, message_page(&sp, "No such thumbnail")).into() })?;
+    let file = fr
+        .get_file_thumbnail(&file_id)
+        .map_err(|_| -> ErrorResponse { not_found(&sp, "No such thumbnail").into() })?;
     Ok((StatusCode::OK, file_headers(&file), file))
 }
 
 // not_found: Handler for 404 fallback
 
 async fn route_not_found(sp: Arc<StaticPages>, uri: Uri) -> (StatusCode, impl IntoResponse) {
-    (
-        StatusCode::NOT_FOUND,
-        message_page(&sp, &format!("404 Not Found ({})", uri)),
-    )
+    not_found(&sp, &format!("404 Not Found ({})", uri))
 }
 
 async fn redirect(path: String) -> response::Redirect {
