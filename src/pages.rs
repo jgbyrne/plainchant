@@ -35,10 +35,10 @@ pub struct Pages {
 
 impl Pages {
     pub fn render<DB: db::Database>(
-        &mut self,
+        &self,
         database: &DB,
         pr: &PageRef,
-    ) -> Result<&Page, util::PlainchantErr> {
+    ) -> Result<Page, util::PlainchantErr> {
         match pr {
             PageRef::Homepage => {
                 let site = database.get_site()?;
@@ -66,13 +66,11 @@ impl Pages {
                 let render_data = template::Data::new(values, HashMap::new(), collections);
 
                 let page_text = self.templates.homepage_tmpl.render(&render_data);
-                let page = Page {
+                Ok(Page {
                     page_ref: *pr,
                     render_time: util::timestamp(),
                     page_text,
-                };
-                self.pages.insert(*pr, page);
-                Ok(self.pages.get(pr).unwrap())
+                })
             },
             PageRef::Catalog(board_id) => {
                 let board = database.get_board(*board_id)?;
@@ -120,13 +118,11 @@ impl Pages {
                 collections.insert("original".to_string(), originals);
                 let render_data = template::Data::new(values, HashMap::new(), collections);
                 let page_text = self.templates.catalog_tmpl.render(&render_data);
-                let page = Page {
+                Ok(Page {
                     page_ref: *pr,
                     render_time: util::timestamp(),
                     page_text,
-                };
-                self.pages.insert(*pr, page);
-                Ok(self.pages.get(pr).unwrap())
+                })
             },
             PageRef::Thread(board_id, orig_num) => {
                 let board = database.get_board(*board_id)?;
@@ -249,13 +245,11 @@ impl Pages {
 
                 let render_data = template::Data::new(values, flags, collections);
                 let page_text = self.templates.thread_tmpl.render(&render_data);
-                let page = Page {
+                Ok(Page {
                     page_ref: *pr,
                     render_time: util::timestamp(),
                     page_text,
-                };
-                self.pages.insert(*pr, page);
-                Ok(self.pages.get(pr).unwrap())
+                })
             },
             PageRef::Create(board_id) => {
                 let board = database.get_board(*board_id)?;
@@ -266,15 +260,18 @@ impl Pages {
                 let collections = HashMap::new();
                 let render_data = template::Data::new(values, HashMap::new(), collections);
                 let page_text = self.templates.create_tmpl.render(&render_data);
-                let page = Page {
+                Ok(Page {
                     page_ref: *pr,
                     render_time: util::timestamp(),
                     page_text,
-                };
-                self.pages.insert(*pr, page);
-                Ok(self.pages.get(pr).unwrap())
+                })
             },
         }
+    }
+
+    pub fn update(&mut self, pr: &PageRef, page: Page) -> &Page {
+        self.pages.insert(*pr, page);
+        self.pages.get(pr).unwrap()
     }
 
     pub fn page_exists<DB: db::Database>(&self, database: &DB, pr: &PageRef) -> bool {

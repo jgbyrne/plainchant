@@ -82,14 +82,28 @@ fn render_page<DB>(
 where
     DB: 'static + db::Database + Sync + Send,
 {
-    let mut guard = unwrap_or_return!(pages.write(), {
+    let page = {
+        let pg = unwrap_or_return!(pages.read(), {
+            internal_error(&sp, "Could not gain read access to Pages")
+        });
+
+        match pg.render(db.as_ref(), &page_ref) {
+            Ok(page) => page,
+            Err(_) => {
+                return internal_error(&sp, "Failed to render page");
+            },
+        }
+    };
+
+    // Only grab the write-lock for inserting into the page map
+
+    let mut pg = unwrap_or_return!(pages.write(), {
         internal_error(&sp, "Could not gain write access to Pages")
     });
-    let pages = guard.deref_mut();
-    match pages.render(db.as_ref(), &page_ref) {
-        Ok(page) => ok_page(page),
-        Err(_) => internal_error(&sp, "Failed to render page"),
-    }
+
+    let pages = pg.deref_mut();
+    let page = pages.update(&page_ref, page);
+    ok_page(page)
 }
 
 // static_dir: Handler to serve static resources
