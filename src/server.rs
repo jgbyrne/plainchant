@@ -18,9 +18,20 @@ use mime_guess;
 
 use std::collections::HashMap;
 use std::net::SocketAddr;
-use std::ops::{Deref, DerefMut};
+use std::ops::DerefMut;
 use std::path;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
+
+macro_rules! unwrap_or_return {
+    ( $test:expr, $ret:expr ) => {
+        match $test {
+            Ok(val) => val,
+            Err(_) => {
+                return $ret;
+            },
+        }
+    };
+}
 
 // This value is equivalent to 64 MiB in bytes;
 const FORM_MAX_LENGTH: u64 = 67_108_864;
@@ -54,6 +65,33 @@ fn bad_request(sp: &StaticPages, message: &str) -> (StatusCode, Html<String>) {
     (StatusCode::BAD_REQUEST, message_page(sp, message))
 }
 
+fn not_found(sp: &StaticPages, message: &str) -> (StatusCode, Html<String>) {
+    (StatusCode::NOT_FOUND, message_page(sp, message))
+}
+
+fn ok_page(page: &pages::Page) -> (StatusCode, Html<String>) {
+    (StatusCode::OK, Html(page.page_text.to_string()))
+}
+
+fn render_page<DB>(
+    sp: Arc<StaticPages>,
+    pages: Arc<RwLock<pages::Pages>>,
+    db: Arc<DB>,
+    page_ref: &pages::PageRef,
+) -> (StatusCode, Html<String>)
+where
+    DB: 'static + db::Database + Sync + Send,
+{
+    let mut guard = unwrap_or_return!(pages.write(), {
+        internal_error(&sp, "Could not gain write access to Pages")
+    });
+    let pages = guard.deref_mut();
+    match pages.render(db.as_ref(), &page_ref) {
+        Ok(page) => ok_page(page),
+        Err(_) => internal_error(&sp, "Failed to render page"),
+    }
+}
+
 // static_dir: Handler to serve static resources
 
 async fn static_dir(
@@ -84,131 +122,140 @@ async fn static_dir(
 
 async fn thread<DB>(
     sp: Arc<StaticPages>,
-    pages: Arc<Mutex<pages::Pages>>,
+    pages: Arc<RwLock<pages::Pages>>,
     db: Arc<DB>,
     extract::Path((board, post_num)): extract::Path<(String, u64)>,
 ) -> Result<(StatusCode, Html<String>), ErrorResponse>
 where
     DB: 'static + db::Database + Sync + Send,
 {
-    match pages.lock() {
-        Ok(mut guard) => {
-            let pages = guard.deref_mut();
-            if let Some(board_id) = pages.board_url_to_id(&board) {
-                let page_ref = pages::PageRef::Thread(board_id, post_num);
+    let page_ref = {
+        let pg = unwrap_or_return!(pages.read(), {
+            Ok(internal_error(&sp, "Could not gain read access to Pages"))
+        });
 
-                match pages.get_page(db.as_ref(), &page_ref) {
-                    Ok(page) => Ok((StatusCode::OK, Html::from(page.page_text.to_string()))),
-                    Err(_) => {
-                        // The board exists but the original post does not
-                        // Let's try and fetch it as a reply
-                        match db.get_reply(board_id, post_num) {
-                            Ok(reply) => {
-                                let uri =
-                                    format!("/{}/thread/{}#{}", &board, reply.orig_num, post_num,);
-                                Err(response::Redirect::permanent(&uri).into())
-                            },
-                            Err(_) => {
-                                Ok((StatusCode::NOT_FOUND, message_page(&sp, "No such thread")))
-                            },
-                        }
-                    },
-                }
-            } else {
-                Ok((StatusCode::NOT_FOUND, message_page(&sp, "No such board")))
-            }
-        },
-        Err(_err) => Ok(internal_error(
-            &sp,
-            &format!("Could not acquire lock on pages"),
-        )),
-    }
+        let board_id = unwrap_or_return!(pg.board_url_to_id(&board), {
+            Ok(not_found(&sp, "No such board"))
+        });
+
+        let page_ref = pages::PageRef::Thread(board_id, post_num);
+
+        match pg.get_page(db.as_ref(), &page_ref) {
+            Ok(None) => page_ref,
+            Ok(Some(page)) => {
+                return Ok(ok_page(page));
+            },
+            Err(_) => {
+                // The board exists but the original post does not
+                // Let's try and fetch it as a reply
+                let reply = unwrap_or_return!(db.get_reply(board_id, post_num), {
+                    Ok(not_found(&sp, "No such thread"))
+                });
+                let uri = format!("/{}/thread/{}#{}", &board, reply.orig_num, post_num);
+                return Err(response::Redirect::permanent(&uri).into());
+            },
+        }
+    };
+
+    Ok(render_page(sp, pages, db, &page_ref))
 }
 
 // homepage: Handler to serve homepage
 
 async fn homepage<DB>(
     sp: Arc<StaticPages>,
-    pages: Arc<Mutex<pages::Pages>>,
+    pages: Arc<RwLock<pages::Pages>>,
     db: Arc<DB>,
 ) -> (StatusCode, Html<String>)
 where
     DB: 'static + db::Database + Sync + Send,
 {
-    match pages.lock() {
-        Ok(mut guard) => {
-            let pages = guard.deref_mut();
-            let page_ref = pages::PageRef::Homepage;
-            let page = pages
-                .get_page(db.as_ref(), &page_ref)
-                .expect("Could not access homepage")
-                .page_text
-                .to_string();
-            (StatusCode::OK, Html(page))
-        },
-        Err(_err) => internal_error(&sp, "Could not acquire lock on pages"),
+    let page_ref = pages::PageRef::Homepage;
+
+    {
+        let pg = unwrap_or_return!(pages.read(), {
+            internal_error(&sp, "Could not gain read access to Pages")
+        });
+
+        if let Some(page) = pg
+            .get_page(db.as_ref(), &page_ref)
+            .expect("Could not access homepage")
+        {
+            return ok_page(page);
+        }
     }
+
+    render_page(sp, pages, db, &page_ref)
 }
 
 // catalog: Handler to serve catalog pages
 
 async fn catalog<DB>(
     sp: Arc<StaticPages>,
-    pages: Arc<Mutex<pages::Pages>>,
+    pages: Arc<RwLock<pages::Pages>>,
     db: Arc<DB>,
     extract::Path(board): extract::Path<String>,
 ) -> (StatusCode, Html<String>)
 where
     DB: 'static + db::Database + Sync + Send,
 {
-    match pages.lock() {
-        Ok(mut guard) => {
-            let pages = guard.deref_mut();
-            if let Some(board_id) = pages.board_url_to_id(&board) {
-                let page_ref = pages::PageRef::Catalog(board_id);
-                let page = pages
-                    .get_page(db.as_ref(), &page_ref)
-                    .expect("Could not access catalog for extant board")
-                    .page_text
-                    .to_string();
+    let page_ref = {
+        let pg = unwrap_or_return!(pages.read(), {
+            internal_error(&sp, "Could not gain read access to Pages")
+        });
 
-                (StatusCode::OK, Html::from(page))
-            } else {
-                (StatusCode::NOT_FOUND, message_page(&sp, "No such board"))
-            }
-        },
-        Err(_err) => internal_error(&sp, "Could not acquire lock on pages"),
-    }
+        let board_id = unwrap_or_return!(pg.board_url_to_id(&board), {
+            not_found(&sp, "No such board")
+        });
+
+        let page_ref = pages::PageRef::Catalog(board_id);
+        match pg
+            .get_page(db.as_ref(), &page_ref)
+            .expect("Could not access catalog for extant board")
+        {
+            Some(page) => {
+                return ok_page(page);
+            },
+            None => page_ref,
+        }
+    };
+
+    render_page(sp, pages, db, &page_ref)
 }
 
 // create: Handler to serve original post creation page
 
 async fn create<DB>(
     sp: Arc<StaticPages>,
-    pages: Arc<Mutex<pages::Pages>>,
+    pages: Arc<RwLock<pages::Pages>>,
     db: Arc<DB>,
     extract::Path(board): extract::Path<String>,
 ) -> (StatusCode, Html<String>)
 where
     DB: 'static + db::Database + Sync + Send,
 {
-    match pages.lock() {
-        Ok(mut guard) => {
-            let pages = guard.deref_mut();
-            if let Some(board_id) = pages.board_url_to_id(&board) {
-                let page_ref = pages::PageRef::Create(board_id);
-                let page = pages
-                    .get_page(db.as_ref(), &page_ref)
-                    .expect("Could not access thread creation page for extant board")
-                    .page_text
-                    .to_string();
-                (StatusCode::OK, Html(page))
-            } else {
-                (StatusCode::NOT_FOUND, message_page(&sp, "No such board"))
-            }
-        },
-        Err(_err) => internal_error(&sp, "Could not acquire lock on pages"),
-    }
+    let page_ref = {
+        let pg = unwrap_or_return!(pages.read(), {
+            internal_error(&sp, "Could not gain read access to Pages")
+        });
+
+        let board_id = unwrap_or_return!(pg.board_url_to_id(&board), {
+            not_found(&sp, "No such board")
+        });
+
+        let page_ref = pages::PageRef::Create(board_id);
+        match pg
+            .get_page(db.as_ref(), &page_ref)
+            .expect("Could not access thread creation page for extant board")
+        {
+            Some(page) => {
+                return ok_page(page);
+            },
+            None => page_ref,
+        }
+    };
+
+    render_page(sp, pages, db, &page_ref)
 }
 
 // Parse a multipart text field
@@ -272,7 +319,7 @@ type Submission = extract::ContentLengthLimit<extract::Multipart, FORM_MAX_LENGT
 
 async fn create_submit<DB, FR>(
     sp: Arc<StaticPages>,
-    pages: Arc<Mutex<pages::Pages>>,
+    pages: Arc<RwLock<pages::Pages>>,
     actions: Arc<actions::Actions>,
     db: Arc<DB>,
     fr: Arc<Mutex<FR>>,
@@ -285,17 +332,13 @@ where
     FR: 'static + fr::FileRack + Sync + Send,
 {
     let board_id = {
-        match pages.lock() {
-            Ok(guard) => match guard.deref().board_url_to_id(&board) {
-                Some(board_id) => board_id,
-                None => {
-                    return Ok(response::Redirect::to("/"));
-                },
-            },
-            Err(_err) => {
-                return Err(internal_error(&sp, "Could not acquire lock on pages"));
-            },
-        }
+        let pg = unwrap_or_return!(pages.read(), {
+            Err(internal_error(&sp, "Could not gain read access to Pages"))
+        });
+
+        unwrap_or_return!(pg.board_url_to_id(&board), {
+            Ok(response::Redirect::to("/"))
+        })
     };
 
     let mut name = None;
@@ -371,7 +414,7 @@ where
 
 async fn create_reply<DB, FR>(
     sp: Arc<StaticPages>,
-    pages: Arc<Mutex<pages::Pages>>,
+    pages: Arc<RwLock<pages::Pages>>,
     actions: Arc<actions::Actions>,
     db: Arc<DB>,
     fr: Arc<Mutex<FR>>,
@@ -384,17 +427,13 @@ where
     FR: 'static + fr::FileRack + Sync + Send,
 {
     let board_id = {
-        match pages.lock() {
-            Ok(guard) => match guard.deref().board_url_to_id(&board) {
-                Some(board_id) => board_id,
-                None => {
-                    return Ok(response::Redirect::to("/"));
-                },
-            },
-            Err(_err) => {
-                return Err(internal_error(&sp, "Could not acquire lock on pages"));
-            },
-        }
+        let pg = unwrap_or_return!(pages.read(), {
+            Err(internal_error(&sp, "Could not gain read access to Pages"))
+        });
+
+        unwrap_or_return!(pg.board_url_to_id(&board), {
+            Ok(response::Redirect::to("/"))
+        })
     };
 
     let mut name = None;
@@ -527,7 +566,7 @@ where
 
 // not_found: Handler for 404 fallback
 
-async fn not_found(sp: Arc<StaticPages>, uri: Uri) -> (StatusCode, impl IntoResponse) {
+async fn route_not_found(sp: Arc<StaticPages>, uri: Uri) -> (StatusCode, impl IntoResponse) {
     (
         StatusCode::NOT_FOUND,
         message_page(&sp, &format!("404 Not Found ({})", uri)),
@@ -561,7 +600,7 @@ pub async fn serve<DB, FR>(
     let sp = Arc::new(sp);
     let config = Arc::new(config);
 
-    let pages = Arc::new(Mutex::new(pages));
+    let pages = Arc::new(RwLock::new(pages));
     let actions = Arc::new(actions);
 
     let db = Arc::new(database);
@@ -652,7 +691,7 @@ pub async fn serve<DB, FR>(
         .fallback(
             {
                 let sp = sp.clone();
-                move |uri| not_found(sp, uri)
+                move |uri| route_not_found(sp, uri)
             }
             .into_service(),
         );

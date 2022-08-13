@@ -289,20 +289,20 @@ impl Pages {
     }
 
     pub fn get_page<DB: db::Database>(
-        &mut self,
+        &self,
         database: &DB,
         pr: &PageRef,
-    ) -> Result<&Page, util::PlainchantErr> {
+    ) -> Result<Option<&Page>, util::PlainchantErr> {
         match self.pages.get(pr) {
             Some(page) => {
                 let now = util::timestamp();
                 if now - page.render_time > self.render_freq {
-                    return self.render(database, pr);
+                    return Ok(None);
                 }
             },
             None => {
                 if self.page_exists(database, pr) {
-                    return self.render(database, pr);
+                    return Ok(None);
                 } else {
                     return Err(util::PlainchantErr {
                         origin: util::ErrOrigin::Web(404),
@@ -312,13 +312,16 @@ impl Pages {
             },
         }
         // Borrow checker makes us get again >:-(
-        Ok(self.pages.get(pr).unwrap())
+        Ok(Some(self.pages.get(pr).unwrap()))
     }
 
-    pub fn board_url_to_id(&self, url: &str) -> Option<u64> {
+    pub fn board_url_to_id(&self, url: &str) -> Result<u64, util::PlainchantErr> {
         match self.board_urls.get(url) {
-            Some(id) => Some(*id),
-            None => None,
+            Some(id) => Ok(*id),
+            None => Err(util::PlainchantErr {
+                origin: util::ErrOrigin::Web(404),
+                msg:    "No such board".to_string(),
+            }),
         }
     }
 
