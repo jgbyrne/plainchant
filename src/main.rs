@@ -99,8 +99,12 @@ fn main() {
 
     // Load database - this needs to be db::Database
     let db = if let Some(path) = val(val(val(&conf_data, "db"), "sqlite"), "path").as_str() {
-        match fs::canonicalize(path) {
-            Ok(path) => sqlite3db::Sqlite3Database::from_path(PathBuf::from(path))
+        let path = PathBuf::from(path);
+        let parent = path.parent().unwrap_or_else(|| init_die("Database path has no parent"));
+        let file_name = path.file_name().unwrap_or_else(|| init_die("Database path has no file name"));
+
+        match fs::canonicalize(parent) {
+            Ok(pp) => sqlite3db::Sqlite3Database::from_path(PathBuf::from(pp).join(file_name))
                 .unwrap_or_else(|err| err.die()),
             Err(_) => init_die("Could not comprehend sqlite3db path"),
         }
