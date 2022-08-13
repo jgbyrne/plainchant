@@ -9,10 +9,58 @@ use std::ops::DerefMut;
 use std::path::{Path, PathBuf};
 use std::sync::RwLock;
 
-#[derive(Debug)]
+struct Cache {
+    inner: RwLock<HashMap<String, Bytes>>,
+}
+
+impl Cache {
+    fn new() -> Self {
+        Self {
+            inner: RwLock::new(HashMap::new()),
+        }
+    }
+
+    #[allow(unused)]
+    fn contains(&self, key: &str) -> Result<bool, util::PlainchantErr> {
+        let cg = self
+            .inner
+            .read()
+            .map_err(|_| fr::static_err("Could not gain read access to file cache"))?;
+        Ok(cg.contains_key(key))
+    }
+
+    fn retrieve(&self, key: &str) -> Result<Option<Bytes>, util::PlainchantErr> {
+        let cg = self
+            .inner
+            .read()
+            .map_err(|_| fr::static_err("Could not gain read access to file cache"))?;
+        Ok(cg.get(key).map(|bytes| (*bytes).clone()))
+    }
+
+    fn store(&self, key: &str, buf: Bytes) -> Result<(), util::PlainchantErr> {
+        let mut cg = self
+            .inner
+            .write()
+            .map_err(|_| fr::static_err("Could not gain write access to file cache"))?;
+        let cache = cg.deref_mut();
+        cache.insert(key.to_string(), buf);
+        Ok(())
+    }
+
+    fn delete(&self, key: &str) -> Result<(), util::PlainchantErr> {
+        let mut cg = self
+            .inner
+            .write()
+            .map_err(|_| fr::static_err("Could not gain write access to file cache"))?;
+        let cache = cg.deref_mut();
+        cache.remove(key);
+        Ok(())
+    }
+}
+
 pub struct FSFileRack {
     file_dir: PathBuf,
-    cache:    RwLock<HashMap<String, Bytes>>,
+    cache:    Cache,
 }
 
 impl FSFileRack {
@@ -31,7 +79,7 @@ impl FSFileRack {
 
         Ok(FSFileRack {
             file_dir: fr_path,
-            cache:    RwLock::new(HashMap::new()),
+            cache:    Cache::new(),
         })
     }
 
@@ -40,14 +88,8 @@ impl FSFileRack {
     }
 
     fn retrieve_file(&self, file_id: &str) -> Result<Bytes, util::PlainchantErr> {
-        {
-            let cg = self
-                .cache
-                .read()
-                .map_err(|_| fr::static_err("Could not gain read access to file cache"))?;
-            if let Some(bytes) = cg.get(file_id) {
-                return Ok((*bytes).clone());
-            }
+        if let Some(buf) = self.cache.retrieve(file_id)? {
+            return Ok(buf);
         }
 
         let f_res = File::open(self.file_dir.join(file_id));
@@ -57,13 +99,7 @@ impl FSFileRack {
                 match bytes_res {
                     Ok(bytes) => {
                         let bytes = Bytes::from(bytes);
-                        {
-                            let mut cg = self.cache.write().map_err(|_| {
-                                fr::static_err("Could not gain write access to file cache")
-                            })?;
-                            let cache = cg.deref_mut();
-                            cache.insert(file_id.to_string(), bytes.clone());
-                        }
+                        self.cache.store(file_id, bytes.clone())?;
                         Ok(bytes)
                     },
                     Err(_read_err) => {
@@ -104,15 +140,8 @@ impl fr::FileRack for FSFileRack {
             .write(&thumb_buf)
             .map_err(|_| fr::static_err("Could not write to thumbnail file"))?;
 
-        {
-            let mut cg = self
-                .cache
-                .write()
-                .map_err(|_| fr::static_err("Could not gain write access to file cache"))?;
-            let cache = cg.deref_mut();
-            cache.insert(file_id.to_string(), file);
-            cache.insert(thumb_id, thumb_buf);
-        }
+        self.cache.store(file_id, file)?;
+        self.cache.store(&thumb_id, thumb_buf)?;
 
         Ok(())
     }
@@ -127,15 +156,8 @@ impl fr::FileRack for FSFileRack {
 
     fn delete_file(&self, file_id: &str) -> Result<(), util::PlainchantErr> {
         let thumb_id = FSFileRack::thumb_id(file_id);
-        {
-            let mut cg = self
-                .cache
-                .write()
-                .map_err(|_| fr::static_err("Could not gain write access to file cache"))?;
-            let cache = cg.deref_mut();
-            cache.remove(file_id);
-            cache.remove(&thumb_id);
-        }
+        self.cache.delete(file_id)?;
+        self.cache.delete(&thumb_id)?;
 
         let file_path = self.file_dir.join(file_id);
         fs::remove_file(file_path).map_err(|_| fr::static_err("Could not delete file"))?;
