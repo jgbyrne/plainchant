@@ -373,15 +373,9 @@ where
     match fr.lock() {
         Ok(mut guard) => {
             let file_rack = guard.deref_mut();
-            let file_id = match actions.upload_file(file_rack, file) {
-                Ok(id) => id,
-                Err(_) => {
-                    return Err(bad_request(
-                        &sp,
-                        "File upload failed - filetype may not be supported",
-                    ));
-                },
-            };
+            let file_id = unwrap_or_return!(actions.upload_file(file_rack, file), {
+                Err(bad_request(&sp, "File upload failed - filetype may not be supported"))
+            });
 
             let submission_result = actions.submit_original(
                 db.as_ref(),
@@ -462,17 +456,9 @@ where
         match fr.lock() {
             Ok(mut guard) => {
                 let file_rack = guard.deref_mut();
-                match actions.upload_file(file_rack, file) {
-                    Ok(id) => {
-                        file_id = Some(id);
-                    },
-                    Err(_) => {
-                        return Err(bad_request(
-                            &sp,
-                            "File upload failed - filetype may not be supported",
-                        ));
-                    },
-                }
+                file_id = Some(unwrap_or_return!(actions.upload_file(file_rack, file), {
+                    Err(bad_request(&sp, "File upload failed - filetype may not be supported"))
+                }));
             },
             Err(_err) => {
                 return Err(internal_error(&sp, "Could not obtain lock for filerack"));
