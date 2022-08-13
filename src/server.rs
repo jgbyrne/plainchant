@@ -35,6 +35,8 @@ macro_rules! unwrap_or_return {
 
 // This value is equivalent to 64 MiB in bytes;
 const FORM_MAX_LENGTH: u64 = 67_108_864;
+// This values is equivalent to 2 MiB in bytes;
+const FILE_MAX_SIZE: usize = 2_097_152;
 
 // More complex templates are handled by Pages, but these
 // simple message pages we can handle directly
@@ -373,7 +375,7 @@ where
                 body = multipart_text_field(&sp, field, 16_384).await?;
             },
             Some("file") => {
-                (file_name, file) = multipart_file_field(&sp, field, 524_288).await?;
+                (file_name, file) = multipart_file_field(&sp, field, FILE_MAX_SIZE).await?;
             },
             _ => {},
         }
@@ -455,7 +457,7 @@ where
                 body = multipart_text_field(&sp, field, 16_384).await?;
             },
             Some("file") => {
-                (file_name, file) = multipart_file_field(&sp, field, 524_288).await?;
+                (file_name, file) = multipart_file_field(&sp, field, FILE_MAX_SIZE).await?;
             },
             _ => {},
         }
