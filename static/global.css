@@ -4,14 +4,14 @@ html {
 
 body {
     background-color: #f7efef;
-    font-family: "Source Serif", "serif";
+    font-family: "Garamond", "serif";
     font-size: 13pt;
     display: flex;
     flex-direction: column;
 }
 
-.board-title {
-    font-family: "Liberation Serif", "serif";
+.page-title {
+    font-family: "Garamond", "serif";
     text-align: center;
 }
 

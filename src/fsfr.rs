@@ -9,6 +9,7 @@ use std::ops::DerefMut;
 use std::path::{Path, PathBuf};
 use std::sync::RwLock;
 
+// TODO: Implement memory cap (currently grows arbitrarily large)
 struct Cache {
     inner: RwLock<HashMap<String, Bytes>>,
 }
