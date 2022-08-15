@@ -14,7 +14,7 @@ Plainchant is a lightweight and libre imageboard software package.
 
 * Efficient - all aspects of the system should be fast and use system resources frugally.
 
-* Minimalist - the front-end should be minimally designed. The web markup should be handwritten, thoughtful, and semantically meaningful. The site should be fully usable without javascript, and viewable even in a text-mode browser.
+* Minimalist - the front-end should be minimally designed. The web markup should be handwritten, thoughtful, and semantically meaningful. The site should not use JavaScript, and be viewable even in a text-mode browser.
 
 * Modern - minimalism does not mean stuck in the past. Elegant and modern technologies should be employed throughout the project.
 
