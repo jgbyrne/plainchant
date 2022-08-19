@@ -1,60 +1,40 @@
 use crate::fr;
 use crate::util;
 use bytes::Bytes;
-use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io::{Cursor, Read, Write};
-use std::ops::DerefMut;
 use std::path::{Path, PathBuf};
-use std::sync::RwLock;
+use dashmap::DashMap;
 
 // TODO: Implement memory cap (currently grows arbitrarily large)
 struct Cache {
-    inner: RwLock<HashMap<String, Bytes>>,
+    inner: DashMap<String, Bytes>,
 }
 
 impl Cache {
     fn new() -> Self {
         Self {
-            inner: RwLock::new(HashMap::new()),
+            inner: DashMap::new(),
         }
     }
 
     #[allow(unused)]
     fn contains(&self, key: &str) -> Result<bool, util::PlainchantErr> {
-        let cg = self
-            .inner
-            .read()
-            .map_err(|_| fr::static_err("Could not gain read access to file cache"))?;
-        Ok(cg.contains_key(key))
+        Ok(self.inner.contains_key(key))
     }
 
     fn retrieve(&self, key: &str) -> Result<Option<Bytes>, util::PlainchantErr> {
-        let cg = self
-            .inner
-            .read()
-            .map_err(|_| fr::static_err("Could not gain read access to file cache"))?;
-        Ok(cg.get(key).map(|bytes| (*bytes).clone()))
+        Ok(self.inner.get(key).map(|bytes| (*bytes).clone()))
     }
 
     fn store(&self, key: &str, buf: Bytes) -> Result<(), util::PlainchantErr> {
-        let mut cg = self
-            .inner
-            .write()
-            .map_err(|_| fr::static_err("Could not gain write access to file cache"))?;
-        let cache = cg.deref_mut();
-        cache.insert(key.to_string(), buf);
+        self.inner.insert(key.to_string(), buf);
         Ok(())
     }
 
     fn delete(&self, key: &str) -> Result<(), util::PlainchantErr> {
-        let mut cg = self
-            .inner
-            .write()
-            .map_err(|_| fr::static_err("Could not gain write access to file cache"))?;
-        let cache = cg.deref_mut();
-        cache.remove(key);
+        self.inner.remove(key);
         Ok(())
     }
 }
