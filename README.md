@@ -28,7 +28,7 @@ Plainchant is a lightweight and libre imageboard software package.
 
 ### Technologies
 
-Plainchant is implemented in Rust. Web functionality is provided by Warp, while templating is achieved with an inbuilt engine. The intention is to support Postgres as a backend database.
+Plainchant is implemented in Rust. Web functionality is provided by Warp, while templating is achieved with an inbuilt engine. SQLite is used for backend data storage. 
 
 -----
 
