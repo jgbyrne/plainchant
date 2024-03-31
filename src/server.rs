@@ -333,16 +333,13 @@ fn parse_raw_name(raw_name: Option<String>) -> (Option<String>, Option<String>) 
             let parts: Vec<&str> = name_str.splitn(2, "#").collect();
             if parts.len() == 1 {
                 (Some(name_str), None)
-            }
-            else {
+            } else {
                 let name = parts[0];
                 let code = parts[1];
                 (Some(String::from(name)), Some(String::from(code)))
             }
         },
-        None => {
-            (None, None)
-        },
+        None => (None, None),
     }
 }
 
@@ -685,18 +682,19 @@ pub async fn serve<DB, FR>(
             }),
         )
         .layer(extract::DefaultBodyLimit::max(FORM_MAX_LENGTH))
-        .fallback(
-            {
-                let sp = sp.clone();
-                move |uri| route_not_found(sp, uri)
-            }
-        );
+        .fallback({
+            let sp = sp.clone();
+            move |uri| route_not_found(sp, uri)
+        });
 
     let listener = tokio::net::TcpListener::bind(&config.addr)
         .await
         .expect("Could not bind TCP listener");
 
-    axum::serve(listener, router.into_make_service_with_connect_info::<SocketAddr>())
-        .await
-        .expect("Server quit unexpectedly");
+    axum::serve(
+        listener,
+        router.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await
+    .expect("Server quit unexpectedly");
 }

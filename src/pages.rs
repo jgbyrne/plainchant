@@ -185,7 +185,7 @@ impl Pages {
                 );
                 values.insert(
                     String::from("orig_feather"),
-                    format::display_feather(thread.original.feather())
+                    format::display_feather(thread.original.feather()),
                 );
                 values.insert(
                     String::from("orig_post_body"),
@@ -230,7 +230,7 @@ impl Pages {
                     );
                     values.insert(
                         format!("reply.{}.feather", reply.post_num()),
-                        format::display_feather(reply.feather())
+                        format::display_feather(reply.feather()),
                     );
                     values.insert(
                         format!("reply.{}.post_num", reply.post_num()),

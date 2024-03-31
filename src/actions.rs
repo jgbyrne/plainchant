@@ -45,9 +45,7 @@ impl Actions {
 
         let feather = match trip {
             None => site::Feather::None,
-            Some(code) => {
-                site::Feather::Trip((sha256::digest(code)[..10]).to_string())
-            },
+            Some(code) => site::Feather::Trip((sha256::digest(code)[..10]).to_string()),
         };
 
         let original = site::Original {
@@ -86,9 +84,7 @@ impl Actions {
 
         let feather = match trip {
             None => site::Feather::None,
-            Some(code) => {
-                site::Feather::Trip((sha256::digest(code)[..10]).to_string())
-            },
+            Some(code) => site::Feather::Trip((sha256::digest(code)[..10]).to_string()),
         };
 
         let reply = site::Reply {
