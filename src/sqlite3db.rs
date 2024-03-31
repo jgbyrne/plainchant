@@ -90,6 +90,17 @@ impl Sqlite3Database {
 
         conn.execute(
             r#"
+            CREATE TABLE IF NOT EXISTS Bans (
+                BanId       INTEGER  PRIMARY KEY,
+                Ip          TEXT     NOT NULL,
+                TimeExpires INTEGER  NOT NULL
+            );
+        "#,
+            (),
+        )?;
+
+        conn.execute(
+            r#"
             CREATE TABLE IF NOT EXISTS Boards (
                 BoardId     INTEGER  PRIMARY KEY,
                 Url         TEXT     NOT NULL,
@@ -141,6 +152,14 @@ impl Sqlite3Database {
 
         Ok(Sqlite3Database { path, pool })
     }
+}
+
+fn row_to_ban<'stmt>(row: &rusqlite::Row<'stmt>) -> rusqlite::Result<site::Ban> {
+    Ok(site::Ban {
+        id:           row.get(0)?,
+        ip:           row.get(1)?,
+        time_expires: row.get(2)?,
+    })
 }
 
 fn row_to_board<'stmt>(row: &rusqlite::Row<'stmt>) -> rusqlite::Result<site::Board> {
@@ -413,6 +432,25 @@ impl db::Database for Sqlite3Database {
         Ok(Box::new(post) as Box<dyn site::Post>)
     }
 
+    fn get_bans(&self) -> Result<Vec<site::Ban>, PlainchantErr> {
+        let conn = self.pool.get()?;
+        let mut query = conn.prepare(
+            r#"
+            SELECT BanId, Ip, TimeExpires FROM Bans
+        "#,
+        )?;
+
+        let bans_iter = query.query_map((), row_to_ban)?;
+
+        let mut bans = vec![];
+
+        for b in bans_iter {
+            bans.push(b?);
+        }
+
+        Ok(bans)
+    }
+
     fn create_original(&self, mut orig: site::Original) -> Result<u64, PlainchantErr> {
         let mut conn = self.pool.get()?;
 
@@ -633,6 +671,21 @@ impl db::Database for Sqlite3Database {
         tx.execute("DELETE FROM Boards WHERE BoardId = ?1;", (board_id,))?;
 
         tx.commit()?;
+
+        Ok(())
+    }
+
+    fn create_ban(&self, ban: site::Ban) -> Result<(), PlainchantErr> {
+        let conn = self.pool.get()?;
+
+        conn.execute(
+            r#"
+            INSERT INTO Bans
+            (Ip, TimeExpires)
+            VALUES (?1, ?2);
+            "#,
+            (ban.ip, ban.time_expires),
+        )?;
 
         Ok(())
     }

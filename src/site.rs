@@ -170,3 +170,10 @@ pub struct Site {
     pub name:        String,
     pub description: String,
 }
+
+#[derive(Debug, Clone)]
+pub struct Ban {
+    pub id:           u64,
+    pub ip:           String,
+    pub time_expires: u64,
+}

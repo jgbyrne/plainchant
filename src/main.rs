@@ -148,7 +148,7 @@ fn main() {
 
     // Create structs for pages and actions
     let pages = pages::Pages::new(&db, templates, 1).unwrap_or_else(|err| err.die());
-    let actions = actions::Actions::new();
+    let actions = actions::Actions::new(&db).unwrap_or_else(|err| err.die());
 
     // Serve the site using the pages, actions, and database
     server::serve(config, pages, actions, db, fr);

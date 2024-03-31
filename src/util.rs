@@ -5,6 +5,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 pub enum ErrOrigin {
     Database,
     FileRack,
+    Actions,
     Template,
     Web(u16),
 }

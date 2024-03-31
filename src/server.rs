@@ -70,6 +70,10 @@ fn not_found(sp: &StaticPages, message: &str) -> (StatusCode, Html<String>) {
     (StatusCode::NOT_FOUND, message_page(sp, message))
 }
 
+fn forbidden(sp: &StaticPages, message: &str) -> (StatusCode, Html<String>) {
+    (StatusCode::FORBIDDEN, message_page(sp, message))
+}
+
 fn ok_page(page: &pages::Page) -> (StatusCode, Html<String>) {
     (StatusCode::OK, Html(page.page_text.to_string()))
 }
@@ -429,7 +433,10 @@ where
     }
 
     match submission_result {
-        Ok(_) => Ok(response::Redirect::to(&format!("/{}/catalog", board))),
+        Ok(actions::SubmissionResult::Success(_)) => {
+            Ok(response::Redirect::to(&format!("/{}/catalog", board)))
+        },
+        Ok(actions::SubmissionResult::Banned) => Err(forbidden(&sp, "Your IP address is banned")),
         Err(_) => Err(internal_error(&sp, "Failed to submit post")),
     }
 }
@@ -506,10 +513,11 @@ where
     );
 
     match submission_result {
-        Ok(_) => Ok(response::Redirect::to(&format!(
+        Ok(actions::SubmissionResult::Success(_)) => Ok(response::Redirect::to(&format!(
             "/{}/thread/{}",
             board, orig_num
         ))),
+        Ok(actions::SubmissionResult::Banned) => Err(forbidden(&sp, "Your IP address is banned")),
         Err(_) => Err(internal_error(&sp, "Failed to submit post")),
     }
 }
