@@ -4,6 +4,7 @@ use crate::site;
 use crate::site::Post;
 use crate::util;
 use rand::Rng;
+use sha256;
 use std::iter;
 
 pub struct Actions {}
@@ -35,11 +36,20 @@ impl Actions {
         ip: String,
         body: String,
         poster: Option<String>,
+        trip: Option<String>,
         file_id: String,
         file_name: String,
         title: Option<String>,
     ) -> Result<u64, util::PlainchantErr> {
         let cur_time = util::timestamp();
+
+        let feather = match trip {
+            None => site::Feather::None,
+            Some(code) => {
+                site::Feather::Trip((sha256::digest(code)[..10]).to_string())
+            },
+        };
+
         let original = site::Original {
             board_id,
             post_num: 0,
@@ -47,7 +57,7 @@ impl Actions {
             ip,
             body,
             poster,
-            feather: site::Feather::None,
+            feather,
             file_id: Some(file_id),
             file_name: Some(file_name),
             title,
@@ -67,11 +77,20 @@ impl Actions {
         ip: String,
         body: String,
         poster: Option<String>,
+        trip: Option<String>,
         file_id: Option<String>,
         file_name: Option<String>,
         orig_num: u64,
     ) -> Result<u64, util::PlainchantErr> {
         let cur_time = util::timestamp();
+
+        let feather = match trip {
+            None => site::Feather::None,
+            Some(code) => {
+                site::Feather::Trip((sha256::digest(code)[..10]).to_string())
+            },
+        };
+
         let reply = site::Reply {
             board_id,
             post_num: 0,
@@ -79,7 +98,7 @@ impl Actions {
             ip,
             body,
             poster,
-            feather: site::Feather::None,
+            feather,
             file_id: file_id.clone(),
             file_name,
             orig_num,

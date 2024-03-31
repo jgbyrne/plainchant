@@ -1,4 +1,5 @@
 use crate::util;
+use crate::site::Feather;
 use chrono::{TimeZone, Utc};
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -129,3 +130,13 @@ pub fn annotate_post(
     }
     out
 }
+
+pub fn display_feather(feather: &Feather) -> String { 
+    match feather {
+        Feather::None => String::from(""),
+        Feather::Trip(s) => format!("# {}", s),
+        Feather::Moderator => String::from("(Moderator)"),
+        Feather::Admin => String::from("(Admin)"),
+    }
+}
+

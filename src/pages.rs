@@ -184,6 +184,10 @@ impl Pages {
                     thread.original.post_num().to_string(),
                 );
                 values.insert(
+                    String::from("orig_feather"),
+                    format::display_feather(thread.original.feather())
+                );
+                values.insert(
                     String::from("orig_post_body"),
                     format::annotate_post(thread.original.body(), &self.board_urls, &posts),
                 );
@@ -224,7 +228,10 @@ impl Pages {
                         format!("reply.{}.timestamp", reply.post_num()),
                         format::utc_timestamp(reply.time()),
                     );
-
+                    values.insert(
+                        format!("reply.{}.feather", reply.post_num()),
+                        format::display_feather(reply.feather())
+                    );
                     values.insert(
                         format!("reply.{}.post_num", reply.post_num()),
                         reply.post_num().to_string(),

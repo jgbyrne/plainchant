@@ -5,7 +5,6 @@ use crate::pages;
 use crate::template::{Data, Template};
 use crate::Config;
 
-use axum::handler::Handler;
 use axum::http::{StatusCode, Uri};
 use axum::response::{ErrorResponse, Html, IntoResponse, IntoResponseParts};
 use axum::{body, extract, response, routing, Router};
@@ -34,7 +33,7 @@ macro_rules! unwrap_or_return {
 }
 
 // This value is equivalent to 64 MiB in bytes;
-const FORM_MAX_LENGTH: u64 = 67_108_864;
+const FORM_MAX_LENGTH: usize = 67_108_864;
 // This values is equivalent to 2 MiB in bytes;
 const FILE_MAX_SIZE: usize = 2_097_152;
 
@@ -114,7 +113,6 @@ async fn static_dir(
     config: Arc<Config>,
     extract::Path(path): extract::Path<path::PathBuf>,
 ) -> impl IntoResponse {
-    let path = path.strip_prefix("/").unwrap();
     let full_path = config.static_dir.join(&path);
 
     match tokio::fs::File::open(&full_path).await {
@@ -123,7 +121,7 @@ async fn static_dir(
             let headers = response::AppendHeaders([("Content-Type", mime.to_string())]);
 
             let stream = ReaderStream::new(file);
-            let body = body::StreamBody::new(stream);
+            let body = body::Body::from_stream(stream);
 
             Ok((headers, body))
         },
@@ -329,7 +327,26 @@ async fn multipart_file_field<'f>(
     }
 }
 
-type Submission = extract::ContentLengthLimit<extract::Multipart, FORM_MAX_LENGTH>;
+fn parse_raw_name(raw_name: Option<String>) -> (Option<String>, Option<String>) {
+    match raw_name {
+        Some(name_str) => {
+            let parts: Vec<&str> = name_str.splitn(2, "#").collect();
+            if parts.len() == 1 {
+                (Some(name_str), None)
+            }
+            else {
+                let name = parts[0];
+                let code = parts[1];
+                (Some(String::from(name)), Some(String::from(code)))
+            }
+        },
+        None => {
+            (None, None)
+        },
+    }
+}
+
+type Submission = extract::Multipart;
 
 // create_submit: Handler for original post creation forms
 
@@ -341,7 +358,7 @@ async fn create_submit<DB, FR>(
     fr: Arc<FR>,
     extract::ConnectInfo(addr): extract::ConnectInfo<SocketAddr>,
     extract::Path(board): extract::Path<String>,
-    extract::ContentLengthLimit(mut multipart): Submission,
+    mut multipart: Submission,
 ) -> impl IntoResponse
 where
     DB: 'static + db::Database + Sync + Send,
@@ -357,7 +374,7 @@ where
         })
     };
 
-    let mut name = None;
+    let mut raw_name = None;
     let mut title = None;
     let mut body = None;
     let mut file_name = None;
@@ -366,7 +383,7 @@ where
     while let Ok(Some(field)) = multipart.next_field().await {
         match field.name() {
             Some("name") => {
-                name = multipart_text_field(&sp, field, 4096).await?;
+                raw_name = multipart_text_field(&sp, field, 4096).await?;
             },
             Some("title") => {
                 title = multipart_text_field(&sp, field, 4096).await?;
@@ -393,12 +410,15 @@ where
         ))
     });
 
+    let (name, trip) = parse_raw_name(raw_name);
+
     let submission_result = actions.submit_original(
         db.as_ref(),
         board_id,
         addr.ip().to_string(),
         body.unwrap_or_else(|| String::from("")),
         name,
+        trip,
         file_id,
         file_name.unwrap_or_else(|| String::from("")),
         title,
@@ -427,7 +447,7 @@ async fn create_reply<DB, FR>(
     fr: Arc<FR>,
     extract::ConnectInfo(addr): extract::ConnectInfo<SocketAddr>,
     extract::Path((board, orig_num)): extract::Path<(String, u64)>,
-    extract::ContentLengthLimit(mut multipart): Submission,
+    mut multipart: Submission,
 ) -> impl IntoResponse
 where
     DB: 'static + db::Database + Sync + Send,
@@ -443,7 +463,7 @@ where
         })
     };
 
-    let mut name = None;
+    let mut raw_name = None;
     let mut body = None;
     let mut file_name = None;
     let mut file = None;
@@ -451,7 +471,7 @@ where
     while let Ok(Some(field)) = multipart.next_field().await {
         match field.name() {
             Some("name") => {
-                name = multipart_text_field(&sp, field, 4096).await?;
+                raw_name = multipart_text_field(&sp, field, 4096).await?;
             },
             Some("body") => {
                 body = multipart_text_field(&sp, field, 16_384).await?;
@@ -474,12 +494,15 @@ where
         }));
     }
 
+    let (name, trip) = parse_raw_name(raw_name);
+
     let submission_result = actions.submit_reply(
         db.as_ref(),
         board_id,
         addr.ip().to_string(),
         body.unwrap_or_else(|| String::from("")),
         name,
+        trip,
         file_id,
         file_name,
         orig_num,
@@ -661,16 +684,19 @@ pub async fn serve<DB, FR>(
                 move |conn, path, form| create_reply(sp, pages, actions, db, fr, conn, path, form)
             }),
         )
+        .layer(extract::DefaultBodyLimit::max(FORM_MAX_LENGTH))
         .fallback(
             {
                 let sp = sp.clone();
                 move |uri| route_not_found(sp, uri)
             }
-            .into_service(),
         );
 
-    axum::Server::bind(&config.addr)
-        .serve(router.into_make_service_with_connect_info::<SocketAddr>())
+    let listener = tokio::net::TcpListener::bind(&config.addr)
+        .await
+        .expect("Could not bind TCP listener");
+
+    axum::serve(listener, router.into_make_service_with_connect_info::<SocketAddr>())
         .await
         .expect("Server quit unexpectedly");
 }
