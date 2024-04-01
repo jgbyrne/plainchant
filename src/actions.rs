@@ -3,7 +3,7 @@ use crate::fr;
 use crate::site;
 use crate::site::Post;
 use crate::util;
-use crate::util::{ErrOrigin, PlainchantErr};
+use crate::util::{ErrOrigin, PlainchantErr, unwrap_or_return};
 use rand::Rng;
 use sha256;
 use std::collections::HashMap;
@@ -14,6 +14,13 @@ const TRIPCODE_LEN: usize = 10;
 
 fn compute_tripcode(trip: String) -> String {
     (sha256::digest(trip)[..TRIPCODE_LEN]).to_string()
+}
+
+fn actions_err(msg: &str) -> PlainchantErr {
+    PlainchantErr {
+        origin: ErrOrigin::Actions,
+        msg:    String::from(msg),
+    }
 }
 
 pub struct Actions {
@@ -45,15 +52,10 @@ impl Actions {
     }
 
     fn is_banned(&self, ip: &str, cur_time: u64) -> Result<bool, PlainchantErr> {
-        let rg = match self.ban_cache.read() {
-            Ok(guard) => guard,
-            Err(_) => {
-                return Err(PlainchantErr {
-                    origin: ErrOrigin::Actions,
-                    msg:    String::from("Failed to read from Ban Cache"),
-                })
-            },
-        };
+        let rg = unwrap_or_return!(
+            self.ban_cache.read(),
+            Err(actions_err("Failed to read from Ban Cache"))
+        );
 
         match rg.get(ip) {
             Some(ban) => Ok(ban.time_expires > cur_time),
@@ -70,15 +72,10 @@ impl Actions {
         let cur_time = util::timestamp();
         let time_expires = cur_time + ban_length;
 
-        let mut wg = match self.ban_cache.write() {
-            Ok(guard) => guard,
-            Err(_) => {
-                return Err(PlainchantErr {
-                    origin: ErrOrigin::Actions,
-                    msg:    String::from("Failed to write to Ban Cache"),
-                })
-            },
-        };
+        let mut wg = unwrap_or_return!(
+            self.ban_cache.write(),
+            Err(actions_err("Failed to write to Ban Cache"))
+        );
 
         let ban = site::Ban {
             id: 0,
@@ -90,6 +87,25 @@ impl Actions {
 
         database.create_ban(ban)
     }
+
+    pub fn unban_ip<DB: db::Database>(
+        &self,
+        database: &DB,
+        ip: &str
+    ) -> Result<(), util::PlainchantErr> {
+
+        database.delete_bans(ip)?;
+
+        let mut wg = unwrap_or_return!(
+            self.ban_cache.write(),
+            Err(actions_err("Failed to write to Ban Cache"))
+        );
+
+        wg.remove(ip);
+
+        Ok(())
+    }
+    
 
     pub fn upload_file<FR: fr::FileRack>(
         &self,

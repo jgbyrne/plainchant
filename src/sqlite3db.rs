@@ -689,4 +689,10 @@ impl db::Database for Sqlite3Database {
 
         Ok(())
     }
+
+    fn delete_bans(&self, ip: &str) -> Result<(), PlainchantErr> {
+        let conn = self.pool.get()?;
+        conn.execute("DELETE FROM Bans WHERE Ip = ?1;", (ip,))?;
+        Ok(())
+    }
 }

@@ -53,4 +53,5 @@ pub trait Database {
     fn delete_board(&self, board_id: u64) -> Result<(), util::PlainchantErr>;
 
     fn create_ban(&self, ban: site::Ban) -> Result<(), util::PlainchantErr>;
+    fn delete_bans(&self, ip: &str) -> Result<(), util::PlainchantErr>;
 }

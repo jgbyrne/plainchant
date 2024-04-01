@@ -4,6 +4,7 @@ use crate::fr;
 use crate::pages;
 use crate::template::{Data, Template};
 use crate::Config;
+use crate::util::unwrap_or_return;
 
 use axum::http::{StatusCode, Uri};
 use axum::response::{ErrorResponse, Html, IntoResponse, IntoResponseParts};
@@ -20,17 +21,6 @@ use std::net::SocketAddr;
 use std::ops::DerefMut;
 use std::path;
 use std::sync::{Arc, RwLock};
-
-macro_rules! unwrap_or_return {
-    ( $test:expr, $ret:expr ) => {
-        match $test {
-            Ok(val) => val,
-            Err(_) => {
-                return $ret;
-            },
-        }
-    };
-}
 
 // This value is equivalent to 64 MiB in bytes;
 const FORM_MAX_LENGTH: usize = 67_108_864;

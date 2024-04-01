@@ -29,3 +29,16 @@ pub fn timestamp() -> u64 {
         .unwrap_or(Duration::from_secs(0))
         .as_secs()
 }
+
+macro_rules! unwrap_or_return {
+    ( $test:expr, $ret:expr ) => {
+        match $test {
+            Ok(val) => val,
+            Err(_) => {
+                return $ret;
+            },
+        }
+    };
+}
+
+pub(crate) use unwrap_or_return;
