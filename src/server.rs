@@ -1,11 +1,13 @@
 use crate::actions;
+use crate::console;
 use crate::db;
 use crate::fr;
 use crate::pages;
 use crate::template::{Data, Template};
-use crate::Config;
 use crate::util::unwrap_or_return;
+use crate::Config;
 
+use axum::http::header::HeaderMap;
 use axum::http::{StatusCode, Uri};
 use axum::response::{ErrorResponse, Html, IntoResponse, IntoResponseParts};
 use axum::{body, extract, response, routing, Router};
@@ -512,6 +514,42 @@ where
     }
 }
 
+// Console
+async fn console<DB, FR>(
+    access_key: Option<String>,
+    actions: Arc<actions::Actions>,
+    db: Arc<DB>,
+    fr: Arc<FR>,
+    extract::ConnectInfo(_addr): extract::ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    body: String,
+) -> impl IntoResponse
+where
+    DB: 'static + db::Database + Sync + Send,
+    FR: 'static + fr::FileRack + Sync + Send,
+{
+    let access_key = match access_key {
+        Some(t) => t,
+        None => return (StatusCode::NOT_FOUND, String::from("")),
+    };
+
+    match headers
+        .get("X-Authorization")
+        .and_then(|val| val.to_str().ok())
+    {
+        Some(auth) => {
+            if auth != format!("Bearer {}", access_key) {
+                return (StatusCode::FORBIDDEN, String::from("Bad Auth"));
+            }
+        },
+        None => {
+            return (StatusCode::FORBIDDEN, String::from("No Auth"));
+        },
+    }
+
+    (StatusCode::OK, console::execute(actions, db, fr, &body))
+}
+
 // Headers for filerack files (necessary to achieve display-in-browser)
 
 fn file_headers(file: &Bytes) -> impl IntoResponseParts {
@@ -677,6 +715,15 @@ pub async fn serve<DB, FR>(
                     fr.clone(),
                 );
                 move |conn, path, form| create_reply(sp, pages, actions, db, fr, conn, path, form)
+            }),
+        )
+        .route(
+            "/api/console",
+            routing::post({
+                let key = config.access_key.clone();
+
+                let (actions, db, fr) = (actions.clone(), db.clone(), fr.clone());
+                move |conn, headers, body| console(key, actions, db, fr, conn, headers, body)
             }),
         )
         .layer(extract::DefaultBodyLimit::max(FORM_MAX_LENGTH))

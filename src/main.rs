@@ -5,6 +5,7 @@ mod db;
 mod fr;
 
 mod actions;
+mod console;
 mod format;
 mod fsfr;
 mod pages;
@@ -30,6 +31,7 @@ pub struct Config {
     addr:          SocketAddr,
     templates_dir: PathBuf,
     static_dir:    PathBuf,
+    access_key:    Option<String>,
 }
 
 fn val<'v_out, 'v_in: 'v_out>(v: &'v_in Value, k: &str) -> &'v_out Value {
@@ -71,6 +73,7 @@ fn main() {
         .unwrap_or_else(|| init_die("site.port is not an integer"))
         .try_into()
         .unwrap_or_else(|_| init_die("site.port is not a sensibly sized positive integer"));
+
     let addr = (
         ip.parse::<IpAddr>()
             .unwrap_or_else(|_| init_die("site.ip could not be understood as an IP Address")),
@@ -91,10 +94,20 @@ fn main() {
     let static_dir = fs::canonicalize(assets.join("static"))
         .unwrap_or_else(|_| init_die("Could not comprehend static path"));
 
+    let access_key = conf_data
+        .get("console")
+        .and_then(|c| c.get("access_key"))
+        .map(|val| {
+            val.as_str()
+                .unwrap_or_else(|| init_die("access_key is not a string"))
+        })
+        .map(|s| String::from(s));
+
     let config = Config {
         addr,
         templates_dir,
         static_dir,
+        access_key,
     };
 
     // Load database - this needs to be db::Database

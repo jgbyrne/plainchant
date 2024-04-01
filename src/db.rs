@@ -40,6 +40,11 @@ pub trait Database {
 
     fn get_thread(&self, board_id: u64, post_num: u64) -> Result<Thread, util::PlainchantErr>;
 
+    fn get_all_posts_by_ip(
+        &self,
+        ip: String,
+    ) -> Result<Vec<Box<dyn site::Post>>, util::PlainchantErr>;
+
     fn get_bans(&self) -> Result<Vec<site::Ban>, util::PlainchantErr>;
 
     // These two methods are called with dummy post IDs, which are auto-filled and returned
@@ -48,6 +53,8 @@ pub trait Database {
 
     fn delete_original(&self, board_id: u64, post_num: u64) -> Result<(), util::PlainchantErr>;
     fn delete_reply(&self, board_id: u64, post_num: u64) -> Result<(), util::PlainchantErr>;
+
+    fn update_post(&self, post: Box<dyn site::Post>) -> Result<(), util::PlainchantErr>;
 
     fn create_board(&self, board: site::Board) -> Result<(), util::PlainchantErr>;
     fn delete_board(&self, board_id: u64) -> Result<(), util::PlainchantErr>;

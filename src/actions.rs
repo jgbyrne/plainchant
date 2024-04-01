@@ -3,7 +3,7 @@ use crate::fr;
 use crate::site;
 use crate::site::Post;
 use crate::util;
-use crate::util::{ErrOrigin, PlainchantErr, unwrap_or_return};
+use crate::util::{unwrap_or_return, ErrOrigin, PlainchantErr};
 use rand::Rng;
 use sha256;
 use std::collections::HashMap;
@@ -51,7 +51,7 @@ impl Actions {
         })
     }
 
-    fn is_banned(&self, ip: &str, cur_time: u64) -> Result<bool, PlainchantErr> {
+    pub fn is_banned(&self, ip: &str, cur_time: u64) -> Result<bool, PlainchantErr> {
         let rg = unwrap_or_return!(
             self.ban_cache.read(),
             Err(actions_err("Failed to read from Ban Cache"))
@@ -91,9 +91,8 @@ impl Actions {
     pub fn unban_ip<DB: db::Database>(
         &self,
         database: &DB,
-        ip: &str
+        ip: &str,
     ) -> Result<(), util::PlainchantErr> {
-
         database.delete_bans(ip)?;
 
         let mut wg = unwrap_or_return!(
@@ -105,7 +104,6 @@ impl Actions {
 
         Ok(())
     }
-    
 
     pub fn upload_file<FR: fr::FileRack>(
         &self,
@@ -218,6 +216,7 @@ impl Actions {
     ) -> Result<(), util::PlainchantErr> {
         let thread = database.get_thread(board_id, post_num)?;
 
+        // This transaction also deletes replies
         database.delete_original(board_id, thread.original.post_num())?;
 
         if let Some(id) = thread.original.file_id() {
@@ -231,6 +230,51 @@ impl Actions {
         }
 
         Ok(())
+    }
+
+    pub fn delete_reply<DB: db::Database, FR: fr::FileRack>(
+        &self,
+        database: &DB,
+        file_rack: &FR,
+        board_id: u64,
+        post_num: u64,
+    ) -> Result<(), util::PlainchantErr> {
+        let reply = database.get_reply(board_id, post_num)?;
+
+        database.delete_reply(board_id, post_num)?;
+
+        if let Some(id) = reply.file_id() {
+            file_rack.delete_file(id)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn delete_post<DB: db::Database, FR: fr::FileRack>(
+        &self,
+        database: &DB,
+        file_rack: &FR,
+        board_id: u64,
+        post_num: u64,
+    ) -> Result<(), util::PlainchantErr> {
+        match database.get_thread(board_id, post_num) {
+            Ok(_) => self.delete_thread(database, file_rack, board_id, post_num),
+            Err(_) => self.delete_reply(database, file_rack, board_id, post_num),
+        }
+    }
+
+    pub fn delete_all_posts_by_ip<DB: db::Database, FR: fr::FileRack>(
+        &self,
+        database: &DB,
+        file_rack: &FR,
+        ip: String,
+    ) -> Result<usize, util::PlainchantErr> {
+        let posts = database.get_all_posts_by_ip(ip)?;
+        for post in &posts {
+            // Allow this to error (double deletions)
+            let _ = self.delete_post(database, file_rack, post.board_id(), post.post_num());
+        }
+        Ok(posts.len())
     }
 
     pub fn enforce_post_cap<DB: db::Database, FR: fr::FileRack>(

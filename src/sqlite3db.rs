@@ -411,6 +411,34 @@ impl db::Database for Sqlite3Database {
         Ok(db::Thread { original, replies })
     }
 
+    fn get_all_posts_by_ip(
+        &self,
+        ip: String,
+    ) -> Result<Vec<Box<dyn site::Post>>, util::PlainchantErr> {
+        let conn = self.pool.get()?;
+
+        let mut query = conn.prepare(
+            r#"
+            SELECT BoardId, PostNum, Time, Ip, Poster, Body,
+                   FeatherType, FeatherText, FileId, FileName, OrigNum FROM Posts 
+                WHERE (Ip)=(?1);
+        "#,
+        )?;
+
+        // we use a Reply structure to fetch all posts, it won't matter when we cast to Post
+        let posts_iter = query.query_map((ip,), row_to_reply)?;
+        let mut posts: Vec<Box<dyn site::Post>> = vec![];
+
+        for post in posts_iter {
+            match post {
+                Ok(p) => posts.push(Box::new(p)),
+                Err(err) => return Err(util::PlainchantErr::from(err)),
+            }
+        }
+
+        Ok(posts)
+    }
+
     fn get_reply(&self, board_id: u64, post_num: u64) -> Result<site::Reply, PlainchantErr> {
         let conn = self.pool.get()?;
         query_reply(&conn, board_id, post_num)
@@ -430,6 +458,44 @@ impl db::Database for Sqlite3Database {
         let post = query.query_row((board_id, post_num), row_to_reply)?;
 
         Ok(Box::new(post) as Box<dyn site::Post>)
+    }
+
+    fn update_post(&self, post: Box<dyn site::Post>) -> Result<(), PlainchantErr> {
+        let conn = self.pool.get()?;
+
+        let (feather_type, feather_text) = encode_feather(&post.feather());
+
+        // Forbid updating of board_id, post_num, orig_num
+
+        conn.execute(
+            r#"
+            UPDATE Posts
+            SET
+                Time = ?3,
+                Ip = ?4,
+                Poster = ?5,
+                Body = ?6,
+                FeatherType = ?7,
+                FeatherText = ?8,
+                FileId = ?9,
+                FileName = ?10
+            WHERE (BoardId, PostNum) = (?1, ?2) ;
+            "#,
+            (
+                post.board_id(),
+                post.post_num(),
+                post.time(),
+                post.ip(),
+                post.poster(),
+                post.body(),
+                feather_type,
+                feather_text,
+                post.file_id(),
+                post.file_name(),
+            ),
+        )?;
+
+        Ok(())
     }
 
     fn get_bans(&self) -> Result<Vec<site::Ban>, PlainchantErr> {
