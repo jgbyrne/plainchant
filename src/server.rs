@@ -7,6 +7,7 @@ use crate::template::{Data, Template};
 use crate::util::unwrap_or_return;
 use crate::Config;
 
+use axum::http;
 use axum::http::header::HeaderMap;
 use axum::http::{StatusCode, Uri};
 use axum::response::{ErrorResponse, Html, IntoResponse, IntoResponseParts};
@@ -19,7 +20,7 @@ use bytes::{BufMut, Bytes, BytesMut};
 use mime_guess;
 
 use std::collections::HashMap;
-use std::net::SocketAddr;
+use std::net::{SocketAddr, IpAddr};
 use std::ops::DerefMut;
 use std::path;
 use std::sync::{Arc, RwLock};
@@ -339,6 +340,35 @@ fn parse_raw_name(raw_name: Option<String>) -> (Option<String>, Option<String>) 
     }
 }
 
+// If the server is handling requests directly then the conn_addr will
+// be the one we want to store as the poster IP.
+// However, if we are using a reverse proxy, it will be useless
+// (most likely localhost), so we have to use the Forwarded header instead.
+fn determine_poster_ip(conn_addr: SocketAddr, headers: &HeaderMap) -> String{
+    if let Some(hdr) = headers.get(http::header::FORWARDED) {
+        if let Ok(hstr) = hdr.to_str() {
+            // There can be multiple forwarded addresses, we just use the first
+            let hval = hstr.splitn(2, ',').next().unwrap();
+            let hparts = hval.split(';');
+            for part in hparts {
+                let k_v: Vec<&str> = part.splitn(2, '=').collect();
+                if k_v.len() != 2 {
+                    continue;
+                }
+
+                if k_v[0].to_lowercase() != "for" {
+                    continue;
+                }
+
+                if let Ok(fwd_addr) = k_v[1].parse::<IpAddr>() {
+                    return fwd_addr.to_string();
+                }
+            }
+        }
+    }
+    conn_addr.ip().to_string()
+}
+
 type Submission = extract::Multipart;
 
 // create_submit: Handler for original post creation forms
@@ -350,6 +380,7 @@ async fn create_submit<DB, FR>(
     db: Arc<DB>,
     fr: Arc<FR>,
     extract::ConnectInfo(addr): extract::ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     extract::Path(board): extract::Path<String>,
     mut multipart: Submission,
 ) -> impl IntoResponse
@@ -405,10 +436,12 @@ where
 
     let (name, trip) = parse_raw_name(raw_name);
 
+    let poster_ip = determine_poster_ip(addr, &headers);
+
     let submission_result = actions.submit_original(
         db.as_ref(),
         board_id,
-        addr.ip().to_string(),
+        poster_ip,
         body.unwrap_or_else(|| String::from("")),
         name,
         trip,
@@ -442,6 +475,7 @@ async fn create_reply<DB, FR>(
     db: Arc<DB>,
     fr: Arc<FR>,
     extract::ConnectInfo(addr): extract::ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     extract::Path((board, orig_num)): extract::Path<(String, u64)>,
     mut multipart: Submission,
 ) -> impl IntoResponse
@@ -492,10 +526,12 @@ where
 
     let (name, trip) = parse_raw_name(raw_name);
 
+    let poster_ip = determine_poster_ip(addr, &headers);
+
     let submission_result = actions.submit_reply(
         db.as_ref(),
         board_id,
-        addr.ip().to_string(),
+        poster_ip,
         body.unwrap_or_else(|| String::from("")),
         name,
         trip,
@@ -520,7 +556,6 @@ async fn console<DB, FR>(
     actions: Arc<actions::Actions>,
     db: Arc<DB>,
     fr: Arc<FR>,
-    extract::ConnectInfo(_addr): extract::ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     body: String,
 ) -> impl IntoResponse
@@ -701,7 +736,7 @@ pub async fn serve<DB, FR>(
                     db.clone(),
                     fr.clone(),
                 );
-                move |conn, path, form| create_submit(sp, pages, actions, db, fr, conn, path, form)
+                move |conn, headers, path, form| create_submit(sp, pages, actions, db, fr, conn, headers, path, form)
             }),
         )
         .route(
@@ -714,7 +749,7 @@ pub async fn serve<DB, FR>(
                     db.clone(),
                     fr.clone(),
                 );
-                move |conn, path, form| create_reply(sp, pages, actions, db, fr, conn, path, form)
+                move |conn, headers, path, form| create_reply(sp, pages, actions, db, fr, conn, headers, path, form)
             }),
         )
         .route(
@@ -723,7 +758,7 @@ pub async fn serve<DB, FR>(
                 let key = config.access_key.clone();
 
                 let (actions, db, fr) = (actions.clone(), db.clone(), fr.clone());
-                move |conn, headers, body| console(key, actions, db, fr, conn, headers, body)
+                move |headers, body| console(key, actions, db, fr, headers, body)
             }),
         )
         .layer(extract::DefaultBodyLimit::max(FORM_MAX_LENGTH))
