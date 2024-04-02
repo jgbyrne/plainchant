@@ -5,3 +5,13 @@
     max-width: 510px;
     margin: 0 auto;
 }
+
+.form-field {
+    padding-bottom: 5px;
+}
+
+.field-label {
+    font-family: "Noto Serif", "Palatino", "serif";
+    padding-top: 5px;
+    padding-bottom: 5px;
+}

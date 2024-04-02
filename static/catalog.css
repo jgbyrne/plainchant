@@ -18,17 +18,7 @@
 .preview-text {
     max-width: 100%;
     word-wrap: break-word;
-    font-size: 15px;
 }
-
-/*
-.preview-text>span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: inline;
-    width: 100%;
-}
-*/
 
 .thumbnail-frame {
     height: 180px;
@@ -46,13 +36,12 @@
 }
 
 .counts {
-    font-size: 11pt;
-    font-family: "Linux Libertine O", "Linux Libertine", "Times New Roman", "serif";
+    font-family: "Noto Serif", "Palatino", "serif";
+    padding: 1px;
 }
 
 .count {
     font-weight: bold;
-    font-size: 12pt;
 }
 
 .preview-title {

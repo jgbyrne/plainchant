@@ -4,19 +4,16 @@ html {
 
 body {
     background-color: #f7efef;
-    font-family: "Garamond", "serif";
+    font-family: "Liberation Sans", "Arial", "sans-serif";
     font-size: 13pt;
     display: flex;
     flex-direction: column;
 }
 
 .page-title {
-    font-family: "Garamond", "serif";
+    font-family: "Noto Serif", "Palatino", "serif";
+    font-size: 1.2rem;
     text-align: center;
-}
-
-hr {
-    margin: 5px;
 }
 
 .controls {
@@ -24,7 +21,7 @@ hr {
     text-align: left;
     width: 100%;
     max-width: 1300px;
-    font-family: "Linux Libertine O", "Linux Libertine", "Times New Roman", "serif";
+    font-family: "Noto Serif", "Palatino", "serif";
 }
 
 .nav {
@@ -45,13 +42,18 @@ hr {
 }
 
 .form-field>div {
-    display:inline-block;
-    vertical-align:middle;
+    display: inline-block;
+    vertical-align: middle;
 }
 
 .field-label {
     width: 110px;
     font-weight: bold;
+}
+
+.field-input {
+    padding-top: 4px;
+    padding-bottom: 4px;
 }
 
 .form-submit {
@@ -103,6 +105,7 @@ body {
 hr {
     width: 98%;
     max-width: 1300px;
+    margin: 7px;
 }
 
 .footer {
