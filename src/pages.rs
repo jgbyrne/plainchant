@@ -185,7 +185,7 @@ impl Pages {
                     String::from("orig_poster"),
                     thread.original.poster()
                         .map(|p| format::html_escape(p))
-                        .unwrap_or(String::from("")),
+                        .unwrap_or(String::from("Anonymous")),
                 );
                 values.insert(
                     String::from("orig_time"),
