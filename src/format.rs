@@ -141,7 +141,6 @@ pub fn html_escape(text: &str) -> String {
     for c in text.chars() {
         match c {
             '<' => buf.push_str("&lt;"),
-            '>' => buf.push_str("&gt;"),
             '&' => buf.push_str("&amp;"),
             c @ _ => buf.push(c),
         }
