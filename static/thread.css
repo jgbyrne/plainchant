@@ -69,7 +69,7 @@
     padding-left: 3px;
     padding-bottom: 5px;
     display: inline-block;
-    font-family: "Noto Serif", "Palatino", "serif";
+    font-family: "Noto Serif", "Palatino Linotype", "serif";
     font-size: 1.1rem;
 }
 
@@ -113,7 +113,7 @@
 .reply-form h4 {
     margin-top: 20px;
     margin-bottom: 20px;
-    font-family: "Noto Serif", "Palatino", "serif"
+    font-family: "Noto Serif", "Palatino Linotype", "serif"
 }
 
 .field-label {
