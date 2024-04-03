@@ -107,16 +107,24 @@ impl Pages {
                         orig.post_num().to_string(),
                     );
 
+                    let mut cat_title = orig.title().unwrap_or("").to_string();
+                    if let Some((i, _)) = cat_title.char_indices().nth(64) {
+                        cat_title.truncate(i);
+                    }
+
                     values.insert(
                         format!("original.{}.post_title", orig.post_num()),
-                        orig.title().unwrap_or("").to_string(),
+                        format::html_escape(&cat_title),
                     );
 
                     let mut cat_desc = orig.body().to_string();
                     if let Some((i, _)) = cat_desc.char_indices().nth(128) {
                         cat_desc.truncate(i);
                     }
-                    values.insert(format!("original.{}.post_body", orig.post_num()), cat_desc);
+                    values.insert(
+                        format!("original.{}.post_body", orig.post_num()),
+                        format::html_escape(&cat_desc),
+                    );
 
                     originals.push(orig.post_num().to_string());
                 }
@@ -164,20 +172,20 @@ impl Pages {
                     format!("/files/{}", thread.original.file_id().unwrap_or("")),
                 );
                 values.insert(
-                    String::from("orig_file_name"),
-                    thread.original.file_name().unwrap_or("").to_string(),
-                );
-                values.insert(
                     String::from("orig_thumbnail_url"),
                     format!("/thumbnails/{}", thread.original.file_id().unwrap_or("")),
                 );
                 values.insert(
                     String::from("orig_title"),
-                    thread.original.title().unwrap_or("").to_string(),
+                    thread.original.title()
+                        .map(|t| format::html_escape(t))
+                        .unwrap_or(String::from("")),
                 );
                 values.insert(
                     String::from("orig_poster"),
-                    thread.original.poster().unwrap_or("Anonymous").to_string(),
+                    thread.original.poster()
+                        .map(|p| format::html_escape(p))
+                        .unwrap_or(String::from("")),
                 );
                 values.insert(
                     String::from("orig_time"),
@@ -197,7 +205,10 @@ impl Pages {
                 );
                 values.insert(
                     String::from("orig_post_body"),
-                    format::annotate_post(thread.original.body(), &posts),
+                    format::annotate_post(
+                        &format::html_escape(thread.original.body()),
+                        &posts
+                    ),
                 );
 
                 let mut replies = vec![];
@@ -212,11 +223,6 @@ impl Pages {
                         format!("/thumbnails/{}", reply.file_id().unwrap_or("")),
                     );
 
-                    values.insert(
-                        format!("reply.{}.file_name", reply.post_num()),
-                        reply.file_name().unwrap_or("").to_string(),
-                    );
-
                     flags.insert(
                         format!("reply.{}.has_image", reply.post_num()),
                         reply.file_id().is_some(),
@@ -224,7 +230,9 @@ impl Pages {
 
                     values.insert(
                         format!("reply.{}.poster", reply.post_num()),
-                        reply.poster().unwrap_or("Anonymous").to_string(),
+                        reply.poster()
+                            .map(|p| format::html_escape(p))
+                            .unwrap_or(String::from("Anonymous")),
                     );
 
                     values.insert(
@@ -247,7 +255,10 @@ impl Pages {
 
                     values.insert(
                         format!("reply.{}.post_body", reply.post_num()),
-                        format::annotate_post(reply.body(), &posts),
+                        format::annotate_post(
+                            &format::html_escape(reply.body()),
+                            &posts
+                        ),
                     );
 
                     replies.push(reply.post_num().to_string());

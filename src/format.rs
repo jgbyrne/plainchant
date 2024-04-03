@@ -135,3 +135,16 @@ pub fn display_feather(feather: &Feather) -> String {
         Feather::Admin => String::from("(Admin)"),
     }
 }
+
+pub fn html_escape(text: &str) -> String {
+    let mut buf = String::new();
+    for c in text.chars() {
+        match c {
+            '<' => buf.push_str("&lt;"),
+            '>' => buf.push_str("&gt;"),
+            '&' => buf.push_str("&amp;"),
+            c @ _ => buf.push(c),
+        }
+    }
+    buf
+}

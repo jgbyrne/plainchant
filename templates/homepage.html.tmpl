@@ -15,15 +15,15 @@
             </div>
         </div>
         <hr/>
-           <div class="content">
-            <p class="site-description">
-                {{site_description}}
-            </p>
-            <h2>Boards</h2>
-            {%board%}
-                <a href="/{{board.url}}/catalog"><h4>/{{board.url}}/ – {{board.title}}</h4></a>
-            {%board%}
-        </div>
+            <div class="content">
+                <p class="site-description">
+                    {{site_description}}
+                </p>
+                <h2>Boards</h2>
+                {%board%}
+                    <a href="/{{board.url}}/catalog"><h4>/{{board.url}}/ – {{board.title}}</h4></a>
+                {%board%}
+            </div>
         <hr/>
         <small class="footer">{{$PLAINCHANT}}  ({{$TIME}})</small>
     </body>
