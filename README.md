@@ -1,9 +1,5 @@
 ## Plainchant
 
-<p align="center">
-   <img src="https://github.com/jgbyrne/plainchant/blob/master/demo/screenshot.png" width="500px" title="Demo Screenshot"></img>
-</p>
-
 Plainchant is a lightweight and libre imageboard software package.
 
 ### Goals
@@ -28,13 +24,13 @@ Plainchant is a lightweight and libre imageboard software package.
 
 ### Technologies
 
-Plainchant is implemented in Rust. Web functionality is provided by Axum, while templating is achieved with an inbuilt engine. SQLite is used for backend data storage. 
+Plainchant is written in Rust. It uses the Axum web framework and the SQLite database. 
 
 -----
 
 ## Running Plainchant
 
-Plainchant is alpha software and should not be used for any serious purpose. However the interested reader may use the following instructions to try it out for themselves. Note that all directories specified here are simply recommendations and that others may be used, provided the config file `plainchant.toml` is updated appropriately.
+The following steps describe a convenient way of setting up Plainchant for local development. Note that all directories specified here are recommendations and that others may be used, provided the config file `plainchant.toml` is updated appropriately.
 
 1. Create a directory `/etc/plainchant`, and into it copy from this repository the file `demo/plainchant.toml` and the folders `templates` and `static`. † 
 
@@ -50,12 +46,8 @@ Plainchant is alpha software and should not be used for any serious purpose. How
 
 6. Using a tool of your choice, update the singleton row in the `Site` table of the database with a site name and description of your choice. For example:
 
-    `REPLACE INTO Site VALUES (1, "sandcastlechan", "An imageboard all about sandcastles.");`
+    `REPLACE INTO Site VALUES (1, 'sandcastlechan', 'An imageboard all about sandcastles.');`
 
-7.  You can now run `plainchant` in earnest. By default it runs on `localhost:8088`.
+7.  You can now run `plainchant`. By default it runs on `localhost:8088`.
 
 † *You may find it useful to symlink these directories to your local copy of the repository for ease-of-hacking* 
-
------
-
-*Disclaimer: This is a technical project intended to replicate to some extent the functionality and aesthetics of internet imageboard websites. There are many such sites, of which some, including 4chan and 8chan, have gained notoriety for distasteful content. The existence of this project does not imply my agreement, tacit or overt, with anything shared on any such site. Obviously.*
