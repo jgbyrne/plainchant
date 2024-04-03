@@ -11,6 +11,7 @@ use std::iter;
 use std::sync::RwLock;
 
 const TRIPCODE_LEN: usize = 10;
+const POSTING_COOLDOWN: u64 = 15;
 
 fn compute_tripcode(trip: String) -> String {
     (sha256::digest(trip)[..TRIPCODE_LEN]).to_string()
@@ -25,12 +26,14 @@ fn actions_err(msg: &str) -> PlainchantErr {
 
 pub struct Actions {
     ban_cache:  RwLock<HashMap<String, site::Ban>>,
+    cooldown:   RwLock<HashMap<String, u64>>,
     board_urls: HashMap<String, u64>,
 }
 
 pub enum SubmissionResult {
     Success(u64),
     Banned,
+    Cooldown,
 }
 
 impl Actions {
@@ -55,6 +58,7 @@ impl Actions {
         Ok(Actions {
             ban_cache: RwLock::new(ban_cache),
             board_urls,
+            cooldown: RwLock::new(HashMap::new()),
         })
     }
 
@@ -68,6 +72,28 @@ impl Actions {
             Some(ban) => Ok(ban.time_expires > cur_time),
             None => Ok(false),
         }
+    }
+
+    fn is_within_cooldown(&self, ip: &str, cur_time: u64) -> Result<bool, PlainchantErr> {
+        let rg = unwrap_or_return!(
+            self.cooldown.read(),
+            Err(actions_err("Failed to read from Cooldown Map"))
+        );
+
+        match rg.get(ip) {
+            Some(time) => Ok(*time > cur_time),
+            None => Ok(false),
+        }
+    }
+
+    fn set_cooldown_time(&self, ip: String, cooldown_time: u64) -> Result<(), PlainchantErr> {
+        let mut wg = unwrap_or_return!(
+            self.cooldown.write(),
+            Err(actions_err("Failed to write to Cooldown Map"))
+        );
+
+        wg.insert(ip, cooldown_time);
+        Ok(())
     }
 
     pub fn ban_ip<DB: db::Database>(
@@ -145,6 +171,10 @@ impl Actions {
             return Ok(SubmissionResult::Banned);
         }
 
+        if self.is_within_cooldown(&ip, cur_time)? {
+            return Ok(SubmissionResult::Cooldown);
+        }
+
         let feather = match trip {
             None => site::Feather::None,
             Some(t) => site::Feather::Trip(compute_tripcode(t)),
@@ -154,7 +184,7 @@ impl Actions {
             board_id,
             post_num: 0,
             time: cur_time,
-            ip,
+            ip: ip.clone(),
             body,
             poster,
             feather,
@@ -168,9 +198,12 @@ impl Actions {
             archived: false,
         };
 
-        database
+        let orig = database
             .create_original(original)
-            .map(|num| SubmissionResult::Success(num))
+            .map(|num| SubmissionResult::Success(num))?;
+
+        self.set_cooldown_time(ip, cur_time + POSTING_COOLDOWN)?;
+        Ok(orig)
     }
 
     pub fn submit_reply<DB: db::Database>(
@@ -191,6 +224,10 @@ impl Actions {
             return Ok(SubmissionResult::Banned);
         }
 
+        if self.is_within_cooldown(&ip, cur_time)? {
+            return Ok(SubmissionResult::Cooldown);
+        }
+
         let feather = match trip {
             None => site::Feather::None,
             Some(t) => site::Feather::Trip(compute_tripcode(t)),
@@ -200,7 +237,7 @@ impl Actions {
             board_id,
             post_num: 0,
             time: cur_time,
-            ip,
+            ip: ip.clone(),
             body,
             poster,
             feather,
@@ -209,9 +246,12 @@ impl Actions {
             orig_num,
         };
 
-        database
+        let reply = database
             .create_reply(reply)
-            .map(|num| SubmissionResult::Success(num))
+            .map(|num| SubmissionResult::Success(num))?;
+
+        self.set_cooldown_time(ip, cur_time + POSTING_COOLDOWN)?;
+        Ok(reply)
     }
 
     pub fn delete_thread<DB: db::Database, FR: fr::FileRack>(

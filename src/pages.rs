@@ -177,13 +177,17 @@ impl Pages {
                 );
                 values.insert(
                     String::from("orig_title"),
-                    thread.original.title()
+                    thread
+                        .original
+                        .title()
                         .map(|t| format::html_escape(t))
                         .unwrap_or(String::from("")),
                 );
                 values.insert(
                     String::from("orig_poster"),
-                    thread.original.poster()
+                    thread
+                        .original
+                        .poster()
                         .map(|p| format::html_escape(p))
                         .unwrap_or(String::from("Anonymous")),
                 );
@@ -205,10 +209,7 @@ impl Pages {
                 );
                 values.insert(
                     String::from("orig_post_body"),
-                    format::annotate_post(
-                        &format::html_escape(thread.original.body()),
-                        &posts
-                    ),
+                    format::annotate_post(&format::html_escape(thread.original.body()), &posts),
                 );
 
                 let mut replies = vec![];
@@ -230,7 +231,8 @@ impl Pages {
 
                     values.insert(
                         format!("reply.{}.poster", reply.post_num()),
-                        reply.poster()
+                        reply
+                            .poster()
                             .map(|p| format::html_escape(p))
                             .unwrap_or(String::from("Anonymous")),
                     );
@@ -255,10 +257,7 @@ impl Pages {
 
                     values.insert(
                         format!("reply.{}.post_body", reply.post_num()),
-                        format::annotate_post(
-                            &format::html_escape(reply.body()),
-                            &posts
-                        ),
+                        format::annotate_post(&format::html_escape(reply.body()), &posts),
                     );
 
                     replies.push(reply.post_num().to_string());

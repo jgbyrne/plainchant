@@ -464,6 +464,10 @@ where
             Ok(response::Redirect::to(&format!("/{}/catalog", board)))
         },
         Ok(actions::SubmissionResult::Banned) => Err(forbidden(&sp, "Your IP address is banned")),
+        Ok(actions::SubmissionResult::Cooldown) => Err(forbidden(
+            &sp,
+            "Please wait a brief time before posting again",
+        )),
         Err(_) => Err(internal_error(&sp, "Failed to submit post")),
     }
 }
@@ -541,6 +545,10 @@ where
             board, orig_num
         ))),
         Ok(actions::SubmissionResult::Banned) => Err(forbidden(&sp, "Your IP address is banned")),
+        Ok(actions::SubmissionResult::Cooldown) => Err(forbidden(
+            &sp,
+            "Please wait a brief time before posting again",
+        )),
         Err(_) => Err(internal_error(&sp, "Failed to submit post")),
     }
 }
