@@ -553,7 +553,8 @@ where
     }
 }
 
-// Console
+// console :: Serve an admin text console
+
 async fn console<DB, FR>(
     access_key: Option<String>,
     actions: Arc<actions::Actions>,
