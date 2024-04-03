@@ -1770,7 +1770,7 @@ checksum = "1df8c4ec4b0627e53bdf214615ad287367e482558cf84b109250b37464dc03ae"
 
 [[package]]
 name = "plainchant"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "axum",
  "bytes",
