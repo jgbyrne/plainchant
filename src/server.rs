@@ -500,7 +500,7 @@ where
     while let Ok(Some(field)) = multipart.next_field().await {
         match field.name() {
             Some("name") => {
-                raw_name = multipart_text_field(&sp, field, 4096).await?;
+                raw_name = multipart_text_field(&sp, field, 64).await?;
             },
             Some("body") => {
                 body = multipart_text_field(&sp, field, 16_384).await?;
