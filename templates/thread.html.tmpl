@@ -2,14 +2,16 @@
 <html lang="en">
     <head>
         <meta charset="utf-8"/>
-	<meta name="viewport" content="width=500">
+        <meta name="viewport" content="width=500">
         <link rel = "stylesheet" href="/static/global.css">
         <link rel = "stylesheet" href="/static/thread.css">
+        <link rel = "shortcut icon" href="/static/favicon.png">
+        <title>{{orig_title}} – /{{board_url}}/ – {{site_name}}</title>
     </head>
     <body>
         <div class="header">
             <div class="page-title">
-                <h1>/{{board_url}}/ - {{board_title}}</h1>
+                <h1>/{{board_url}}/ – {{board_title}}</h1>
             </div>
         </div>
         <hr/>
@@ -35,7 +37,7 @@
                     </a>
                 </div>
                 <div class="post-text">
-	                <div class="post-image-frame orig-post-image-frame">
+                    <div class="post-image-frame orig-post-image-frame">
                         <a href="{{orig_file_url}}"><img class="post-image orig-post-image" title="{{orig_file_name}}" src="{{orig_thumbnail_url}}"></img></a>
                     </div>
                     <p class="post-body">{{orig_post_body}}</p>
@@ -62,10 +64,10 @@
                     </div>
                 </div>
             {%reply%}
-	    <hr/>
-	    <div class="reply-form">
+        <hr/>
+        <div class="reply-form">
             <form class="post-form" action="../reply/{{orig_post_num}}" method="POST" enctype="multipart/form-data">
-	    	<h4>Reply to this thread</h4>
+                <h4>Reply to this thread</h4>
                 <div class="form-field">
                     <div class="field-label"><label for="name">Name</label></div>
                     <div class="field-input">
@@ -88,8 +90,8 @@
                     <input type="submit" value="Post">
                 </div>
             </form>
-	    </div>
-	    <br/>
+        </div>
+        <br/>
         </div>
         <hr/>
         <small class="footer">{{$PLAINCHANT}}  ({{$TIME}})</small>

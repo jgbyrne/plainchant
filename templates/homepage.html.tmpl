@@ -5,6 +5,8 @@
     	<meta name="viewport" content="width=500">
         <link rel = "stylesheet" href="/static/global.css">
         <link rel = "stylesheet" href="/static/homepage.css">
+        <link rel = "shortcut icon" href="/static/favicon.png">
+        <title>{{site_name}}</title>
     </head>
     <body>
         <div class="header">
@@ -19,7 +21,7 @@
             </p>
             <h2>Boards</h2>
             {%board%}
-                <a href="/{{board.url}}/catalog"><h4>/{{board.url}}/ - {{board.title}}</h4></a>
+                <a href="/{{board.url}}/catalog"><h4>/{{board.url}}/ – {{board.title}}</h4></a>
             {%board%}
         </div>
         <hr/>

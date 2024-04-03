@@ -25,6 +25,7 @@ fn actions_err(msg: &str) -> PlainchantErr {
 
 pub struct Actions {
     ban_cache: RwLock<HashMap<String, site::Ban>>,
+    board_urls:  HashMap<String, u64>,
 }
 
 pub enum SubmissionResult {
@@ -46,8 +47,14 @@ impl Actions {
             }
         }
 
+        let mut board_urls = HashMap::new();
+        for board in database.get_boards()? {
+            board_urls.insert(board.url.clone(), board.id);
+        }
+
         Ok(Actions {
             ban_cache: RwLock::new(ban_cache),
+            board_urls,
         })
     }
 
@@ -295,5 +302,15 @@ impl Actions {
             }
         }
         Ok(())
+    }
+
+    pub fn board_url_to_id(&self, url: &str) -> Result<u64, util::PlainchantErr> {
+        match self.board_urls.get(url) {
+            Some(id) => Ok(*id),
+            None => Err(util::PlainchantErr {
+                origin: util::ErrOrigin::Actions,
+                msg: format!("No board with url: {}", url),
+            }),
+        }
     }
 }

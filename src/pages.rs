@@ -2,6 +2,7 @@ use crate::db;
 use crate::format;
 use crate::site::Post;
 use crate::template;
+use crate::site;
 use crate::util;
 use std::collections::{HashMap, HashSet};
 
@@ -21,16 +22,16 @@ pub struct Page {
 
 pub struct SiteTemplates {
     pub homepage_tmpl: template::Template,
-    pub catalog_tmpl:  template::Template,
-    pub thread_tmpl:   template::Template,
-    pub create_tmpl:   template::Template,
+    pub catalog_tmpl: template::Template,
+    pub thread_tmpl: template::Template,
+    pub create_tmpl: template::Template,
 }
 
 pub struct Pages {
-    pages:       HashMap<PageRef, Page>,
-    templates:   SiteTemplates,
+    site: site::Site,
+    pages: HashMap<PageRef, Page>,
+    templates: SiteTemplates,
     render_freq: u64,
-    board_urls:  HashMap<String, u64>,
 }
 
 impl Pages {
@@ -41,11 +42,10 @@ impl Pages {
     ) -> Result<Page, util::PlainchantErr> {
         match pr {
             PageRef::Homepage => {
-                let site = database.get_site()?;
                 let mut values = HashMap::new();
 
-                values.insert(String::from("site_name"), site.name);
-                values.insert(String::from("site_description"), site.description);
+                values.insert(String::from("site_name"), self.site.name.clone());
+                values.insert(String::from("site_description"), self.site.description.clone());
 
                 let mut board_ids = vec![];
                 let boards = database.get_boards()?;
@@ -75,6 +75,9 @@ impl Pages {
             PageRef::Catalog(board_id) => {
                 let board = database.get_board(*board_id)?;
                 let mut values = HashMap::new();
+
+                values.insert(String::from("site_name"), self.site.name.clone());
+
                 values.insert(String::from("board_url"), board.url);
                 values.insert(String::from("board_title"), board.title);
 
@@ -139,6 +142,8 @@ impl Pages {
                 let mut values = HashMap::new();
                 let mut flags = HashMap::new();
 
+                values.insert(String::from("site_name"), self.site.name.clone());
+
                 values.insert(String::from("board_url"), board.url);
                 values.insert(String::from("board_title"), board.title);
 
@@ -189,7 +194,7 @@ impl Pages {
                 );
                 values.insert(
                     String::from("orig_post_body"),
-                    format::annotate_post(thread.original.body(), &self.board_urls, &posts),
+                    format::annotate_post(thread.original.body(), &posts),
                 );
 
                 let mut replies = vec![];
@@ -239,7 +244,7 @@ impl Pages {
 
                     values.insert(
                         format!("reply.{}.post_body", reply.post_num()),
-                        format::annotate_post(reply.body(), &self.board_urls, &posts),
+                        format::annotate_post(reply.body(), &posts),
                     );
 
                     replies.push(reply.post_num().to_string());
@@ -261,6 +266,9 @@ impl Pages {
             PageRef::Create(board_id) => {
                 let board = database.get_board(*board_id)?;
                 let mut values = HashMap::new();
+
+                values.insert(String::from("site_name"), self.site.name.clone());
+
                 values.insert(String::from("board_url"), board.url);
                 values.insert(String::from("board_title"), board.title);
 
@@ -319,33 +327,18 @@ impl Pages {
         Ok(Some(self.pages.get(pr).unwrap()))
     }
 
-    pub fn board_url_to_id(&self, url: &str) -> Result<u64, util::PlainchantErr> {
-        match self.board_urls.get(url) {
-            Some(id) => Ok(*id),
-            None => Err(util::PlainchantErr {
-                origin: util::ErrOrigin::Web(404),
-                msg:    "No such board".to_string(),
-            }),
-        }
-    }
-
-    pub fn new<DB: db::Database>(
-        database: &DB,
+    pub fn new(
+        site: site::Site,
         templates: SiteTemplates,
         render_freq: u64,
     ) -> Result<Pages, util::PlainchantErr> {
         let pages = HashMap::new();
 
-        let mut board_urls = HashMap::new();
-        for board in database.get_boards()? {
-            board_urls.insert(board.url.clone(), board.id);
-        }
-
         Ok(Pages {
+            site,
             pages,
             templates,
             render_freq,
-            board_urls,
         })
     }
 }

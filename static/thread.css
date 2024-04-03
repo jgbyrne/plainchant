@@ -26,11 +26,15 @@
 }
 
 .orig {
-    margin: 5px;
+    margin: 0px 5px 5px 5px;
     background-color: #f7efef;
     border: none;
     display: flex;
     flex-direction: column;
+}
+
+.orig > .info-line {
+    padding-bottom: 10px;
 }
 
 .post-image-frame {
@@ -55,7 +59,6 @@
 }
 
 .post-text {
-    padding-top: 2px;
     flex: 1;
     display: inline-block;
     word-wrap: break-word;

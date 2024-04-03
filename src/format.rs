@@ -3,7 +3,7 @@ use crate::util;
 use chrono::{TimeZone, Utc};
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 pub fn utc_timestamp(ts: u64) -> String {
     Utc.timestamp(ts.try_into().unwrap_or(0), 0).to_string()
@@ -51,7 +51,6 @@ pub fn humanise_time(ts: u64) -> String {
 
 pub fn annotate_post(
     body: &str,
-    board_urls: &HashMap<String, u64>,
     posts: &HashSet<u64>,
 ) -> String {
     lazy_static! {
@@ -91,7 +90,7 @@ pub fn annotate_post(
                         true => format!("#{}", num),
                         false => format!("./{}", num),
                     };
-                    out.push_str(&format!("<a href='{}'>>>{}</a>", &link, num));
+                    out.push_str(&format!("<a href='{}'>&gt;&gt;{}</a>", &link, num));
                 } else {
                     out.push_str(&line[start..right]);
                 }
@@ -104,12 +103,12 @@ pub fn annotate_post(
 
                 let url = board_id.as_str();
                 let parsed_post_num = post_num.as_str().parse::<u64>();
-                let board_exists = board_urls.get(url).is_some();
+                let board_plausible = url.len() < 7 && url.chars().all(|c| c.is_alphanumeric());
 
-                if let (Ok(num), true) = (&parsed_post_num, board_exists) {
+                if let (Ok(num), true) = (&parsed_post_num, board_plausible) {
                     // TODO: This link might be flaky (should it really be absolute path?)
                     out.push_str(&format!(
-                        "<a href='/{0}/thread/{1}'>>>>/{0}/{1}</a>",
+                        "<a href='/{0}/thread/{1}'>&gt;&gt;&gt;/{0}/{1}</a>",
                         &url, &num
                     ));
                 } else {

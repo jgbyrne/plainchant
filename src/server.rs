@@ -115,7 +115,10 @@ async fn static_dir(
     match tokio::fs::File::open(&full_path).await {
         Ok(file) => {
             let mime = mime_guess::from_path(&full_path).first_or_octet_stream();
-            let headers = response::AppendHeaders([("Content-Type", mime.to_string())]);
+            let headers = response::AppendHeaders([
+                ("Content-Type", mime.to_string()),
+                ("Cache-Control", "Cache-Control: public, max-age=604800".to_string()),
+            ]);
 
             let stream = ReaderStream::new(file);
             let body = body::Body::from_stream(stream);
@@ -134,6 +137,7 @@ async fn static_dir(
 async fn thread<DB>(
     sp: Arc<StaticPages>,
     pages: Arc<RwLock<pages::Pages>>,
+    actions: Arc<actions::Actions>,
     db: Arc<DB>,
     extract::Path((board, post_num)): extract::Path<(String, u64)>,
 ) -> Result<(StatusCode, Html<String>), ErrorResponse>
@@ -141,12 +145,12 @@ where
     DB: 'static + db::Database + Sync + Send,
 {
     let page_ref = {
-        let pg = unwrap_or_return!(pages.read(), {
-            Ok(internal_error(&sp, "Could not gain read access to Pages"))
+        let board_id = unwrap_or_return!(actions.board_url_to_id(&board), {
+            Ok(not_found(&sp, "No such board"))
         });
 
-        let board_id = unwrap_or_return!(pg.board_url_to_id(&board), {
-            Ok(not_found(&sp, "No such board"))
+        let pg = unwrap_or_return!(pages.read(), {
+            Ok(internal_error(&sp, "Could not gain read access to Pages"))
         });
 
         let page_ref = pages::PageRef::Thread(board_id, post_num);
@@ -204,6 +208,7 @@ where
 async fn catalog<DB>(
     sp: Arc<StaticPages>,
     pages: Arc<RwLock<pages::Pages>>,
+    actions: Arc<actions::Actions>,
     db: Arc<DB>,
     extract::Path(board): extract::Path<String>,
 ) -> (StatusCode, Html<String>)
@@ -211,12 +216,12 @@ where
     DB: 'static + db::Database + Sync + Send,
 {
     let page_ref = {
-        let pg = unwrap_or_return!(pages.read(), {
-            internal_error(&sp, "Could not gain read access to Pages")
+        let board_id = unwrap_or_return!(actions.board_url_to_id(&board), {
+            not_found(&sp, "No such board")
         });
 
-        let board_id = unwrap_or_return!(pg.board_url_to_id(&board), {
-            not_found(&sp, "No such board")
+        let pg = unwrap_or_return!(pages.read(), {
+            internal_error(&sp, "Could not gain read access to Pages")
         });
 
         let page_ref = pages::PageRef::Catalog(board_id);
@@ -239,6 +244,7 @@ where
 async fn create<DB>(
     sp: Arc<StaticPages>,
     pages: Arc<RwLock<pages::Pages>>,
+    actions: Arc<actions::Actions>,
     db: Arc<DB>,
     extract::Path(board): extract::Path<String>,
 ) -> (StatusCode, Html<String>)
@@ -246,12 +252,12 @@ where
     DB: 'static + db::Database + Sync + Send,
 {
     let page_ref = {
-        let pg = unwrap_or_return!(pages.read(), {
-            internal_error(&sp, "Could not gain read access to Pages")
+        let board_id = unwrap_or_return!(actions.board_url_to_id(&board), {
+            not_found(&sp, "No such board")
         });
 
-        let board_id = unwrap_or_return!(pg.board_url_to_id(&board), {
-            not_found(&sp, "No such board")
+        let pg = unwrap_or_return!(pages.read(), {
+            internal_error(&sp, "Could not gain read access to Pages")
         });
 
         let page_ref = pages::PageRef::Create(board_id);
@@ -375,7 +381,6 @@ type Submission = extract::Multipart;
 
 async fn create_submit<DB, FR>(
     sp: Arc<StaticPages>,
-    pages: Arc<RwLock<pages::Pages>>,
     actions: Arc<actions::Actions>,
     db: Arc<DB>,
     fr: Arc<FR>,
@@ -388,15 +393,9 @@ where
     DB: 'static + db::Database + Sync + Send,
     FR: 'static + fr::FileRack + Sync + Send,
 {
-    let board_id = {
-        let pg = unwrap_or_return!(pages.read(), {
-            Err(internal_error(&sp, "Could not gain read access to Pages"))
-        });
-
-        unwrap_or_return!(pg.board_url_to_id(&board), {
-            Ok(response::Redirect::to("/"))
-        })
-    };
+    let board_id = unwrap_or_return!(actions.board_url_to_id(&board), {
+        Ok(response::Redirect::to("/"))
+    });
 
     let mut raw_name = None;
     let mut title = None;
@@ -470,7 +469,6 @@ where
 
 async fn create_reply<DB, FR>(
     sp: Arc<StaticPages>,
-    pages: Arc<RwLock<pages::Pages>>,
     actions: Arc<actions::Actions>,
     db: Arc<DB>,
     fr: Arc<FR>,
@@ -483,15 +481,9 @@ where
     DB: 'static + db::Database + Sync + Send,
     FR: 'static + fr::FileRack + Sync + Send,
 {
-    let board_id = {
-        let pg = unwrap_or_return!(pages.read(), {
-            Err(internal_error(&sp, "Could not gain read access to Pages"))
-        });
-
-        unwrap_or_return!(pg.board_url_to_id(&board), {
-            Ok(response::Redirect::to("/"))
-        })
-    };
+    let board_id = unwrap_or_return!(actions.board_url_to_id(&board), {
+        Ok(response::Redirect::to("/"))
+    });
 
     let mut raw_name = None;
     let mut body = None;
@@ -688,8 +680,8 @@ pub async fn serve<DB, FR>(
         .route(
             "/:board/thread/:post_num",
             routing::get({
-                let (sp, pages, db) = (sp.clone(), pages.clone(), db.clone());
-                move |path| thread(sp, pages, db, path)
+                let (sp, pages, actions, db) = (sp.clone(), pages.clone(), actions.clone(), db.clone());
+                move |path| thread(sp, pages, actions, db, path)
             }),
         )
         .route(
@@ -701,15 +693,15 @@ pub async fn serve<DB, FR>(
         .route(
             "/:board/catalog",
             routing::get({
-                let (sp, pages, db) = (sp.clone(), pages.clone(), db.clone());
-                move |path| catalog(sp, pages, db, path)
+                let (sp, pages, actions, db) = (sp.clone(), pages.clone(), actions.clone(), db.clone());
+                move |path| catalog(sp, pages, actions, db, path)
             }),
         )
         .route(
             "/:board/create",
             routing::get({
-                let (sp, pages, db) = (sp.clone(), pages.clone(), db.clone());
-                move |path| create(sp, pages, db, path)
+                let (sp, pages, actions, db) = (sp.clone(), pages.clone(), actions.clone(), db.clone());
+                move |path| create(sp, pages, actions, db, path)
             }),
         )
         .route(
@@ -729,27 +721,25 @@ pub async fn serve<DB, FR>(
         .route(
             "/:board/submit",
             routing::post({
-                let (sp, pages, actions, db, fr) = (
+                let (sp, actions, db, fr) = (
                     sp.clone(),
-                    pages.clone(),
                     actions.clone(),
                     db.clone(),
                     fr.clone(),
                 );
-                move |conn, headers, path, form| create_submit(sp, pages, actions, db, fr, conn, headers, path, form)
+                move |conn, headers, path, form| create_submit(sp, actions, db, fr, conn, headers, path, form)
             }),
         )
         .route(
             "/:board/reply/:orig_num",
             routing::post({
-                let (sp, pages, actions, db, fr) = (
+                let (sp, actions, db, fr) = (
                     sp.clone(),
-                    pages.clone(),
                     actions.clone(),
                     db.clone(),
                     fr.clone(),
                 );
-                move |conn, headers, path, form| create_reply(sp, pages, actions, db, fr, conn, headers, path, form)
+                move |conn, headers, path, form| create_reply(sp, actions, db, fr, conn, headers, path, form)
             }),
         )
         .route(
