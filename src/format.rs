@@ -49,10 +49,7 @@ pub fn humanise_time(ts: u64) -> String {
     String::from("less than a minute ago")
 }
 
-pub fn annotate_post(
-    body: &str,
-    posts: &HashSet<u64>,
-) -> String {
+pub fn annotate_post(body: &str, posts: &HashSet<u64>) -> String {
     lazy_static! {
         // Match quoted (greentext) lines
         static ref QUOTED: Regex = Regex::new(r"^\s*>(?:$|[^>])").unwrap();

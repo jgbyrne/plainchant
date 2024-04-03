@@ -162,7 +162,9 @@ fn main() {
     };
 
     // Create structs for pages and actions
-    let site = db.get_site().unwrap_or_else(|_| init_die("No site configured in database"));
+    let site = db
+        .get_site()
+        .unwrap_or_else(|_| init_die("No site configured in database"));
     let pages = pages::Pages::new(site, templates, 1).unwrap_or_else(|err| err.die());
     let actions = actions::Actions::new(&db).unwrap_or_else(|err| err.die());
 

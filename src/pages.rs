@@ -1,8 +1,8 @@
 use crate::db;
 use crate::format;
+use crate::site;
 use crate::site::Post;
 use crate::template;
-use crate::site;
 use crate::util;
 use std::collections::{HashMap, HashSet};
 
@@ -22,15 +22,15 @@ pub struct Page {
 
 pub struct SiteTemplates {
     pub homepage_tmpl: template::Template,
-    pub catalog_tmpl: template::Template,
-    pub thread_tmpl: template::Template,
-    pub create_tmpl: template::Template,
+    pub catalog_tmpl:  template::Template,
+    pub thread_tmpl:   template::Template,
+    pub create_tmpl:   template::Template,
 }
 
 pub struct Pages {
-    site: site::Site,
-    pages: HashMap<PageRef, Page>,
-    templates: SiteTemplates,
+    site:        site::Site,
+    pages:       HashMap<PageRef, Page>,
+    templates:   SiteTemplates,
     render_freq: u64,
 }
 
@@ -45,7 +45,10 @@ impl Pages {
                 let mut values = HashMap::new();
 
                 values.insert(String::from("site_name"), self.site.name.clone());
-                values.insert(String::from("site_description"), self.site.description.clone());
+                values.insert(
+                    String::from("site_description"),
+                    self.site.description.clone(),
+                );
 
                 let mut board_ids = vec![];
                 let boards = database.get_boards()?;

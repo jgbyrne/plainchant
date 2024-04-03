@@ -20,7 +20,7 @@ use bytes::{BufMut, Bytes, BytesMut};
 use mime_guess;
 
 use std::collections::HashMap;
-use std::net::{SocketAddr, IpAddr};
+use std::net::{IpAddr, SocketAddr};
 use std::ops::DerefMut;
 use std::path;
 use std::sync::{Arc, RwLock};
@@ -117,7 +117,10 @@ async fn static_dir(
             let mime = mime_guess::from_path(&full_path).first_or_octet_stream();
             let headers = response::AppendHeaders([
                 ("Content-Type", mime.to_string()),
-                ("Cache-Control", "Cache-Control: public, max-age=604800".to_string()),
+                (
+                    "Cache-Control",
+                    "Cache-Control: public, max-age=604800".to_string(),
+                ),
             ]);
 
             let stream = ReaderStream::new(file);
@@ -350,7 +353,7 @@ fn parse_raw_name(raw_name: Option<String>) -> (Option<String>, Option<String>) 
 // be the one we want to store as the poster IP.
 // However, if we are using a reverse proxy, it will be useless
 // (most likely localhost), so we have to use the Forwarded header instead.
-fn determine_poster_ip(conn_addr: SocketAddr, headers: &HeaderMap) -> String{
+fn determine_poster_ip(conn_addr: SocketAddr, headers: &HeaderMap) -> String {
     if let Some(hdr) = headers.get(http::header::FORWARDED) {
         if let Ok(hstr) = hdr.to_str() {
             // There can be multiple forwarded addresses, we just use the first
@@ -680,7 +683,8 @@ pub async fn serve<DB, FR>(
         .route(
             "/:board/thread/:post_num",
             routing::get({
-                let (sp, pages, actions, db) = (sp.clone(), pages.clone(), actions.clone(), db.clone());
+                let (sp, pages, actions, db) =
+                    (sp.clone(), pages.clone(), actions.clone(), db.clone());
                 move |path| thread(sp, pages, actions, db, path)
             }),
         )
@@ -693,14 +697,16 @@ pub async fn serve<DB, FR>(
         .route(
             "/:board/catalog",
             routing::get({
-                let (sp, pages, actions, db) = (sp.clone(), pages.clone(), actions.clone(), db.clone());
+                let (sp, pages, actions, db) =
+                    (sp.clone(), pages.clone(), actions.clone(), db.clone());
                 move |path| catalog(sp, pages, actions, db, path)
             }),
         )
         .route(
             "/:board/create",
             routing::get({
-                let (sp, pages, actions, db) = (sp.clone(), pages.clone(), actions.clone(), db.clone());
+                let (sp, pages, actions, db) =
+                    (sp.clone(), pages.clone(), actions.clone(), db.clone());
                 move |path| create(sp, pages, actions, db, path)
             }),
         )
@@ -721,25 +727,19 @@ pub async fn serve<DB, FR>(
         .route(
             "/:board/submit",
             routing::post({
-                let (sp, actions, db, fr) = (
-                    sp.clone(),
-                    actions.clone(),
-                    db.clone(),
-                    fr.clone(),
-                );
-                move |conn, headers, path, form| create_submit(sp, actions, db, fr, conn, headers, path, form)
+                let (sp, actions, db, fr) = (sp.clone(), actions.clone(), db.clone(), fr.clone());
+                move |conn, headers, path, form| {
+                    create_submit(sp, actions, db, fr, conn, headers, path, form)
+                }
             }),
         )
         .route(
             "/:board/reply/:orig_num",
             routing::post({
-                let (sp, actions, db, fr) = (
-                    sp.clone(),
-                    actions.clone(),
-                    db.clone(),
-                    fr.clone(),
-                );
-                move |conn, headers, path, form| create_reply(sp, actions, db, fr, conn, headers, path, form)
+                let (sp, actions, db, fr) = (sp.clone(), actions.clone(), db.clone(), fr.clone());
+                move |conn, headers, path, form| {
+                    create_reply(sp, actions, db, fr, conn, headers, path, form)
+                }
             }),
         )
         .route(

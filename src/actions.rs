@@ -24,8 +24,8 @@ fn actions_err(msg: &str) -> PlainchantErr {
 }
 
 pub struct Actions {
-    ban_cache: RwLock<HashMap<String, site::Ban>>,
-    board_urls:  HashMap<String, u64>,
+    ban_cache:  RwLock<HashMap<String, site::Ban>>,
+    board_urls: HashMap<String, u64>,
 }
 
 pub enum SubmissionResult {
@@ -309,7 +309,7 @@ impl Actions {
             Some(id) => Ok(*id),
             None => Err(util::PlainchantErr {
                 origin: util::ErrOrigin::Actions,
-                msg: format!("No board with url: {}", url),
+                msg:    format!("No board with url: {}", url),
             }),
         }
     }
