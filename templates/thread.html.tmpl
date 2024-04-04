@@ -27,7 +27,7 @@
         <hr/>
         <div class="content">
             <div class="post orig">
-                <div class="info-line">
+                <div class="info-line orig-info-line">
                     <a id="{{orig_post_num}}"></a>
                     <span class="post-title">{{orig_title}}</span> :
                     <span class="post-nick">{{orig_poster}}</span> <span class="post-feather">{{orig_feather}}</span> :
@@ -46,6 +46,11 @@
             {%reply%}
                 <div class="post reply">
                     <div class="post-text">
+                        {:reply.has_image:}
+                            <div class="post-image-frame">
+                                 <a href="{{reply.file_url}}"><img class="post-image" title="{{reply.file_name}}" src="{{reply.thumbnail_url}}"></img></a>
+                            </div>
+                        {:reply.has_image:}
                         <div class="info-line">
                             <a id="{{reply.post_num}}"></a>
                             <span class="post-nick">{{reply.poster}}</span>  <span class="post-feather">{{reply.feather}}</span> :
@@ -54,12 +59,6 @@
                                 <span class="post-num">No.{{reply.post_num}}</span>
                             </a>
                         </div>
-
-                        {:reply.has_image:}
-                            <div class="post-image-frame">
-                                 <a href="{{reply.file_url}}"><img class="post-image" title="{{reply.file_name}}" src="{{reply.thumbnail_url}}"></img></a>
-                            </div>
-                        {:reply.has_image:}
                         <p class="post-body">{{reply.post_body}}</p>
                     </div>
                 </div>

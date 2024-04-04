@@ -34,7 +34,7 @@
     min-width: 80%;
 }
 
-.orig > .info-line {
+.orig-info-line {
     padding-bottom: 10px;
 }
 
@@ -61,15 +61,16 @@
 
 .post-text {
     flex: 1;
-    display: inline-block;
+    display: block;
     word-wrap: break-word;
     overflow: hidden;
 }
 
 .info-line {
     padding-left: 3px;
+    padding-right: 5px;
     padding-bottom: 5px;
-    display: inline-block;
+    display: inline;
     font-family: "Noto Serif", "Palatino Linotype", "serif";
     font-size: 1.1rem;
 }
@@ -80,6 +81,7 @@
 }
 
 .post-nick {
+    display: inline-block;
     font-weight: bold;
     color: rgb(30, 70, 30);
 }
@@ -90,7 +92,12 @@
 }
 
 .post-time {
+    display: inline-block;
     font-style: italic;
+}
+
+.post-num {
+    display: inline-block;
 }
 
 .post-body {
