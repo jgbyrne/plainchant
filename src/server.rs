@@ -466,7 +466,7 @@ where
         Ok(actions::SubmissionResult::Banned) => Err(forbidden(&sp, "Your IP address is banned")),
         Ok(actions::SubmissionResult::Cooldown) => Err(forbidden(
             &sp,
-            "Please wait a brief time before posting again",
+            "Please wait before creating another thread",
         )),
         Err(_) => Err(internal_error(&sp, "Failed to submit post")),
     }

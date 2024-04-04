@@ -11,7 +11,9 @@ use std::iter;
 use std::sync::RwLock;
 
 const TRIPCODE_LEN: usize = 10;
-const POSTING_COOLDOWN: u64 = 15;
+const ORIG_COOLDOWN: u64 = 600;
+const REPLY_COOLDOWN: u64 = 15;
+
 
 fn compute_tripcode(trip: String) -> String {
     (sha256::digest(trip)[..TRIPCODE_LEN]).to_string()
@@ -26,7 +28,8 @@ fn actions_err(msg: &str) -> PlainchantErr {
 
 pub struct Actions {
     ban_cache:  RwLock<HashMap<String, site::Ban>>,
-    cooldown:   RwLock<HashMap<String, u64>>,
+    orig_cooldown: RwLock<HashMap<String, u64>>,
+    reply_cooldown: RwLock<HashMap<String, u64>>,
     board_urls: HashMap<String, u64>,
 }
 
@@ -34,6 +37,28 @@ pub enum SubmissionResult {
     Success(u64),
     Banned,
     Cooldown,
+}
+
+fn is_within_cooldown(cooldown: &RwLock<HashMap<String, u64>>, ip: &str, cur_time: u64) -> Result<bool, PlainchantErr> {
+    let rg = unwrap_or_return!(
+        cooldown.read(),
+        Err(actions_err("Failed to read from Cooldown Map"))
+    );
+
+    match rg.get(ip) {
+        Some(time) => Ok(*time > cur_time),
+        None => Ok(false),
+    }
+}
+
+fn set_cooldown_time(cooldown: &RwLock<HashMap<String, u64>>, ip: String, cooldown_time: u64) -> Result<(), PlainchantErr> {
+    let mut wg = unwrap_or_return!(
+        cooldown.write(),
+        Err(actions_err("Failed to write to Cooldown Map"))
+    );
+
+    wg.insert(ip, cooldown_time);
+    Ok(())
 }
 
 impl Actions {
@@ -58,7 +83,8 @@ impl Actions {
         Ok(Actions {
             ban_cache: RwLock::new(ban_cache),
             board_urls,
-            cooldown: RwLock::new(HashMap::new()),
+            orig_cooldown: RwLock::new(HashMap::new()),
+            reply_cooldown: RwLock::new(HashMap::new()),
         })
     }
 
@@ -72,28 +98,6 @@ impl Actions {
             Some(ban) => Ok(ban.time_expires > cur_time),
             None => Ok(false),
         }
-    }
-
-    fn is_within_cooldown(&self, ip: &str, cur_time: u64) -> Result<bool, PlainchantErr> {
-        let rg = unwrap_or_return!(
-            self.cooldown.read(),
-            Err(actions_err("Failed to read from Cooldown Map"))
-        );
-
-        match rg.get(ip) {
-            Some(time) => Ok(*time > cur_time),
-            None => Ok(false),
-        }
-    }
-
-    fn set_cooldown_time(&self, ip: String, cooldown_time: u64) -> Result<(), PlainchantErr> {
-        let mut wg = unwrap_or_return!(
-            self.cooldown.write(),
-            Err(actions_err("Failed to write to Cooldown Map"))
-        );
-
-        wg.insert(ip, cooldown_time);
-        Ok(())
     }
 
     pub fn ban_ip<DB: db::Database>(
@@ -171,7 +175,7 @@ impl Actions {
             return Ok(SubmissionResult::Banned);
         }
 
-        if self.is_within_cooldown(&ip, cur_time)? {
+        if is_within_cooldown(&self.orig_cooldown, &ip, cur_time)? {
             return Ok(SubmissionResult::Cooldown);
         }
 
@@ -202,7 +206,7 @@ impl Actions {
             .create_original(original)
             .map(|num| SubmissionResult::Success(num))?;
 
-        self.set_cooldown_time(ip, cur_time + POSTING_COOLDOWN)?;
+        set_cooldown_time(&self.orig_cooldown, ip, cur_time + ORIG_COOLDOWN)?;
         Ok(orig)
     }
 
@@ -224,7 +228,7 @@ impl Actions {
             return Ok(SubmissionResult::Banned);
         }
 
-        if self.is_within_cooldown(&ip, cur_time)? {
+        if is_within_cooldown(&self.reply_cooldown, &ip, cur_time)? {
             return Ok(SubmissionResult::Cooldown);
         }
 
@@ -250,7 +254,7 @@ impl Actions {
             .create_reply(reply)
             .map(|num| SubmissionResult::Success(num))?;
 
-        self.set_cooldown_time(ip, cur_time + POSTING_COOLDOWN)?;
+        set_cooldown_time(&self.reply_cooldown, ip, cur_time + REPLY_COOLDOWN)?;
         Ok(reply)
     }
 

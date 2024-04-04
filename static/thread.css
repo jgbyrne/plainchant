@@ -31,6 +31,7 @@
     border: none;
     display: flex;
     flex-direction: column;
+    min-width: 80%;
 }
 
 .orig > .info-line {

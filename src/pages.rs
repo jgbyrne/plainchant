@@ -260,13 +260,16 @@ impl Pages {
                         format::annotate_post(&format::html_escape(reply.body()), &posts),
                     );
 
-                    replies.push(reply.post_num().to_string());
+                    replies.push(reply.post_num());
                 }
 
                 replies.sort();
 
                 let mut collections = HashMap::new();
-                collections.insert("reply".to_string(), replies);
+                collections.insert(
+                    String::from("reply"),
+                    replies.iter().map(|r| r.to_string()).collect(),
+                );
 
                 let render_data = template::Data::new(values, flags, collections);
                 let page_text = self.templates.thread_tmpl.render(&render_data);
