@@ -32,7 +32,7 @@ Plainchant is written in Rust. It uses the Axum web framework and the SQLite dat
 
 The following steps describe a convenient way of setting up Plainchant for local development. Note that all directories specified here are recommendations and that others may be used, provided the config file `plainchant.toml` is updated appropriately.
 
-1. Create a directory `/etc/plainchant`, and into it copy from this repository the file `demo/plainchant.toml` and the folders `templates` and `static`. † 
+1. Create a directory `/etc/plainchant`, and into it copy from this repository the file `example/plainchant.toml` and the folders `templates` and `static`. † 
 
 2. Create a directory `/var/lib/plainchant` and within it the subdirectory `fsfr`.
 
