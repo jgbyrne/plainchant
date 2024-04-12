@@ -14,7 +14,6 @@ const TRIPCODE_LEN: usize = 10;
 const ORIG_COOLDOWN: u64 = 600;
 const REPLY_COOLDOWN: u64 = 15;
 
-
 fn compute_tripcode(trip: String) -> String {
     (sha256::digest(trip)[..TRIPCODE_LEN]).to_string()
 }
@@ -27,10 +26,10 @@ fn actions_err(msg: &str) -> PlainchantErr {
 }
 
 pub struct Actions {
-    ban_cache:  RwLock<HashMap<String, site::Ban>>,
-    orig_cooldown: RwLock<HashMap<String, u64>>,
+    ban_cache:      RwLock<HashMap<String, site::Ban>>,
+    orig_cooldown:  RwLock<HashMap<String, u64>>,
     reply_cooldown: RwLock<HashMap<String, u64>>,
-    board_urls: HashMap<String, u64>,
+    board_urls:     HashMap<String, u64>,
 }
 
 pub enum SubmissionResult {
@@ -39,7 +38,11 @@ pub enum SubmissionResult {
     Cooldown,
 }
 
-fn is_within_cooldown(cooldown: &RwLock<HashMap<String, u64>>, ip: &str, cur_time: u64) -> Result<bool, PlainchantErr> {
+fn is_within_cooldown(
+    cooldown: &RwLock<HashMap<String, u64>>,
+    ip: &str,
+    cur_time: u64,
+) -> Result<bool, PlainchantErr> {
     let rg = unwrap_or_return!(
         cooldown.read(),
         Err(actions_err("Failed to read from Cooldown Map"))
@@ -51,7 +54,11 @@ fn is_within_cooldown(cooldown: &RwLock<HashMap<String, u64>>, ip: &str, cur_tim
     }
 }
 
-fn set_cooldown_time(cooldown: &RwLock<HashMap<String, u64>>, ip: String, cooldown_time: u64) -> Result<(), PlainchantErr> {
+fn set_cooldown_time(
+    cooldown: &RwLock<HashMap<String, u64>>,
+    ip: String,
+    cooldown_time: u64,
+) -> Result<(), PlainchantErr> {
     let mut wg = unwrap_or_return!(
         cooldown.write(),
         Err(actions_err("Failed to write to Cooldown Map"))

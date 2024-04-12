@@ -19,7 +19,6 @@ use tokio_util::io::ReaderStream;
 use bytes::{BufMut, Bytes, BytesMut};
 use mime_guess;
 
-use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
 use std::ops::DerefMut;
 use std::path;
@@ -40,15 +39,15 @@ struct StaticPages {
 // Utility functions to generate static pages
 
 fn error_page(sp: &StaticPages, message: &str) -> Html<String> {
-    let mut vals = HashMap::new();
-    vals.insert(String::from("message"), String::from(message));
-    Html::from(sp.error_tmpl.render(&Data::values(vals)))
+    let mut render_data = Data::simple();
+    render_data.insert_value("message", String::from(message));
+    Html::from(sp.error_tmpl.render(&render_data))
 }
 
 fn message_page(sp: &StaticPages, message: &str) -> Html<String> {
-    let mut vals = HashMap::new();
-    vals.insert(String::from("message"), String::from(message));
-    Html::from(sp.message_tmpl.render(&Data::values(vals)))
+    let mut render_data = Data::simple();
+    render_data.insert_value("message", String::from(message));
+    Html::from(sp.message_tmpl.render(&render_data))
 }
 
 fn internal_error(sp: &StaticPages, message: &str) -> (StatusCode, Html<String>) {
@@ -464,10 +463,9 @@ where
             Ok(response::Redirect::to(&format!("/{}/catalog", board)))
         },
         Ok(actions::SubmissionResult::Banned) => Err(forbidden(&sp, "Your IP address is banned")),
-        Ok(actions::SubmissionResult::Cooldown) => Err(forbidden(
-            &sp,
-            "Please wait before creating another thread",
-        )),
+        Ok(actions::SubmissionResult::Cooldown) => {
+            Err(forbidden(&sp, "Please wait before creating another thread"))
+        },
         Err(_) => Err(internal_error(&sp, "Failed to submit post")),
     }
 }

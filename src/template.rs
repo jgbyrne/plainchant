@@ -1,5 +1,6 @@
 use crate::util;
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::fs;
 use std::mem;
 use std::path::Path;
@@ -11,24 +12,57 @@ pub struct Data {
 }
 
 impl Data {
-    pub fn new(
-        values: HashMap<String, String>,
-        flags: HashMap<String, bool>,
-        collections: HashMap<String, Vec<String>>,
-    ) -> Data {
+    pub fn full() -> Data {
         Data {
-            values,
-            flags: Some(flags),
-            collections: Some(collections),
+            values:      HashMap::new(),
+            flags:       Some(HashMap::new()),
+            collections: Some(HashMap::new()),
         }
     }
 
-    pub fn values(values: HashMap<String, String>) -> Data {
+    pub fn simple() -> Data {
         Data {
-            values,
-            flags: None,
+            values:      HashMap::new(),
+            flags:       None,
             collections: None,
         }
+    }
+
+    pub fn insert_value<'k>(&mut self, key: &'k str, val: String) {
+        self.values.insert(String::from(key), val);
+    }
+
+    #[allow(dead_code)]
+    pub fn set_flag<'k>(&mut self, key: &'k str, flag: bool) {
+        let flags = self.flags.as_mut().expect("Data has no flags");
+        flags.insert(String::from(key), flag);
+    }
+
+    pub fn insert_collection_value<'k, N>(
+        &mut self,
+        col: &'k str,
+        name: N,
+        key: &'k str,
+        val: String,
+    ) where
+        N: Display,
+    {
+        let full_key = format!("{}.{}.{}", col, name, key);
+        self.values.insert(full_key, val);
+    }
+
+    pub fn set_collection_flag<'k, N>(&mut self, col: &'k str, name: N, key: &'k str, flag: bool)
+    where
+        N: Display,
+    {
+        let flags = self.flags.as_mut().expect("Data has no flags");
+        let full_key = format!("{}.{}.{}", col, name, key);
+        flags.insert(full_key, flag);
+    }
+
+    pub fn add_collection<'k>(&mut self, col: &'k str, values: Vec<String>) {
+        let cols = self.collections.as_mut().expect("Data has no collections");
+        cols.insert(String::from(col), values);
     }
 }
 

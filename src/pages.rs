@@ -42,31 +42,31 @@ impl Pages {
     ) -> Result<Page, util::PlainchantErr> {
         match pr {
             PageRef::Homepage => {
-                let mut values = HashMap::new();
+                let mut render_data = template::Data::full();
 
-                values.insert(String::from("site_name"), self.site.name.clone());
-                values.insert(
-                    String::from("site_description"),
-                    self.site.description.clone(),
-                );
+                render_data.insert_value("site_name", self.site.name.clone());
+                render_data.insert_value("site_description", self.site.description.clone());
 
                 let mut board_ids = vec![];
                 let boards = database.get_boards()?;
 
                 for board in boards {
-                    values.insert(format!("board.{}.url", board.id), String::from(board.url));
-                    values.insert(
-                        format!("board.{}.title", board.id),
-                        String::from(board.title),
+                    render_data.insert_collection_value(
+                        "board",
+                        board.id,
+                        "url",
+                        board.url.to_string(),
                     );
-
+                    render_data.insert_collection_value(
+                        "board",
+                        board.id,
+                        "title",
+                        board.title.to_string(),
+                    );
                     board_ids.push(board.id.to_string());
                 }
 
-                let mut collections = HashMap::new();
-                collections.insert("board".to_string(), board_ids);
-
-                let render_data = template::Data::new(values, HashMap::new(), collections);
+                render_data.add_collection("board", board_ids);
 
                 let page_text = self.templates.homepage_tmpl.render(&render_data);
                 Ok(Page {
@@ -77,33 +77,42 @@ impl Pages {
             },
             PageRef::Catalog(board_id) => {
                 let board = database.get_board(*board_id)?;
-                let mut values = HashMap::new();
 
-                values.insert(String::from("site_name"), self.site.name.clone());
+                let mut render_data = template::Data::full();
 
-                values.insert(String::from("board_url"), board.url);
-                values.insert(String::from("board_title"), board.title);
+                render_data.insert_value("site_name", self.site.name.clone());
+
+                render_data.insert_value("board_url", board.url);
+                render_data.insert_value("board_title", board.title);
 
                 let mut originals = vec![];
                 let cat = database.get_catalog(board.id)?;
                 for orig in cat.originals {
-                    values.insert(
-                        format!("original.{}.file_url", orig.post_num()),
+                    render_data.insert_collection_value(
+                        "original",
+                        orig.post_num(),
+                        "file_url",
                         format!("/thumbnails/{}", orig.file_id().unwrap_or("")),
                     );
 
-                    values.insert(
-                        format!("original.{}.replies", orig.post_num()),
+                    render_data.insert_collection_value(
+                        "original",
+                        orig.post_num(),
+                        "replies",
                         orig.replies().to_string(),
                     );
 
-                    values.insert(
-                        format!("original.{}.img_replies", orig.post_num()),
+                    render_data.insert_collection_value(
+                        "original",
+                        orig.post_num(),
+                        "img_replies",
                         orig.img_replies().to_string(),
                     );
 
-                    values.insert(
-                        format!("original.{}.post_num", orig.post_num()),
+                    render_data.insert_collection_value(
+                        "original",
+                        orig.post_num(),
+                        "post_num",
                         orig.post_num().to_string(),
                     );
 
@@ -112,8 +121,10 @@ impl Pages {
                         cat_title.truncate(i);
                     }
 
-                    values.insert(
-                        format!("original.{}.post_title", orig.post_num()),
+                    render_data.insert_collection_value(
+                        "original",
+                        orig.post_num(),
+                        "post_title",
                         format::html_escape(&cat_title),
                     );
 
@@ -121,16 +132,19 @@ impl Pages {
                     if let Some((i, _)) = cat_desc.char_indices().nth(128) {
                         cat_desc.truncate(i);
                     }
-                    values.insert(
-                        format!("original.{}.post_body", orig.post_num()),
+
+                    render_data.insert_collection_value(
+                        "original",
+                        orig.post_num(),
+                        "post_body",
                         format::html_escape(&cat_desc),
                     );
 
                     originals.push(orig.post_num().to_string());
                 }
-                let mut collections = HashMap::new();
-                collections.insert("original".to_string(), originals);
-                let render_data = template::Data::new(values, HashMap::new(), collections);
+
+                render_data.add_collection("original", originals);
+
                 let page_text = self.templates.catalog_tmpl.render(&render_data);
                 Ok(Page {
                     page_ref: *pr,
@@ -142,6 +156,8 @@ impl Pages {
                 let board = database.get_board(*board_id)?;
                 let thread = database.get_thread(*board_id, *orig_num)?;
 
+                let mut render_data = template::Data::full();
+
                 // The set of post IDs in the current thread is used
                 // by the annotate_post function to decide how whether
                 // to use an anchor link or a direct link
@@ -150,113 +166,126 @@ impl Pages {
                 posts.extend(thread.replies.iter().map(|r| r.post_num()));
                 let posts = posts;
 
-                let mut values = HashMap::new();
-                let mut flags = HashMap::new();
+                render_data.insert_value("site_name", self.site.name.clone());
 
-                values.insert(String::from("site_name"), self.site.name.clone());
+                render_data.insert_value("board_url", board.url);
+                render_data.insert_value("board_title", board.title);
 
-                values.insert(String::from("board_url"), board.url);
-                values.insert(String::from("board_title"), board.title);
+                render_data.insert_value("replies", thread.original.replies().to_string());
 
-                values.insert(
-                    String::from("replies"),
-                    thread.original.replies().to_string(),
-                );
-                values.insert(
-                    String::from("img_replies"),
-                    thread.original.img_replies().to_string(),
-                );
+                render_data.insert_value("img_replies", thread.original.img_replies().to_string());
 
-                values.insert(
-                    String::from("orig_file_url"),
+                render_data.insert_value(
+                    "orig_file_url",
                     format!("/files/{}", thread.original.file_id().unwrap_or("")),
                 );
-                values.insert(
-                    String::from("orig_thumbnail_url"),
+
+                render_data.insert_value(
+                    "orig_thumbnail_url",
                     format!("/thumbnails/{}", thread.original.file_id().unwrap_or("")),
                 );
-                values.insert(
-                    String::from("orig_title"),
+
+                render_data.insert_value(
+                    "orig_title",
                     thread
                         .original
                         .title()
                         .map(|t| format::html_escape(t))
                         .unwrap_or(String::from("")),
                 );
-                values.insert(
-                    String::from("orig_poster"),
+
+                render_data.insert_value(
+                    "orig_poster",
                     thread
                         .original
                         .poster()
                         .map(|p| format::html_escape(p))
                         .unwrap_or(String::from("Anonymous")),
                 );
-                values.insert(
-                    String::from("orig_time"),
-                    format::humanise_time(thread.original.time()),
-                );
-                values.insert(
-                    String::from("orig_timestamp"),
+
+                render_data
+                    .insert_value("orig_time", format::humanise_time(thread.original.time()));
+
+                render_data.insert_value(
+                    "orig_timestamp",
                     format::utc_timestamp(thread.original.time()),
                 );
-                values.insert(
-                    String::from("orig_post_num"),
-                    thread.original.post_num().to_string(),
-                );
-                values.insert(
-                    String::from("orig_feather"),
+
+                render_data.insert_value("orig_post_num", thread.original.post_num().to_string());
+
+                render_data.insert_value(
+                    "orig_feather",
                     format::display_feather(thread.original.feather()),
                 );
-                values.insert(
-                    String::from("orig_post_body"),
+
+                render_data.insert_value(
+                    "orig_post_body",
                     format::annotate_post(&format::html_escape(thread.original.body()), &posts),
                 );
 
                 let mut replies = vec![];
                 for reply in thread.replies {
-                    values.insert(
-                        format!("reply.{}.file_url", reply.post_num()),
+                    render_data.insert_collection_value(
+                        "reply",
+                        reply.post_num(),
+                        "file_url",
                         format!("/files/{}", reply.file_id().unwrap_or("")),
                     );
 
-                    values.insert(
-                        format!("reply.{}.thumbnail_url", reply.post_num()),
+                    render_data.insert_collection_value(
+                        "reply",
+                        reply.post_num(),
+                        "thumbnail_url",
                         format!("/thumbnails/{}", reply.file_id().unwrap_or("")),
                     );
 
-                    flags.insert(
-                        format!("reply.{}.has_image", reply.post_num()),
+                    render_data.set_collection_flag(
+                        "reply",
+                        reply.post_num(),
+                        "has_image",
                         reply.file_id().is_some(),
                     );
 
-                    values.insert(
-                        format!("reply.{}.poster", reply.post_num()),
+                    render_data.insert_collection_value(
+                        "reply",
+                        reply.post_num(),
+                        "poster",
                         reply
                             .poster()
                             .map(|p| format::html_escape(p))
                             .unwrap_or(String::from("Anonymous")),
                     );
 
-                    values.insert(
-                        format!("reply.{}.time", reply.post_num()),
+                    render_data.insert_collection_value(
+                        "reply",
+                        reply.post_num(),
+                        "time",
                         format::humanise_time(reply.time()),
                     );
 
-                    values.insert(
-                        format!("reply.{}.timestamp", reply.post_num()),
+                    render_data.insert_collection_value(
+                        "reply",
+                        reply.post_num(),
+                        "timestamp",
                         format::utc_timestamp(reply.time()),
                     );
-                    values.insert(
-                        format!("reply.{}.feather", reply.post_num()),
+                    render_data.insert_collection_value(
+                        "reply",
+                        reply.post_num(),
+                        "feather",
                         format::display_feather(reply.feather()),
                     );
-                    values.insert(
-                        format!("reply.{}.post_num", reply.post_num()),
+                    render_data.insert_collection_value(
+                        "reply",
+                        reply.post_num(),
+                        "post_num",
                         reply.post_num().to_string(),
                     );
 
-                    values.insert(
-                        format!("reply.{}.post_body", reply.post_num()),
+                    render_data.insert_collection_value(
+                        "reply",
+                        reply.post_num(),
+                        "post_body",
                         format::annotate_post(&format::html_escape(reply.body()), &posts),
                     );
 
@@ -265,13 +294,9 @@ impl Pages {
 
                 replies.sort();
 
-                let mut collections = HashMap::new();
-                collections.insert(
-                    String::from("reply"),
-                    replies.iter().map(|r| r.to_string()).collect(),
-                );
+                render_data
+                    .add_collection("reply", replies.iter().map(|r| r.to_string()).collect());
 
-                let render_data = template::Data::new(values, flags, collections);
                 let page_text = self.templates.thread_tmpl.render(&render_data);
                 Ok(Page {
                     page_ref: *pr,
@@ -281,15 +306,13 @@ impl Pages {
             },
             PageRef::Create(board_id) => {
                 let board = database.get_board(*board_id)?;
-                let mut values = HashMap::new();
 
-                values.insert(String::from("site_name"), self.site.name.clone());
+                let mut render_data = template::Data::simple();
 
-                values.insert(String::from("board_url"), board.url);
-                values.insert(String::from("board_title"), board.title);
+                render_data.insert_value("site_name", self.site.name.clone());
+                render_data.insert_value("board_url", board.url);
+                render_data.insert_value("board_title", board.title);
 
-                let collections = HashMap::new();
-                let render_data = template::Data::new(values, HashMap::new(), collections);
                 let page_text = self.templates.create_tmpl.render(&render_data);
                 Ok(Page {
                     page_ref: *pr,
