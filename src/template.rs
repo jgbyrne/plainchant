@@ -87,6 +87,98 @@ pub fn static_err(msg: &'static str) -> util::PlainchantErr {
 }
 
 impl Template {
+    pub fn from_file(path: &Path) -> Result<Template, util::PlainchantErr> {
+        match fs::read_to_string(path) {
+            Ok(s) => Template::from_string(s),
+            Err(_) => Err(static_err("Could not read from template file")),
+        }
+    }
+
+    pub fn from_string(string: String) -> Result<Template, util::PlainchantErr> {
+        let mut chunks = vec![];
+        let mut buf = String::new();
+        let mut state = '+';
+        for c in string.chars() {
+            match state {
+                '+' => match c {
+                    '{' => state = '{',
+                    _ => buf.push(c),
+                },
+                '{' => {
+                    match c {
+                        '{' => state = '$',
+                        ':' => state = '?',
+                        '%' => state = '!',
+                        _ => {
+                            buf.push('{');
+                            buf.push(c);
+                            state = '+';
+                        },
+                    }
+                    if state != '+' {
+                        let frag = mem::replace(&mut buf, String::new());
+                        chunks.push(Chunk::Fragment(frag));
+                    }
+                },
+                '$' => match c {
+                    '}' => {
+                        let raw = mem::replace(&mut buf, String::new());
+                        let split = raw.split('.').collect::<Vec<&str>>();
+                        match split.len() {
+                            1 => chunks.push(Chunk::Placeholder(raw, None)),
+                            2 => chunks.push(Chunk::Placeholder(
+                                split[1].to_string(),
+                                Some(split[0].to_string()),
+                            )),
+                            _ => return Err(static_err("Bad syntax")),
+                        }
+                        state = '}';
+                    },
+                    _ => buf.push(c),
+                },
+                '?' => match c {
+                    ':' => {
+                        let raw = mem::replace(&mut buf, String::new());
+                        let split = raw.split('.').collect::<Vec<&str>>();
+                        match split.len() {
+                            1 => chunks.push(Chunk::Condition(raw, None)),
+                            2 => chunks.push(Chunk::Condition(
+                                split[1].to_string(),
+                                Some(split[0].to_string()),
+                            )),
+                            _ => return Err(static_err("Bad syntax")),
+                        }
+                        state = '}';
+                    },
+                    _ => buf.push(c),
+                },
+                '!' => match c {
+                    '%' => {
+                        let raw = mem::replace(&mut buf, String::new());
+                        chunks.push(Chunk::Control(raw));
+                        state = '}';
+                    },
+                    _ => buf.push(c),
+                },
+                '}' => {
+                    if c != '}' {
+                        return Err(static_err("Invalid syntax"));
+                    } else {
+                        state = '+';
+                    }
+                },
+                sc => {
+                    println!("Entered invalid state {}", sc);
+                    panic!()
+                },
+            }
+        }
+        if !buf.is_empty() {
+            chunks.push(Chunk::Fragment(buf));
+        }
+        Ok(Template { chunks })
+    }
+
     pub fn render(&self, data: &Data) -> String {
         let empty_str = String::from("");
         let mut buf = String::new();
@@ -214,97 +306,5 @@ impl Template {
             cptr += 1;
         }
         buf
-    }
-
-    pub fn from_string(string: String) -> Result<Template, util::PlainchantErr> {
-        let mut chunks = vec![];
-        let mut buf = String::new();
-        let mut state = '+';
-        for c in string.chars() {
-            match state {
-                '+' => match c {
-                    '{' => state = '{',
-                    _ => buf.push(c),
-                },
-                '{' => {
-                    match c {
-                        '{' => state = '$',
-                        ':' => state = '?',
-                        '%' => state = '!',
-                        _ => {
-                            buf.push('{');
-                            buf.push(c);
-                            state = '+';
-                        },
-                    }
-                    if state != '+' {
-                        let frag = mem::replace(&mut buf, String::new());
-                        chunks.push(Chunk::Fragment(frag));
-                    }
-                },
-                '$' => match c {
-                    '}' => {
-                        let raw = mem::replace(&mut buf, String::new());
-                        let split = raw.split('.').collect::<Vec<&str>>();
-                        match split.len() {
-                            1 => chunks.push(Chunk::Placeholder(raw, None)),
-                            2 => chunks.push(Chunk::Placeholder(
-                                split[1].to_string(),
-                                Some(split[0].to_string()),
-                            )),
-                            _ => return Err(static_err("Bad syntax")),
-                        }
-                        state = '}';
-                    },
-                    _ => buf.push(c),
-                },
-                '?' => match c {
-                    ':' => {
-                        let raw = mem::replace(&mut buf, String::new());
-                        let split = raw.split('.').collect::<Vec<&str>>();
-                        match split.len() {
-                            1 => chunks.push(Chunk::Condition(raw, None)),
-                            2 => chunks.push(Chunk::Condition(
-                                split[1].to_string(),
-                                Some(split[0].to_string()),
-                            )),
-                            _ => return Err(static_err("Bad syntax")),
-                        }
-                        state = '}';
-                    },
-                    _ => buf.push(c),
-                },
-                '!' => match c {
-                    '%' => {
-                        let raw = mem::replace(&mut buf, String::new());
-                        chunks.push(Chunk::Control(raw));
-                        state = '}';
-                    },
-                    _ => buf.push(c),
-                },
-                '}' => {
-                    if c != '}' {
-                        return Err(static_err("Invalid syntax"));
-                    } else {
-                        state = '+';
-                    }
-                },
-                sc => {
-                    println!("Entered invalid state {}", sc);
-                    panic!()
-                },
-            }
-        }
-        if !buf.is_empty() {
-            chunks.push(Chunk::Fragment(buf));
-        }
-        Ok(Template { chunks })
-    }
-
-    pub fn from_file(path: &Path) -> Result<Template, util::PlainchantErr> {
-        match fs::read_to_string(path) {
-            Ok(s) => Template::from_string(s),
-            Err(_) => Err(static_err("Could not read from template file")),
-        }
     }
 }
