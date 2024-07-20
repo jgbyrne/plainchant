@@ -98,7 +98,7 @@ impl fr::FileRack for FSFileRack {
         let img = image::load_from_memory(file.as_ref())
             .map_err(|_| fr::static_err("Could not handle file"))?;
 
-        let thumb = img.thumbnail(300, 300);
+        let thumb = img.thumbnail(300, 300).to_rgb8();
 
         let mut fd = File::create(self.file_dir.join(file_id))
             .map_err(|_| fr::static_err("Could not open requested write file"))?;
