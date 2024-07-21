@@ -451,16 +451,15 @@ where
         title,
     );
 
-    if let Err(err) = actions.enforce_post_cap(db.as_ref(), fr.as_ref(), board_id) {
-        return Err(internal_error(
-            &sp,
-            &format!("Server failure while enforcing post cap: {:?}", err),
-        ));
-    }
-
     match submission_result {
         Ok(actions::SubmissionResult::Success(_)) => {
-            Ok(response::Redirect::to(&format!("/{}/catalog", board)))
+            match actions.enforce_post_cap(db.as_ref(), fr.as_ref(), board_id) {
+                Ok(_) => Ok(response::Redirect::to(&format!("/{}/catalog", board))),
+                Err(_) => Err(internal_error(
+                    &sp,
+                    &format!("Server failure while enforcing post cap"),
+                )),
+            }
         },
         Ok(actions::SubmissionResult::Banned) => Err(forbidden(&sp, "Your IP address is banned")),
         Ok(actions::SubmissionResult::Cooldown) => {
