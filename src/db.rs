@@ -15,7 +15,7 @@ pub fn static_err(msg: &'static str) -> util::PlainchantErr {
     }
 }
 
-pub trait Database {
+pub trait Database: Sync + Send + 'static {
     fn get_site(&self) -> Result<site::Site, util::PlainchantErr>;
     fn set_site(&self, site: site::Site) -> Result<(), util::PlainchantErr>;
 

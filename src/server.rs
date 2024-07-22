@@ -3,10 +3,12 @@ use crate::console;
 use crate::db;
 use crate::fr;
 use crate::pages;
+use crate::state::{DbState, FrState, PlainchantState};
 use crate::template::{Data, Template};
 use crate::util::unwrap_or_return;
 use crate::Config;
 
+use axum::extract::State;
 use axum::http;
 use axum::http::header::HeaderMap;
 use axum::http::{StatusCode, Uri};
@@ -29,40 +31,33 @@ const FORM_MAX_LENGTH: usize = 67_108_864;
 // This values is equivalent to 4 MiB in bytes;
 const FILE_MAX_SIZE: usize = 4_194_304;
 
-// More complex templates are handled by Pages, but these
-// simple message pages we can handle directly
-struct StaticPages {
-    error_tmpl:   Template,
-    message_tmpl: Template,
-}
-
 // Utility functions to generate static pages
 
-fn error_page(sp: &StaticPages, message: &str) -> Html<String> {
+fn error_page(sp: &pages::StaticPages, message: &str) -> Html<String> {
     let mut render_data = Data::simple();
     render_data.insert_value("message", String::from(message));
     Html::from(sp.error_tmpl.render(&render_data))
 }
 
-fn message_page(sp: &StaticPages, message: &str) -> Html<String> {
+fn message_page(sp: &pages::StaticPages, message: &str) -> Html<String> {
     let mut render_data = Data::simple();
     render_data.insert_value("message", String::from(message));
     Html::from(sp.message_tmpl.render(&render_data))
 }
 
-fn internal_error(sp: &StaticPages, message: &str) -> (StatusCode, Html<String>) {
+fn internal_error(sp: &pages::StaticPages, message: &str) -> (StatusCode, Html<String>) {
     (StatusCode::INTERNAL_SERVER_ERROR, error_page(sp, message))
 }
 
-fn bad_request(sp: &StaticPages, message: &str) -> (StatusCode, Html<String>) {
+fn bad_request(sp: &pages::StaticPages, message: &str) -> (StatusCode, Html<String>) {
     (StatusCode::BAD_REQUEST, message_page(sp, message))
 }
 
-fn not_found(sp: &StaticPages, message: &str) -> (StatusCode, Html<String>) {
+fn not_found(sp: &pages::StaticPages, message: &str) -> (StatusCode, Html<String>) {
     (StatusCode::NOT_FOUND, message_page(sp, message))
 }
 
-fn forbidden(sp: &StaticPages, message: &str) -> (StatusCode, Html<String>) {
+fn forbidden(sp: &pages::StaticPages, message: &str) -> (StatusCode, Html<String>) {
     (StatusCode::FORBIDDEN, message_page(sp, message))
 }
 
@@ -70,15 +65,12 @@ fn ok_page(page: &pages::Page) -> (StatusCode, Html<String>) {
     (StatusCode::OK, Html(page.page_text.to_string()))
 }
 
-fn render_page<DB>(
-    sp: Arc<StaticPages>,
+fn render_page<DB: db::Database>(
+    sp: Arc<pages::StaticPages>,
     pages: Arc<RwLock<pages::Pages>>,
     db: Arc<DB>,
     page_ref: &pages::PageRef,
-) -> (StatusCode, Html<String>)
-where
-    DB: 'static + db::Database + Sync + Send,
-{
+) -> (StatusCode, Html<String>) {
     let page = {
         let pg = unwrap_or_return!(pages.read(), {
             internal_error(&sp, "Could not gain read access to Pages")
@@ -106,7 +98,7 @@ where
 // static_dir: Handler to serve static resources
 
 async fn static_dir(
-    config: Arc<Config>,
+    State(config): State<Arc<Config>>,
     extract::Path(path): extract::Path<path::PathBuf>,
 ) -> impl IntoResponse {
     let full_path = config.static_dir.join(&path);
@@ -136,16 +128,13 @@ async fn static_dir(
 
 // thread: Handler to serve thread pages
 
-async fn thread<DB>(
-    sp: Arc<StaticPages>,
-    pages: Arc<RwLock<pages::Pages>>,
-    actions: Arc<actions::Actions>,
-    db: Arc<DB>,
+async fn thread<DB: db::Database>(
+    State(sp): State<Arc<pages::StaticPages>>,
+    State(pages): State<Arc<RwLock<pages::Pages>>>,
+    State(actions): State<Arc<actions::Actions>>,
+    State(DbState { db }): State<DbState<DB>>,
     extract::Path((board, post_num)): extract::Path<(String, u64)>,
-) -> Result<(StatusCode, Html<String>), ErrorResponse>
-where
-    DB: 'static + db::Database + Sync + Send,
-{
+) -> Result<(StatusCode, Html<String>), ErrorResponse> {
     let page_ref = {
         let board_id = unwrap_or_return!(actions.board_url_to_id(&board), {
             Ok(not_found(&sp, "No such board"))
@@ -179,14 +168,11 @@ where
 
 // homepage: Handler to serve homepage
 
-async fn homepage<DB>(
-    sp: Arc<StaticPages>,
-    pages: Arc<RwLock<pages::Pages>>,
-    db: Arc<DB>,
-) -> (StatusCode, Html<String>)
-where
-    DB: 'static + db::Database + Sync + Send,
-{
+async fn homepage<DB: db::Database>(
+    State(sp): State<Arc<pages::StaticPages>>,
+    State(pages): State<Arc<RwLock<pages::Pages>>>,
+    State(DbState { db }): State<DbState<DB>>,
+) -> (StatusCode, Html<String>) {
     let page_ref = pages::PageRef::Homepage;
 
     {
@@ -207,16 +193,13 @@ where
 
 // catalog: Handler to serve catalog pages
 
-async fn catalog<DB>(
-    sp: Arc<StaticPages>,
-    pages: Arc<RwLock<pages::Pages>>,
-    actions: Arc<actions::Actions>,
-    db: Arc<DB>,
+async fn catalog<DB: db::Database>(
+    State(sp): State<Arc<pages::StaticPages>>,
+    State(pages): State<Arc<RwLock<pages::Pages>>>,
+    State(actions): State<Arc<actions::Actions>>,
+    State(DbState { db }): State<DbState<DB>>,
     extract::Path(board): extract::Path<String>,
-) -> (StatusCode, Html<String>)
-where
-    DB: 'static + db::Database + Sync + Send,
-{
+) -> (StatusCode, Html<String>) {
     let page_ref = {
         let board_id = unwrap_or_return!(actions.board_url_to_id(&board), {
             not_found(&sp, "No such board")
@@ -243,16 +226,13 @@ where
 
 // create: Handler to serve original post creation page
 
-async fn create<DB>(
-    sp: Arc<StaticPages>,
-    pages: Arc<RwLock<pages::Pages>>,
-    actions: Arc<actions::Actions>,
-    db: Arc<DB>,
+async fn create<DB: db::Database>(
+    State(sp): State<Arc<pages::StaticPages>>,
+    State(pages): State<Arc<RwLock<pages::Pages>>>,
+    State(actions): State<Arc<actions::Actions>>,
+    State(DbState { db }): State<DbState<DB>>,
     extract::Path(board): extract::Path<String>,
-) -> (StatusCode, Html<String>)
-where
-    DB: 'static + db::Database + Sync + Send,
-{
+) -> (StatusCode, Html<String>) {
     let page_ref = {
         let board_id = unwrap_or_return!(actions.board_url_to_id(&board), {
             not_found(&sp, "No such board")
@@ -280,7 +260,7 @@ where
 // Parse a multipart text field
 
 async fn multipart_text_field<'f>(
-    sp: &StaticPages,
+    sp: &pages::StaticPages,
     field: extract::multipart::Field<'f>,
     max_length: usize,
 ) -> Result<Option<String>, (StatusCode, Html<String>)> {
@@ -301,7 +281,7 @@ async fn multipart_text_field<'f>(
 // Parse a multipart file field
 
 async fn multipart_file_field<'f>(
-    sp: &StaticPages,
+    sp: &pages::StaticPages,
     mut field: extract::multipart::Field<'f>,
     max_length: usize,
 ) -> Result<(Option<String>, Option<Bytes>), (StatusCode, Html<String>)> {
@@ -381,20 +361,16 @@ type Submission = extract::Multipart;
 
 // create_submit: Handler for original post creation forms
 
-async fn create_submit<DB, FR>(
-    sp: Arc<StaticPages>,
-    actions: Arc<actions::Actions>,
-    db: Arc<DB>,
-    fr: Arc<FR>,
+async fn create_submit<DB: db::Database, FR: fr::FileRack>(
+    State(sp): State<Arc<pages::StaticPages>>,
+    State(actions): State<Arc<actions::Actions>>,
+    State(DbState { db }): State<DbState<DB>>,
+    State(FrState { fr }): State<FrState<FR>>,
     extract::ConnectInfo(addr): extract::ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     extract::Path(board): extract::Path<String>,
     mut multipart: Submission,
-) -> impl IntoResponse
-where
-    DB: 'static + db::Database + Sync + Send,
-    FR: 'static + fr::FileRack + Sync + Send,
-{
+) -> impl IntoResponse {
     let board_id = unwrap_or_return!(actions.board_url_to_id(&board), {
         Ok(response::Redirect::to("/"))
     });
@@ -471,20 +447,16 @@ where
 
 // create_reply: Handler for reply post creation forms
 
-async fn create_reply<DB, FR>(
-    sp: Arc<StaticPages>,
-    actions: Arc<actions::Actions>,
-    db: Arc<DB>,
-    fr: Arc<FR>,
+async fn create_reply<DB: db::Database, FR: fr::FileRack>(
+    State(sp): State<Arc<pages::StaticPages>>,
+    State(actions): State<Arc<actions::Actions>>,
+    State(DbState { db }): State<DbState<DB>>,
+    State(FrState { fr }): State<FrState<FR>>,
     extract::ConnectInfo(addr): extract::ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     extract::Path((board, orig_num)): extract::Path<(String, u64)>,
     mut multipart: Submission,
-) -> impl IntoResponse
-where
-    DB: 'static + db::Database + Sync + Send,
-    FR: 'static + fr::FileRack + Sync + Send,
-{
+) -> impl IntoResponse {
     let board_id = unwrap_or_return!(actions.board_url_to_id(&board), {
         Ok(response::Redirect::to("/"))
     });
@@ -552,19 +524,15 @@ where
 
 // console :: Serve an admin text console
 
-async fn console<DB, FR>(
-    access_key: Option<String>,
-    actions: Arc<actions::Actions>,
-    db: Arc<DB>,
-    fr: Arc<FR>,
+async fn console<DB: db::Database, FR: fr::FileRack>(
+    State(config): State<Arc<Config>>,
+    State(actions): State<Arc<actions::Actions>>,
+    State(DbState { db }): State<DbState<DB>>,
+    State(FrState { fr }): State<FrState<FR>>,
     headers: HeaderMap,
     body: String,
-) -> impl IntoResponse
-where
-    DB: 'static + db::Database + Sync + Send,
-    FR: 'static + fr::FileRack + Sync + Send,
-{
-    let access_key = match access_key {
+) -> impl IntoResponse {
+    let access_key = match &config.access_key {
         Some(t) => t,
         None => return (StatusCode::NOT_FOUND, String::from("")),
     };
@@ -602,14 +570,11 @@ fn file_headers(file: &Bytes) -> impl IntoResponseParts {
 
 // files: Handler for full-size filerack files
 
-async fn files<FR>(
-    sp: Arc<StaticPages>,
-    fr: Arc<FR>,
+async fn files<FR: fr::FileRack>(
+    State(sp): State<Arc<pages::StaticPages>>,
+    State(FrState { fr }): State<FrState<FR>>,
     extract::Path(file_id): extract::Path<String>,
-) -> Result<(StatusCode, impl IntoResponseParts, Bytes), ErrorResponse>
-where
-    FR: 'static + fr::FileRack + Sync + Send,
-{
+) -> Result<(StatusCode, impl IntoResponseParts, Bytes), ErrorResponse> {
     let file = fr
         .get_file(&file_id)
         .map_err(|_| -> ErrorResponse { not_found(&sp, "No such file").into() })?;
@@ -618,14 +583,11 @@ where
 
 // thumbnails: Handler for thumbnail filerack files
 
-async fn thumbnails<FR>(
-    sp: Arc<StaticPages>,
-    fr: Arc<FR>,
+async fn thumbnails<FR: fr::FileRack>(
+    State(sp): State<Arc<pages::StaticPages>>,
+    State(FrState { fr }): State<FrState<FR>>,
     extract::Path(file_id): extract::Path<String>,
-) -> Result<(StatusCode, impl IntoResponseParts, Bytes), ErrorResponse>
-where
-    FR: 'static + fr::FileRack + Sync + Send,
-{
+) -> Result<(StatusCode, impl IntoResponseParts, Bytes), ErrorResponse> {
     let file = fr
         .get_file_thumbnail(&file_id)
         .map_err(|_| -> ErrorResponse { not_found(&sp, "No such thumbnail").into() })?;
@@ -634,7 +596,10 @@ where
 
 // not_found: Handler for 404 fallback
 
-async fn route_not_found(sp: Arc<StaticPages>, uri: Uri) -> (StatusCode, impl IntoResponse) {
+async fn route_not_found(
+    State(sp): State<Arc<pages::StaticPages>>,
+    uri: Uri,
+) -> (StatusCode, impl IntoResponse) {
     not_found(&sp, &format!("404 Not Found ({})", uri))
 }
 
@@ -645,125 +610,46 @@ async fn redirect(path: String) -> response::Redirect {
 // Main server method - using tokio runtime
 
 #[tokio::main]
-pub async fn serve<DB, FR>(
+pub async fn serve<DB: db::Database, FR: fr::FileRack>(
     config: Config,
     pages: pages::Pages,
     actions: actions::Actions,
     database: DB,
     file_rack: FR,
-) where
-    DB: 'static + db::Database + Sync + Send,
-    FR: 'static + fr::FileRack + Sync + Send,
-{
-    let sp = StaticPages {
+) {
+    let server_addr = config.addr.clone();
+
+    let sp = pages::StaticPages {
         error_tmpl:   Template::from_file(config.templates_dir.join("error.html.tmpl").as_path())
             .unwrap_or_else(|err| err.die()),
         message_tmpl: Template::from_file(config.templates_dir.join("message.html.tmpl").as_path())
             .unwrap_or_else(|err| err.die()),
     };
 
-    let sp = Arc::new(sp);
-    let config = Arc::new(config);
-
-    let pages = Arc::new(RwLock::new(pages));
-    let actions = Arc::new(actions);
-
-    let db = Arc::new(database);
-    let fr = Arc::new(file_rack);
+    let state = PlainchantState::new(config, sp, pages, actions, database, file_rack);
 
     let router = Router::new()
-        .route(
-            "/",
-            routing::get({
-                let (sp, pages, db) = (sp.clone(), pages.clone(), db.clone());
-                move || homepage(sp, pages, db)
-            }),
-        )
-        .route(
-            "/static/*path",
-            routing::get({
-                let config = config.clone();
-                move |path| static_dir(config, path)
-            }),
-        )
-        .route(
-            "/:board/thread/:post_num",
-            routing::get({
-                let (sp, pages, actions, db) =
-                    (sp.clone(), pages.clone(), actions.clone(), db.clone());
-                move |path| thread(sp, pages, actions, db, path)
-            }),
-        )
+        .route("/", routing::get(homepage))
         .route(
             "/:board/",
-            routing::get(move |extract::Path(board): extract::Path<String>| {
+            routing::get(|extract::Path(board): extract::Path<String>| {
                 redirect(format!("/{}/catalog", board))
             }),
         )
-        .route(
-            "/:board/catalog",
-            routing::get({
-                let (sp, pages, actions, db) =
-                    (sp.clone(), pages.clone(), actions.clone(), db.clone());
-                move |path| catalog(sp, pages, actions, db, path)
-            }),
-        )
-        .route(
-            "/:board/create",
-            routing::get({
-                let (sp, pages, actions, db) =
-                    (sp.clone(), pages.clone(), actions.clone(), db.clone());
-                move |path| create(sp, pages, actions, db, path)
-            }),
-        )
-        .route(
-            "/files/:file_id",
-            routing::get({
-                let (sp, fr) = (sp.clone(), fr.clone());
-                move |path| files(sp, fr, path)
-            }),
-        )
-        .route(
-            "/thumbnails/:file_id",
-            routing::get({
-                let (sp, fr) = (sp.clone(), fr.clone());
-                move |path| thumbnails(sp, fr, path)
-            }),
-        )
-        .route(
-            "/:board/submit",
-            routing::post({
-                let (sp, actions, db, fr) = (sp.clone(), actions.clone(), db.clone(), fr.clone());
-                move |conn, headers, path, form| {
-                    create_submit(sp, actions, db, fr, conn, headers, path, form)
-                }
-            }),
-        )
-        .route(
-            "/:board/reply/:orig_num",
-            routing::post({
-                let (sp, actions, db, fr) = (sp.clone(), actions.clone(), db.clone(), fr.clone());
-                move |conn, headers, path, form| {
-                    create_reply(sp, actions, db, fr, conn, headers, path, form)
-                }
-            }),
-        )
-        .route(
-            "/api/console",
-            routing::post({
-                let key = config.access_key.clone();
-
-                let (actions, db, fr) = (actions.clone(), db.clone(), fr.clone());
-                move |headers, body| console(key, actions, db, fr, headers, body)
-            }),
-        )
+        .route("/:board/thread/:post_num", routing::get(thread))
+        .route("/:board/catalog", routing::get(catalog))
+        .route("/:board/create", routing::get(create))
+        .route("/files/:file_id", routing::get(files))
+        .route("/thumbnails/:file_id", routing::get(thumbnails))
+        .route("/:board/submit", routing::post(create_submit))
+        .route("/:board/reply/:orig_num", routing::post(create_reply))
+        .route("/api/console", routing::post(console))
+        .route("/static/*path", routing::get(static_dir))
         .layer(extract::DefaultBodyLimit::max(FORM_MAX_LENGTH))
-        .fallback({
-            let sp = sp.clone();
-            move |uri| route_not_found(sp, uri)
-        });
+        .fallback(route_not_found)
+        .with_state(state);
 
-    let listener = tokio::net::TcpListener::bind(&config.addr)
+    let listener = tokio::net::TcpListener::bind(server_addr)
         .await
         .expect("Could not bind TCP listener");
 

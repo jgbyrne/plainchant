@@ -11,6 +11,7 @@ mod fsfr;
 mod pages;
 mod server;
 mod sqlite3db;
+mod state;
 mod template;
 
 use crate::db::Database;

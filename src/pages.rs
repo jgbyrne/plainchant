@@ -6,6 +6,11 @@ use crate::template;
 use crate::util;
 use std::collections::{HashMap, HashSet};
 
+pub struct StaticPages {
+    pub error_tmpl:   template::Template,
+    pub message_tmpl: template::Template,
+}
+
 #[derive(Hash, PartialEq, Eq, Clone, Copy)]
 pub enum PageRef {
     Homepage,
