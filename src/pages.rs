@@ -190,13 +190,19 @@ impl Pages {
                     format!("/thumbnails/{}", thread.original.file_id().unwrap_or("")),
                 );
 
+                let title = thread
+                    .original
+                    .title()
+                    .map(|t| format::html_escape(t));
+
+                render_data.set_flag(
+                    "orig_has_title",
+                    title.is_some(),
+                );
+
                 render_data.insert_value(
                     "orig_title",
-                    thread
-                        .original
-                        .title()
-                        .map(|t| format::html_escape(t))
-                        .unwrap_or(String::from("")),
+                    title.unwrap_or(String::from("")),
                 );
 
                 render_data.insert_value(
