@@ -130,7 +130,7 @@ impl Pages {
                         "original",
                         orig.post_num(),
                         "post_title",
-                        format::html_escape(&cat_title),
+                        format::html_escape_and_trim(&cat_title),
                     );
 
                     let mut cat_desc = orig.body().to_string();
@@ -142,7 +142,7 @@ impl Pages {
                         "original",
                         orig.post_num(),
                         "post_body",
-                        format::html_escape(&cat_desc),
+                        format::html_escape_and_trim(&cat_desc),
                     );
 
                     originals.push(orig.post_num().to_string());
@@ -193,24 +193,18 @@ impl Pages {
                 let title = thread
                     .original
                     .title()
-                    .map(|t| format::html_escape(t));
+                    .map(|t| format::html_escape_and_trim(t));
 
-                render_data.set_flag(
-                    "orig_has_title",
-                    title.is_some(),
-                );
+                render_data.set_flag("orig_has_title", title.is_some());
 
-                render_data.insert_value(
-                    "orig_title",
-                    title.unwrap_or(String::from("")),
-                );
+                render_data.insert_value("orig_title", title.unwrap_or(String::from("")));
 
                 render_data.insert_value(
                     "orig_poster",
                     thread
                         .original
                         .poster()
-                        .map(|p| format::html_escape(p))
+                        .map(|p| format::html_escape_and_trim(p))
                         .unwrap_or(String::from("Anonymous")),
                 );
 
@@ -231,7 +225,10 @@ impl Pages {
 
                 render_data.insert_value(
                     "orig_post_body",
-                    format::annotate_post(&format::html_escape(thread.original.body()), &posts),
+                    format::annotate_post(
+                        &format::html_escape_and_trim(thread.original.body()),
+                        &posts,
+                    ),
                 );
 
                 let mut replies = vec![];
@@ -263,7 +260,7 @@ impl Pages {
                         "poster",
                         reply
                             .poster()
-                            .map(|p| format::html_escape(p))
+                            .map(|p| format::html_escape_and_trim(p))
                             .unwrap_or(String::from("Anonymous")),
                     );
 
@@ -297,7 +294,7 @@ impl Pages {
                         "reply",
                         reply.post_num(),
                         "post_body",
-                        format::annotate_post(&format::html_escape(reply.body()), &posts),
+                        format::annotate_post(&format::html_escape_and_trim(reply.body()), &posts),
                     );
 
                     replies.push(reply.post_num());

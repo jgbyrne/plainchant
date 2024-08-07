@@ -176,9 +176,9 @@ pub fn display_feather(feather: &Feather) -> String {
     }
 }
 
-pub fn html_escape(text: &str) -> String {
+pub fn html_escape_and_trim(text: &str) -> String {
     let mut buf = String::new();
-    for c in text.chars() {
+    for c in text.trim().chars() {
         match c {
             '<' => buf.push_str("&lt;"),
             '&' => buf.push_str("&amp;"),
