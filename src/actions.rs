@@ -36,6 +36,7 @@ pub enum SubmissionResult {
     Success(u64),
     Banned,
     Cooldown,
+    MayNotBeEmpty,
 }
 
 fn is_within_cooldown(
@@ -66,6 +67,13 @@ fn set_cooldown_time(
 
     wg.insert(ip, cooldown_time);
     Ok(())
+}
+
+fn none_or_empty(s: &Option<String>) -> bool {
+    match s {
+        Some(str) => str.trim().is_empty(),
+        None => true,
+    }
 }
 
 impl Actions {
@@ -186,6 +194,10 @@ impl Actions {
             return Ok(SubmissionResult::Cooldown);
         }
 
+        if none_or_empty(&title) && body.trim().is_empty() {
+            return Ok(SubmissionResult::MayNotBeEmpty);
+        }
+
         let feather = match trip {
             None => site::Feather::None,
             Some(t) => site::Feather::Trip(compute_tripcode(t)),
@@ -237,6 +249,10 @@ impl Actions {
 
         if is_within_cooldown(&self.reply_cooldown, &ip, cur_time)? {
             return Ok(SubmissionResult::Cooldown);
+        }
+
+        if file_id.is_none() && body.trim().is_empty() {
+            return Ok(SubmissionResult::MayNotBeEmpty);
         }
 
         let feather = match trip {

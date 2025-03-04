@@ -441,6 +441,9 @@ async fn create_submit<DB: db::Database, FR: fr::FileRack>(
         Ok(actions::SubmissionResult::Cooldown) => {
             Err(forbidden(&sp, "Please wait before creating another thread"))
         },
+        Ok(actions::SubmissionResult::MayNotBeEmpty) => Err(
+            forbidden(&sp, "You must write something in your post")
+        ),
         Err(_) => Err(internal_error(&sp, "Failed to submit post")),
     }
 }
@@ -518,6 +521,9 @@ async fn create_reply<DB: db::Database, FR: fr::FileRack>(
             &sp,
             "Please wait a brief time before posting again",
         )),
+        Ok(actions::SubmissionResult::MayNotBeEmpty) => Err(
+            forbidden(&sp, "You may not create empty posts")
+        ),
         Err(_) => Err(internal_error(&sp, "Failed to submit post")),
     }
 }
