@@ -112,6 +112,14 @@ hr {
     width: 98%;
     max-width: 1300px;
     margin-left: 10px;
+    margin-right: 10px;
     margin-bottom: 5px;
+}
+
+.signature {
+}
+
+.contact {
+    float: right;
 }
 

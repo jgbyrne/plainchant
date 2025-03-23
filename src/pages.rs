@@ -39,6 +39,10 @@ pub struct Pages {
     render_freq: u64,
 }
 
+fn clone_option_string_or_empty(o_str: &Option<String>) -> String {
+    o_str.as_deref().map(|s| s.to_string()).unwrap_or_else(|| String::new())
+}
+
 impl Pages {
     pub fn render<DB: db::Database>(
         &self,
@@ -51,6 +55,7 @@ impl Pages {
 
                 render_data.insert_value("site_name", self.site.name.clone());
                 render_data.insert_value("site_description", self.site.description.clone());
+                render_data.insert_value("site_contact", clone_option_string_or_empty(&self.site.contact));
 
                 let mut board_ids = vec![];
                 let boards = database.get_boards()?;
@@ -86,6 +91,7 @@ impl Pages {
                 let mut render_data = template::Data::full();
 
                 render_data.insert_value("site_name", self.site.name.clone());
+                render_data.insert_value("site_contact", clone_option_string_or_empty(&self.site.contact));
 
                 render_data.insert_value("board_url", board.url);
                 render_data.insert_value("board_title", board.title);
@@ -172,6 +178,7 @@ impl Pages {
                 let posts = posts;
 
                 render_data.insert_value("site_name", self.site.name.clone());
+                render_data.insert_value("site_contact", clone_option_string_or_empty(&self.site.contact));
 
                 render_data.insert_value("board_url", board.url);
                 render_data.insert_value("board_title", board.title);
@@ -318,6 +325,8 @@ impl Pages {
                 let mut render_data = template::Data::simple();
 
                 render_data.insert_value("site_name", self.site.name.clone());
+                render_data.insert_value("site_contact", clone_option_string_or_empty(&self.site.contact));
+
                 render_data.insert_value("board_url", board.url);
                 render_data.insert_value("board_title", board.title);
 

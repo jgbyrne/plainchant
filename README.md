@@ -46,7 +46,7 @@ The following steps describe a convenient way of setting up Plainchant for local
 
 6. Using a tool of your choice, update the singleton row in the `Site` table of the database with a site name and description of your choice. For example:
 
-    `REPLACE INTO Site VALUES (1, 'sandcastlechan', 'An imageboard all about sandcastles.');`
+    `REPLACE INTO Site VALUES (1, 'sandcastlechan', 'An imageboard all about sandcastles.', 'webmaster@sandcastlechan.net');`
 
 7.  You can now run `plainchant`. By default it runs on `localhost:8088`.
 

@@ -71,7 +71,8 @@ impl Sqlite3Database {
             CREATE TABLE IF NOT EXISTS Site (
                 Identity    INTEGER  PRIMARY KEY,
                 Name        TEXT     NOT NULL,
-                Description TEXT     NOT NULL
+                Description TEXT     NOT NULL,
+                Contact     TEXT
             );
         "#,
             (),
@@ -82,7 +83,8 @@ impl Sqlite3Database {
             INSERT OR IGNORE INTO Site VALUES (
                 1,
                 'Plainchant',
-                'A lightweight and libre imageboard.'
+                'A lightweight and libre imageboard.',
+                NULL
             );
         "#,
             (),
@@ -298,7 +300,7 @@ impl db::Database for Sqlite3Database {
         let conn = self.pool.get()?;
         let mut query = conn.prepare(
             r#"
-            SELECT Name, Description FROM Site
+            SELECT Name, Description, Contact FROM Site
             WHERE Identity = 1;
             "#,
         )?;
@@ -307,6 +309,7 @@ impl db::Database for Sqlite3Database {
             Ok(site::Site {
                 name:        row.get(0)?,
                 description: row.get(1)?,
+                contact:     row.get(2)?,
             })
         })?;
 
@@ -320,10 +323,11 @@ impl db::Database for Sqlite3Database {
             REPLACE INTO Site VALUES (
                 1,
                 ?1,
-                ?2
+                ?2,
+                ?3
             );
             "#,
-            (site.name, site.description),
+            (site.name, site.description, site.contact),
         )?;
 
         Ok(())

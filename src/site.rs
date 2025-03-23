@@ -169,6 +169,7 @@ pub struct Catalog {
 pub struct Site {
     pub name:        String,
     pub description: String,
+    pub contact:     Option<String>,
 }
 
 #[derive(Debug, Clone)]
