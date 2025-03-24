@@ -5,7 +5,7 @@ html {
 body {
     background-color: #f7efef;
     font-family: "Liberation Sans", "Arial", "sans-serif";
-    font-size: 13pt;
+    font-size: 1.2rem;
     display: flex;
     flex-direction: column;
 }
