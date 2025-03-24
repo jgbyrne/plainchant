@@ -140,7 +140,7 @@ impl Pages {
                     );
 
                     let mut cat_desc = orig.body().to_string();
-                    if let Some((i, _)) = cat_desc.char_indices().nth(128) {
+                    if let Some((i, _)) = cat_desc.char_indices().nth(100) {
                         cat_desc.truncate(i);
                     }
 
