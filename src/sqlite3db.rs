@@ -72,7 +72,8 @@ impl Sqlite3Database {
                 Identity    INTEGER  PRIMARY KEY,
                 Name        TEXT     NOT NULL,
                 Description TEXT     NOT NULL,
-                Contact     TEXT
+                Contact     TEXT             ,
+                Url         TEXT
             );
         "#,
             (),
@@ -84,6 +85,7 @@ impl Sqlite3Database {
                 1,
                 'Plainchant',
                 'A lightweight and libre imageboard.',
+                NULL,
                 NULL
             );
         "#,
@@ -300,7 +302,7 @@ impl db::Database for Sqlite3Database {
         let conn = self.pool.get()?;
         let mut query = conn.prepare(
             r#"
-            SELECT Name, Description, Contact FROM Site
+            SELECT Name, Description, Contact, Url FROM Site
             WHERE Identity = 1;
             "#,
         )?;
@@ -310,6 +312,7 @@ impl db::Database for Sqlite3Database {
                 name:        row.get(0)?,
                 description: row.get(1)?,
                 contact:     row.get(2)?,
+                url:         row.get(3)?,
             })
         })?;
 
@@ -324,10 +327,11 @@ impl db::Database for Sqlite3Database {
                 1,
                 ?1,
                 ?2,
-                ?3
+                ?3,
+                ?4
             );
             "#,
-            (site.name, site.description, site.contact),
+            (site.name, site.description, site.contact, site.url),
         )?;
 
         Ok(())

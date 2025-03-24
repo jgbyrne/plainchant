@@ -170,6 +170,7 @@ pub struct Site {
     pub name:        String,
     pub description: String,
     pub contact:     Option<String>,
+    pub url:         Option<String>,
 }
 
 #[derive(Debug, Clone)]

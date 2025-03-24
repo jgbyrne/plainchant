@@ -179,6 +179,7 @@ impl Pages {
 
                 render_data.insert_value("site_name", self.site.name.clone());
                 render_data.insert_value("site_contact", clone_option_string_or_empty(&self.site.contact));
+                render_data.insert_value("site_url", clone_option_string_or_empty(&self.site.url));
 
                 render_data.insert_value("board_url", board.url);
                 render_data.insert_value("board_title", board.title);
