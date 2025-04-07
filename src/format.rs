@@ -55,7 +55,7 @@ enum InlineFeature {
     Url,
 }
 
-pub fn annotate_post(body: &str, posts: &HashSet<u64>) -> String {
+pub fn annotate_post(body: &str, posts: &HashSet<u64>, orig_post: u64) -> String {
     lazy_static! {
         // Match quoted (greentext) lines
         static ref QUOTED: Regex = Regex::new(r"^\s*>(?:$|[^>])").unwrap();
@@ -106,11 +106,17 @@ pub fn annotate_post(body: &str, posts: &HashSet<u64>) -> String {
                             // If the post is in the same thread, we link to the
                             // anchor so the browser need not make a request.
                             // Otherwise we link directly to the post.
-                            let link = match posts.contains(&num) {
+                            let link = match posts.contains(num) {
                                 true => format!("#{}", num),
                                 false => format!("./{}", num),
                             };
-                            out.push_str(&format!("<a href='{}'>&gt;&gt;{}</a>", &link, num));
+
+                            let text = match *num == orig_post {
+                                true => format!("&gt;&gt;{} (OP)", num),
+                                false => format!("&gt;&gt;{}", num),
+                            };
+
+                            out.push_str(&format!("<a href='{}'>{}</a>", &link, &text));
                         } else {
                             out.push_str(&line[start..right]);
                         }
@@ -165,6 +171,14 @@ pub fn annotate_post(body: &str, posts: &HashSet<u64>) -> String {
         out.push_str("\n");
     }
     out
+}
+
+pub fn annotate_fwd_links(links: &Vec<u64>) -> String {
+    links
+        .into_iter()
+        .map(|link_num| format!("<a href='#{0}'>&gt;&gt;{0}</a> ", link_num))
+        .collect::<Vec<String>>()
+        .join("")
 }
 
 pub fn display_feather(feather: &Feather) -> String {

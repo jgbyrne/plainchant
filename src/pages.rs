@@ -4,7 +4,13 @@ use crate::site;
 use crate::site::Post;
 use crate::template;
 use crate::util;
+use lazy_static::lazy_static;
+use regex::Regex;
 use std::collections::{HashMap, HashSet};
+
+// Maximum number of post replies to process in a given post
+// Prevents maliciously tagging everyone in a thread
+const MAX_INLINE_REPLIES: usize = 24;
 
 pub struct StaticPages {
     pub error_tmpl:   template::Template,
@@ -40,7 +46,53 @@ pub struct Pages {
 }
 
 fn clone_option_string_or_empty(o_str: &Option<String>) -> String {
-    o_str.as_deref().map(|s| s.to_string()).unwrap_or_else(|| String::new())
+    o_str
+        .as_deref()
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| String::new())
+}
+
+fn compute_fwd_links(thread: &db::Thread, posts: &HashSet<u64>) -> HashMap<u64, Vec<u64>> {
+    lazy_static! {
+        // Capture replies of form >>390290
+        static ref REPLY: Regex = Regex::new(r"(>>)([\d]+)(?:$|\W)").unwrap();
+    }
+
+    let mut links = HashMap::new();
+
+    for reply in &thread.replies {
+        let referenced_posts = REPLY.captures_iter(&reply.body).take(MAX_INLINE_REPLIES);
+        for ref_post in referenced_posts {
+            let ref_post_num = ref_post.get(2).unwrap();
+
+            let ref_post_num = match &ref_post_num.as_str().parse::<u64>() {
+                Ok(n) => *n,
+                Err(_) => continue,
+            };
+
+            // Do not include posts from outside the thread
+            if !posts.contains(&ref_post_num) {
+                continue;
+            }
+
+            // Do not forward link to one post multiple times
+            let fwd_list = links.entry(ref_post_num).or_insert(vec![]);
+            if let Some(last) = fwd_list.last() {
+                if *last == reply.post_num() {
+                    continue;
+                }
+            }
+
+            // Only forward link to newer posts
+            if ref_post_num >= reply.post_num() {
+                continue;
+            }
+
+            fwd_list.push(reply.post_num());
+        }
+    }
+
+    links
 }
 
 impl Pages {
@@ -55,7 +107,10 @@ impl Pages {
 
                 render_data.insert_value("site_name", self.site.name.clone());
                 render_data.insert_value("site_description", self.site.description.clone());
-                render_data.insert_value("site_contact", clone_option_string_or_empty(&self.site.contact));
+                render_data.insert_value(
+                    "site_contact",
+                    clone_option_string_or_empty(&self.site.contact),
+                );
 
                 let mut board_ids = vec![];
                 let boards = database.get_boards()?;
@@ -91,7 +146,10 @@ impl Pages {
                 let mut render_data = template::Data::full();
 
                 render_data.insert_value("site_name", self.site.name.clone());
-                render_data.insert_value("site_contact", clone_option_string_or_empty(&self.site.contact));
+                render_data.insert_value(
+                    "site_contact",
+                    clone_option_string_or_empty(&self.site.contact),
+                );
 
                 render_data.insert_value("board_url", board.url);
                 render_data.insert_value("board_title", board.title);
@@ -177,8 +235,13 @@ impl Pages {
                 posts.extend(thread.replies.iter().map(|r| r.post_num()));
                 let posts = posts;
 
+                let fwd_links = compute_fwd_links(&thread, &posts);
+
                 render_data.insert_value("site_name", self.site.name.clone());
-                render_data.insert_value("site_contact", clone_option_string_or_empty(&self.site.contact));
+                render_data.insert_value(
+                    "site_contact",
+                    clone_option_string_or_empty(&self.site.contact),
+                );
                 render_data.insert_value("site_url", clone_option_string_or_empty(&self.site.url));
 
                 render_data.insert_value("board_url", board.url);
@@ -232,10 +295,20 @@ impl Pages {
                 );
 
                 render_data.insert_value(
+                    "orig_fwd_links",
+                    format::annotate_fwd_links(
+                        fwd_links
+                            .get(&thread.original.post_num())
+                            .unwrap_or(&vec![]),
+                    ),
+                );
+
+                render_data.insert_value(
                     "orig_post_body",
                     format::annotate_post(
                         &format::html_escape_and_trim(thread.original.body()),
                         &posts,
+                        thread.original.post_num(),
                     ),
                 );
 
@@ -297,12 +370,24 @@ impl Pages {
                         "post_num",
                         reply.post_num().to_string(),
                     );
+                    render_data.insert_collection_value(
+                        "reply",
+                        reply.post_num(),
+                        "fwd_links",
+                        format::annotate_fwd_links(
+                            fwd_links.get(&reply.post_num()).unwrap_or(&vec![]),
+                        ),
+                    );
 
                     render_data.insert_collection_value(
                         "reply",
                         reply.post_num(),
                         "post_body",
-                        format::annotate_post(&format::html_escape_and_trim(reply.body()), &posts),
+                        format::annotate_post(
+                            &format::html_escape_and_trim(reply.body()),
+                            &posts,
+                            thread.original.post_num(),
+                        ),
                     );
 
                     replies.push(reply.post_num());
@@ -326,7 +411,10 @@ impl Pages {
                 let mut render_data = template::Data::simple();
 
                 render_data.insert_value("site_name", self.site.name.clone());
-                render_data.insert_value("site_contact", clone_option_string_or_empty(&self.site.contact));
+                render_data.insert_value(
+                    "site_contact",
+                    clone_option_string_or_empty(&self.site.contact),
+                );
 
                 render_data.insert_value("board_url", board.url);
                 render_data.insert_value("board_title", board.title);
