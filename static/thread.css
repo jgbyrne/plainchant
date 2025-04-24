@@ -185,7 +185,11 @@
       display: none;
     }
 
-    .glow-on-preview-link:hover .preview-link {
+    .link-with-preview:hover .preview-link {
+        color: darkred;
+    }
+
+    .link-with-preview :visited :hover .preview-link {
         color: darkred;
     }
 }
