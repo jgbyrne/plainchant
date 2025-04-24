@@ -39,11 +39,11 @@
 
 .post-image-frame {
     max-width: 150px;
-    display: inline-block;
-    vertical-align: top;
     padding: 5px 20px 5px 5px;
     float: left;
     display: block;
+    position: relative;
+    z-index: 2;
 }
 
 .orig-post-image-frame {
@@ -152,7 +152,7 @@
 }
 
 .floating-preview {
-    z-index: 1;
+    z-index: 9;
     padding: 15px;
     width: max-content;
     max-width: min(1000px, 60vw);
