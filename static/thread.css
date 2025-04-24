@@ -63,7 +63,6 @@
     flex: 1;
     display: block;
     word-wrap: break-word;
-    overflow: hidden;
 }
 
 .info-line {
@@ -124,6 +123,7 @@
     max-width: 1234px;
     font-size: 1.15rem;
     line-height: 125%;
+    position: relative;
 }
 
 .reply-form {
@@ -149,4 +149,38 @@
 .form-submit {
     padding-top: 20px;
     padding-bottom: 17px;
+}
+
+.floating-preview {
+    z-index: 1;
+    padding: 15px;
+    width: max-content;
+    max-width: min(1000px, 60vw);
+
+    background-color: #EDCFCF;
+
+    position: absolute;
+    margin-top: 5px;
+    margin-left: 5px;
+    display: inline-block;
+
+    font-size: 1.15rem;
+    line-height: 125%;
+
+    white-space: pre-line;
+    word-wrap: break-word;
+}
+
+/* Only offer post previews on PCs */
+
+@media (hover: hover) and (pointer: fine) {
+    .link-with-preview:not(:hover) .floating-preview {
+      display: none;
+    }
+}
+
+@media (hover: none) or (not (pointer: fine)) {
+    .floating-preview {
+        display: none;
+    }
 }

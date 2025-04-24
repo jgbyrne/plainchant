@@ -230,12 +230,20 @@ impl Pages {
                 // The set of post IDs in the current thread is used
                 // by the annotate_post function to decide how whether
                 // to use an anchor link or a direct link
-                let mut posts = HashSet::new();
-                posts.insert(thread.original.post_num());
-                posts.extend(thread.replies.iter().map(|r| r.post_num()));
+                let mut posts = HashMap::new();
+
+                posts.insert(
+                    thread.original.post_num(),
+                    format::html_escape_and_trim(thread.original.body()),
+                );
+
+                for reply in &thread.replies {
+                    posts.insert(reply.post_num(), format::html_escape_and_trim(reply.body()));
+                }
+
                 let posts = posts;
 
-                let fwd_links = compute_fwd_links(&thread, &posts);
+                let fwd_links = compute_fwd_links(&thread, &posts.keys().cloned().collect());
 
                 render_data.insert_value("site_name", self.site.name.clone());
                 render_data.insert_value(
@@ -297,6 +305,8 @@ impl Pages {
                 render_data.insert_value(
                     "orig_fwd_links",
                     format::annotate_fwd_links(
+                        thread.original.post_num(),
+                        &posts,
                         fwd_links
                             .get(&thread.original.post_num())
                             .unwrap_or(&vec![]),
@@ -306,9 +316,10 @@ impl Pages {
                 render_data.insert_value(
                     "orig_post_body",
                     format::annotate_post(
-                        &format::html_escape_and_trim(thread.original.body()),
+                        &posts[&thread.original.post_num()],
                         &posts,
                         thread.original.post_num(),
+                        false,
                     ),
                 );
 
@@ -375,6 +386,8 @@ impl Pages {
                         reply.post_num(),
                         "fwd_links",
                         format::annotate_fwd_links(
+                            thread.original.post_num(),
+                            &posts,
                             fwd_links.get(&reply.post_num()).unwrap_or(&vec![]),
                         ),
                     );
@@ -384,9 +397,10 @@ impl Pages {
                         reply.post_num(),
                         "post_body",
                         format::annotate_post(
-                            &format::html_escape_and_trim(reply.body()),
+                            &posts[&reply.post_num()],
                             &posts,
                             thread.original.post_num(),
+                            false,
                         ),
                     );
 

@@ -3,7 +3,7 @@ use crate::util;
 use chrono::{TimeZone, Utc};
 use lazy_static::lazy_static;
 use regex::{Captures, Regex};
-use std::collections::HashSet;
+use std::collections::HashMap;
 use url::Url;
 
 pub fn utc_timestamp(ts: u64) -> String {
@@ -55,7 +55,26 @@ enum InlineFeature {
     Url,
 }
 
-pub fn annotate_post(body: &str, posts: &HashSet<u64>, orig_post: u64) -> String {
+fn post_preview(num: u64, posts: &HashMap<u64, String>, orig_post: u64) -> String {
+    let preview_body = &posts[&num];
+
+    if preview_body.is_empty() {
+        format!("<a href='#{0}'>&gt;&gt;{0}</a>", num)
+    } else {
+        format!(
+            "<span class='link-with-preview'><a href='#{0}'>&gt;&gt;{0}</a><div class='floating-preview'>{1}</div></span>",
+            num,
+            &annotate_post(preview_body, posts, orig_post, true)
+        )
+    }
+}
+
+pub fn annotate_post(
+    body: &str,
+    posts: &HashMap<u64, String>,
+    orig_post: u64,
+    is_preview: bool,
+) -> String {
     lazy_static! {
         // Match quoted (greentext) lines
         static ref QUOTED: Regex = Regex::new(r"^\s*>(?:$|[^>])").unwrap();
@@ -103,20 +122,15 @@ pub fn annotate_post(body: &str, posts: &HashSet<u64>, orig_post: u64) -> String
                         right = post_num.end();
 
                         if let Ok(num) = &post_num.as_str().parse::<u64>() {
-                            // If the post is in the same thread, we link to the
-                            // anchor so the browser need not make a request.
-                            // Otherwise we link directly to the post.
-                            let link = match posts.contains(num) {
-                                true => format!("#{}", num),
-                                false => format!("./{}", num),
-                            };
-
-                            let text = match *num == orig_post {
-                                true => format!("&gt;&gt;{} (OP)", num),
-                                false => format!("&gt;&gt;{}", num),
-                            };
-
-                            out.push_str(&format!("<a href='{}'>{}</a>", &link, &text));
+                            if !posts.contains_key(num) {
+                                out.push_str(&format!("<a href='./{0}'>&gt;&gt;{0}</a>", num));
+                            } else if *num == orig_post {
+                                out.push_str(&format!("<a href='#{0}'>&gt;&gt;{0} (OP)</a>", num));
+                            } else if is_preview {
+                                out.push_str(&format!("<a href='#{0}'>&gt;&gt;{0}</a>", num));
+                            } else {
+                                out.push_str(&post_preview(*num, posts, orig_post));
+                            }
                         } else {
                             out.push_str(&line[start..right]);
                         }
@@ -173,12 +187,12 @@ pub fn annotate_post(body: &str, posts: &HashSet<u64>, orig_post: u64) -> String
     out
 }
 
-pub fn annotate_fwd_links(links: &Vec<u64>) -> String {
+pub fn annotate_fwd_links(orig_num: u64, posts: &HashMap<u64, String>, links: &Vec<u64>) -> String {
     links
         .into_iter()
-        .map(|link_num| format!("<a href='#{0}'>&gt;&gt;{0}</a> ", link_num))
+        .map(|link_num| post_preview(*link_num, posts, orig_num))
         .collect::<Vec<String>>()
-        .join("")
+        .join(" ")
 }
 
 pub fn display_feather(feather: &Feather) -> String {
