@@ -172,11 +172,22 @@
     word-wrap: break-word;
 }
 
+.centred-preview {
+    min-width: 400px;
+    margin-top: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
 /* Only offer post previews on PCs */
 
 @media (hover: hover) and (pointer: fine) {
     .link-with-preview:not(:hover) .floating-preview {
       display: none;
+    }
+
+    .glow-on-preview-link:hover .preview-link {
+        color: darkred;
     }
 }
 

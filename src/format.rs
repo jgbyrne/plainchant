@@ -55,16 +55,18 @@ enum InlineFeature {
     Url,
 }
 
-fn post_preview(num: u64, posts: &HashMap<u64, String>, orig_post: u64) -> String {
+fn post_preview(num: u64, posts: &HashMap<u64, String>, orig_post: u64, centre: bool) -> String {
     let preview_body = &posts[&num];
 
     if preview_body.is_empty() {
         format!("<a href='#{0}'>&gt;&gt;{0}</a>", num)
     } else {
         format!(
-            "<span class='link-with-preview'><a href='#{0}'>&gt;&gt;{0}</a><div class='floating-preview'>{1}</div></span>",
+            "<span class='link-with-preview {3}'><a href='#{0}' class='preview-link'>&gt;&gt;{0}</a><div class='floating-preview {2}'>{1}</div></span>",
             num,
-            &annotate_post(preview_body, posts, orig_post, true)
+            &annotate_post(preview_body, posts, orig_post, true),
+            if centre { "centred-preview" } else { "" },
+            if centre { "glow-on-preview-link" } else { "" },
         )
     }
 }
@@ -129,7 +131,7 @@ pub fn annotate_post(
                             } else if is_preview {
                                 out.push_str(&format!("<a href='#{0}'>&gt;&gt;{0}</a>", num));
                             } else {
-                                out.push_str(&post_preview(*num, posts, orig_post));
+                                out.push_str(&post_preview(*num, posts, orig_post, false));
                             }
                         } else {
                             out.push_str(&line[start..right]);
@@ -190,7 +192,7 @@ pub fn annotate_post(
 pub fn annotate_fwd_links(orig_num: u64, posts: &HashMap<u64, String>, links: &Vec<u64>) -> String {
     links
         .into_iter()
-        .map(|link_num| post_preview(*link_num, posts, orig_num))
+        .map(|link_num| post_preview(*link_num, posts, orig_num, true))
         .collect::<Vec<String>>()
         .join(" ")
 }
