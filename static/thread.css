@@ -21,7 +21,6 @@
     background-color: #ddddee;
     display: flex;
     min-width: 400px;
-    max-width: calc(100% - 54px);
     width: fit-content;
 }
 
