@@ -17,7 +17,9 @@ body {
 }
 
 .controls {
-    display: inline-block;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
     text-align: left;
     width: 100%;
     max-width: 1300px;
@@ -27,6 +29,12 @@ body {
 .nav {
     display: inline-block;
     padding-left: 20px;
+    padding-right: 20px;
+}
+
+.centre-nav {
+    display: inline-block;
+    margin: 0 auto;
 }
 
 .nav-link {
@@ -90,7 +98,7 @@ body {
 }
 
 .content {
-    width: 98%;
+    width: 99%;
     max-width: 1200px;
     flex-grow: 1;
 }
@@ -103,12 +111,21 @@ body {
 }
 
 hr {
-    width: 98%;
+    width: 100%;
     max-width: 1300px;
     margin: 7px;
 }
 
+.minor-rule {
+    border: none;
+    height: 0.11em;
+    background-color: #888;
+}
+
 .footer {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
     width: 98%;
     max-width: 1300px;
     margin-left: 10px;
@@ -120,6 +137,5 @@ hr {
 }
 
 .contact {
-    float: right;
 }
 

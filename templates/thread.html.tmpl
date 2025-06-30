@@ -34,6 +34,7 @@
         </div>
         <hr/>
         <div class="content">
+            <a id="thread-start"></a>
             <div class="post orig">
                 <div class="info-line orig-info-line">
                     <a id="{{orig_post_num}}"></a>
@@ -73,7 +74,14 @@
                     </div>
                 </div>
             {%reply%}
-        <hr/>
+        <hr class="minor-rule"/>
+        <div class="controls">
+            <div class="centre-nav">
+                <span class="nav-link">[<a href="/{{board_url}}/catalog">Catalog</a>]</span>
+                <span class="nav-link">[<a href="#thread-start">Go to Top</a>]</span>
+            </div>
+        </div>
+        <hr class="minor-rule"/>
         <a id="thread-end"></a>
         <div class="reply-form">
             <form class="post-form" action="../reply/{{orig_post_num}}" method="POST" enctype="multipart/form-data">
@@ -101,7 +109,6 @@
                 </div>
             </form>
         </div>
-        <br/>
         </div>
         <hr/>
         <small class="footer">
