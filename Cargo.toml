@@ -1,6 +1,6 @@
 [package]
 name = "plainchant"
-version = "0.5.5"
+version = "0.5.6"
 authors = ["Jack Byrne <jgbyrne9@gmail.com>"]
 edition = "2021"
 
@@ -9,7 +9,7 @@ edition = "2021"
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7", features = ["io"] }
-axum = { version = "0.7.5", features = ["multipart"] }
+axum = { version = "0.8.4", features = ["multipart"] }
 chrono = "0.4"
 bytes = "1"
 rand = "0.8"
@@ -17,9 +17,9 @@ image = "0.25"
 toml = "0.8"
 lazy_static = "1"
 regex = "1"
-rusqlite = "0.31"
+rusqlite = "0.37"
 r2d2 = "0.8"
-r2d2_sqlite = "0.24"
+r2d2_sqlite = "0.31"
 mime_guess = "2"
 dashmap = "6"
 sha256 = "1"

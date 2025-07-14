@@ -695,10 +695,21 @@ impl db::Database for Sqlite3Database {
             (board_id, post_num),
         )?;
 
+        let new_bump_time: u64 = match tx.query_one(
+            r#"
+            SELECT MAX(Time) FROM Posts WHERE (BoardId, OrigNum)=(?1, ?2);
+            "#,
+            (board_id, orig.post_num),
+            |row| Ok(row.get(0)?),
+        )? {
+            Some(most_recent_reply) => most_recent_reply,
+            None => orig.time,
+        };
+
         tx.execute(
             r#"
             UPDATE Originals
-            SET Replies = ?3, ImgReplies = ?4
+            SET Replies = ?3, ImgReplies = ?4, BumpTime = ?5
             WHERE (BoardId, PostNum) = (?1, ?2);
             "#,
             (
@@ -706,6 +717,7 @@ impl db::Database for Sqlite3Database {
                 orig.post_num,
                 new_reply_count,
                 new_img_reply_count,
+                new_bump_time,
             ),
         )?;
 

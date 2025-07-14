@@ -637,20 +637,20 @@ pub async fn serve<DB: db::Database, FR: fr::FileRack>(
     let router = Router::new()
         .route("/", routing::get(homepage))
         .route(
-            "/:board/",
+            "/{board}/",
             routing::get(|extract::Path(board): extract::Path<String>| {
                 redirect(format!("/{}/catalog", board))
             }),
         )
-        .route("/:board/thread/:post_num", routing::get(thread))
-        .route("/:board/catalog", routing::get(catalog))
-        .route("/:board/create", routing::get(create))
-        .route("/files/:file_id", routing::get(files))
-        .route("/thumbnails/:file_id", routing::get(thumbnails))
-        .route("/:board/submit", routing::post(create_submit))
-        .route("/:board/reply/:orig_num", routing::post(create_reply))
+        .route("/{board}/thread/{post_num}", routing::get(thread))
+        .route("/{board}/catalog", routing::get(catalog))
+        .route("/{board}/create", routing::get(create))
+        .route("/files/{file_id}", routing::get(files))
+        .route("/thumbnails/{file_id}", routing::get(thumbnails))
+        .route("/{board}/submit", routing::post(create_submit))
+        .route("/{board}/reply/{orig_num}", routing::post(create_reply))
         .route("/api/console", routing::post(console))
-        .route("/static/*path", routing::get(static_dir))
+        .route("/static/{*path}", routing::get(static_dir))
         .layer(extract::DefaultBodyLimit::max(FORM_MAX_LENGTH))
         .fallback(route_not_found)
         .with_state(state);
