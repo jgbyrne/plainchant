@@ -8,12 +8,16 @@ use crate::template::{Data, Template};
 use crate::util::unwrap_or_return;
 use crate::Config;
 
-use axum::extract::State;
+use axum::extract::{Request, State};
 use axum::http;
 use axum::http::header::HeaderMap;
 use axum::http::{StatusCode, Uri};
 use axum::response::{ErrorResponse, Html, IntoResponse, IntoResponseParts};
+use axum::ServiceExt;
 use axum::{body, extract, response, routing, Router};
+
+use tower::Layer;
+use tower_http::normalize_path::NormalizePathLayer;
 
 use tokio;
 use tokio_util::io::ReaderStream;
@@ -637,7 +641,7 @@ pub async fn serve<DB: db::Database, FR: fr::FileRack>(
     let router = Router::new()
         .route("/", routing::get(homepage))
         .route(
-            "/{board}/",
+            "/{board}",
             routing::get(|extract::Path(board): extract::Path<String>| {
                 redirect(format!("/{}/catalog", board))
             }),
@@ -655,13 +659,15 @@ pub async fn serve<DB: db::Database, FR: fr::FileRack>(
         .fallback(route_not_found)
         .with_state(state);
 
+    let app = NormalizePathLayer::trim_trailing_slash().layer(router);
+
     let listener = tokio::net::TcpListener::bind(server_addr)
         .await
         .expect("Could not bind TCP listener");
 
     axum::serve(
         listener,
-        router.into_make_service_with_connect_info::<SocketAddr>(),
+        ServiceExt::<Request>::into_make_service_with_connect_info::<SocketAddr>(app),
     )
     .await
     .expect("Server quit unexpectedly");
