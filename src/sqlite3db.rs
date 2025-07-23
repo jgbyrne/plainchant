@@ -3,10 +3,8 @@ use crate::site;
 use crate::util;
 use crate::util::PlainchantErr;
 
-use r2d2;
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
-use rusqlite;
 
 use core::ops::Deref;
 use std::path::PathBuf;
@@ -471,7 +469,7 @@ impl db::Database for Sqlite3Database {
     fn update_post(&self, post: Box<dyn site::Post>) -> Result<(), PlainchantErr> {
         let conn = self.pool.get()?;
 
-        let (feather_type, feather_text) = encode_feather(&post.feather());
+        let (feather_type, feather_text) = encode_feather(post.feather());
 
         // Forbid updating of board_id, post_num, orig_num
 
@@ -700,7 +698,7 @@ impl db::Database for Sqlite3Database {
             SELECT MAX(Time) FROM Posts WHERE (BoardId, OrigNum)=(?1, ?2);
             "#,
             (board_id, orig.post_num),
-            |row| Ok(row.get(0)?),
+            |row| row.get(0),
         )? {
             Some(most_recent_reply) => most_recent_reply,
             None => orig.time,

@@ -111,10 +111,7 @@ pub fn annotate_post(
                 InlineFeature::Reply => {
                     let reply = m;
 
-                    let local = match reply.get(3) {
-                        Some(_) => false,
-                        None => true,
-                    };
+                    let local = reply.get(3).is_none();
 
                     let right;
 
@@ -183,14 +180,14 @@ pub fn annotate_post(
             out.push_str("</span>");
         }
 
-        out.push_str("\n");
+        out.push('\n');
     }
     out
 }
 
-pub fn annotate_fwd_links(orig_num: u64, posts: &HashMap<u64, String>, links: &Vec<u64>) -> String {
+pub fn annotate_fwd_links(orig_num: u64, posts: &HashMap<u64, String>, links: &[u64]) -> String {
     links
-        .into_iter()
+        .iter()
         .map(|link_num| post_preview(*link_num, posts, orig_num, true))
         .collect::<Vec<String>>()
         .join(" ")
@@ -211,7 +208,7 @@ pub fn html_escape_and_trim(text: &str) -> String {
         match c {
             '<' => buf.push_str("&lt;"),
             '&' => buf.push_str("&amp;"),
-            c @ _ => buf.push(c),
+            c => buf.push(c),
         }
     }
     buf

@@ -81,11 +81,7 @@ fn main() {
         ip.parse::<IpAddr>()
             .unwrap_or_else(|_| init_die("site.ip could not be understood as an IP Address")),
         port,
-    );
-
-    let addr: SocketAddr = addr
-        .try_into()
-        .unwrap_or_else(|_| init_die("site.ip:site.port is not a valid address"));
+    ).into();
 
     let assets = PathBuf::from(
         val(val(&conf_data, "site"), "assets")
@@ -104,7 +100,7 @@ fn main() {
             val.as_str()
                 .unwrap_or_else(|| init_die("access_key is not a string"))
         })
-        .map(|s| String::from(s));
+        .map(String::from);
 
     let config = Config {
         addr,
@@ -124,7 +120,7 @@ fn main() {
             .unwrap_or_else(|| init_die("Database path has no file name"));
 
         match fs::canonicalize(parent) {
-            Ok(pp) => sqlite3db::Sqlite3Database::from_path(PathBuf::from(pp).join(file_name))
+            Ok(pp) => sqlite3db::Sqlite3Database::from_path(pp.join(file_name))
                 .unwrap_or_else(|err| err.die()),
             Err(_) => init_die("Could not comprehend sqlite3db path"),
         }
@@ -135,7 +131,7 @@ fn main() {
     // Load file rack - this needs to be fr::FileRack
     let fr = if let Some(path) = val(val(val(&conf_data, "fr"), "fs"), "path").as_str() {
         match fs::canonicalize(path) {
-            Ok(path) => fsfr::FSFileRack::from_dir(&path.as_path()).unwrap_or_else(|err| err.die()),
+            Ok(path) => fsfr::FSFileRack::from_dir(&path).unwrap_or_else(|err| err.die()),
             Err(_) => init_die("Could not comprehend fsfr path"),
         }
     } else {

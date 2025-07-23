@@ -52,10 +52,8 @@ impl FSFileRack {
 
         let fr_path = dir.join("rack").to_path_buf();
 
-        if !fr_path.is_dir() {
-            if !fs::create_dir(&fr_path).is_ok() {
-                return Err(fr::static_err("Failed to create fsfr /rack directory"));
-            }
+        if !fr_path.is_dir() && fs::create_dir(&fr_path).is_err() {
+            return Err(fr::static_err("Failed to create fsfr /rack directory"));
         }
 
         Ok(FSFileRack {

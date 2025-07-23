@@ -28,12 +28,12 @@ impl Data {
         }
     }
 
-    pub fn insert_value<'k>(&mut self, key: &'k str, val: String) {
+    pub fn insert_value(&mut self, key: &str, val: String) {
         self.values.insert(String::from(key), val);
     }
 
     #[allow(dead_code)]
-    pub fn set_flag<'k>(&mut self, key: &'k str, flag: bool) {
+    pub fn set_flag(&mut self, key: &str, flag: bool) {
         let flags = self.flags.as_mut().expect("Data has no flags");
         flags.insert(String::from(key), flag);
     }
@@ -60,7 +60,7 @@ impl Data {
         flags.insert(full_key, flag);
     }
 
-    pub fn add_collection<'k>(&mut self, col: &'k str, values: Vec<String>) {
+    pub fn add_collection(&mut self, col: &str, values: Vec<String>) {
         let cols = self.collections.as_mut().expect("Data has no collections");
         cols.insert(String::from(col), values);
     }
@@ -116,13 +116,13 @@ impl Template {
                         },
                     }
                     if state != '+' {
-                        let frag = mem::replace(&mut buf, String::new());
+                        let frag = mem::take(&mut buf);
                         chunks.push(Chunk::Fragment(frag));
                     }
                 },
                 '$' => match c {
                     '}' => {
-                        let raw = mem::replace(&mut buf, String::new());
+                        let raw = mem::take(&mut buf);
                         let split = raw.split('.').collect::<Vec<&str>>();
                         match split.len() {
                             1 => chunks.push(Chunk::Placeholder(raw, None)),
@@ -138,7 +138,7 @@ impl Template {
                 },
                 '?' => match c {
                     ':' => {
-                        let raw = mem::replace(&mut buf, String::new());
+                        let raw = mem::take(&mut buf);
                         let split = raw.split('.').collect::<Vec<&str>>();
                         match split.len() {
                             1 => chunks.push(Chunk::Condition(raw, None)),
@@ -154,7 +154,7 @@ impl Template {
                 },
                 '!' => match c {
                     '%' => {
-                        let raw = mem::replace(&mut buf, String::new());
+                        let raw = mem::take(&mut buf);
                         chunks.push(Chunk::Control(raw));
                         state = '}';
                     },
@@ -194,7 +194,7 @@ impl Template {
             match chunk {
                 Chunk::Fragment(s) => {
                     if skip.is_none() {
-                        buf.push_str(&s)
+                        buf.push_str(s)
                     }
                 },
                 Chunk::Placeholder(name, obj) => {
@@ -207,7 +207,7 @@ impl Template {
                                             let obj_id = &obj_col[*obj_ctr];
                                             let mut valpath = String::from(obj_name);
                                             valpath.push('.');
-                                            valpath.push_str(&obj_id);
+                                            valpath.push_str(obj_id);
                                             valpath.push('.');
                                             valpath.push_str(name);
                                             buf.push_str(
@@ -243,7 +243,7 @@ impl Template {
                                                 let obj_id = &obj_col[*obj_ctr];
                                                 let mut valpath = String::from(obj_name);
                                                 valpath.push('.');
-                                                valpath.push_str(&obj_id);
+                                                valpath.push_str(obj_id);
                                                 valpath.push('.');
                                                 valpath.push_str(name);
                                                 *flags.get(&valpath).unwrap_or(&false)

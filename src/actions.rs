@@ -5,7 +5,6 @@ use crate::site::Post;
 use crate::util;
 use crate::util::{unwrap_or_return, ErrOrigin, PlainchantErr};
 use rand::Rng;
-use sha256;
 use std::collections::HashMap;
 use std::iter;
 use std::sync::RwLock;
@@ -223,7 +222,7 @@ impl Actions {
 
         let orig = database
             .create_original(original)
-            .map(|num| SubmissionResult::Success(num))?;
+            .map(SubmissionResult::Success)?;
 
         set_cooldown_time(&self.orig_cooldown, ip, cur_time + ORIG_COOLDOWN)?;
         Ok(orig)
@@ -275,7 +274,7 @@ impl Actions {
 
         let reply = database
             .create_reply(reply)
-            .map(|num| SubmissionResult::Success(num))?;
+            .map(SubmissionResult::Success)?;
 
         set_cooldown_time(&self.reply_cooldown, ip, cur_time + REPLY_COOLDOWN)?;
         Ok(reply)

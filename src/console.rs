@@ -16,7 +16,7 @@ where
     FR: 'static + fr::FileRack + Sync + Send,
 {
     let parts = command.split(" ").collect::<Vec<&str>>();
-    if parts.len() == 0 {
+    if parts.is_empty() {
         return String::from("");
     }
 

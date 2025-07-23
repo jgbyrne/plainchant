@@ -19,11 +19,9 @@ use axum::{body, extract, response, routing, Router};
 use tower::Layer;
 use tower_http::normalize_path::NormalizePathLayer;
 
-use tokio;
 use tokio_util::io::ReaderStream;
 
 use bytes::{BufMut, Bytes, BytesMut};
-use mime_guess;
 
 use std::net::{IpAddr, SocketAddr};
 use std::ops::DerefMut;
@@ -95,7 +93,7 @@ fn render_page<DB: db::Database>(
     });
 
     let pages = pg.deref_mut();
-    let page = pages.update(&page_ref, page);
+    let page = pages.update(page_ref, page);
     ok_page(page)
 }
 
@@ -275,7 +273,7 @@ async fn multipart_text_field<'f>(
 
     if txt.len() > max_length {
         Err(bad_request(sp, "Text field too long"))
-    } else if txt.len() == 0 {
+    } else if txt.is_empty() {
         Ok(None)
     } else {
         Ok(Some(txt))
@@ -297,13 +295,13 @@ async fn multipart_file_field<'f>(
     while let Some(chunk) = field
         .chunk()
         .await
-        .map_err(|_err| bad_request(&sp, "Could not read file"))?
+        .map_err(|_err| bad_request(sp, "Could not read file"))?
     {
         if space < chunk.len() {
             // Consume the remainder of the upload to avoid killing the connection
             // Since we enforce a ContentLengthLimit there is no DOS risk
             while let Ok(Some(_)) = field.chunk().await {}
-            return Err(bad_request(&sp, "File size limit exceeded"));
+            return Err(bad_request(sp, "File size limit exceeded"));
         }
         space -= chunk.len();
         buffer.put(chunk)
@@ -340,7 +338,7 @@ fn determine_poster_ip(conn_addr: SocketAddr, headers: &HeaderMap) -> String {
     if let Some(hdr) = headers.get(http::header::FORWARDED) {
         if let Ok(hstr) = hdr.to_str() {
             // There can be multiple forwarded addresses, we just use the first
-            let hval = hstr.splitn(2, ',').next().unwrap();
+            let hval = hstr.split(',').next().unwrap();
             let hparts = hval.split(';');
             for part in hparts {
                 let k_v: Vec<&str> = part.splitn(2, '=').collect();
@@ -627,7 +625,7 @@ pub async fn serve<DB: db::Database, FR: fr::FileRack>(
     database: DB,
     file_rack: FR,
 ) {
-    let server_addr = config.addr.clone();
+    let server_addr = config.addr;
 
     let sp = pages::StaticPages {
         error_tmpl:   Template::from_file(config.templates_dir.join("error.html.tmpl").as_path())

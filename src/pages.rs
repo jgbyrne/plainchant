@@ -49,7 +49,7 @@ fn clone_option_string_or_empty(o_str: &Option<String>) -> String {
     o_str
         .as_deref()
         .map(|s| s.to_string())
-        .unwrap_or_else(|| String::new())
+        .unwrap_or_default()
 }
 
 fn compute_fwd_links(thread: &db::Thread, posts: &HashSet<u64>) -> HashMap<u64, Vec<u64>> {
@@ -272,7 +272,7 @@ impl Pages {
                 let title = thread
                     .original
                     .title()
-                    .map(|t| format::html_escape_and_trim(t));
+                    .map(format::html_escape_and_trim);
 
                 render_data.set_flag("orig_has_title", title.is_some());
 
@@ -283,7 +283,7 @@ impl Pages {
                     thread
                         .original
                         .poster()
-                        .map(|p| format::html_escape_and_trim(p))
+                        .map(format::html_escape_and_trim)
                         .unwrap_or(String::from("Anonymous")),
                 );
 
@@ -352,7 +352,7 @@ impl Pages {
                         "poster",
                         reply
                             .poster()
-                            .map(|p| format::html_escape_and_trim(p))
+                            .map(format::html_escape_and_trim)
                             .unwrap_or(String::from("Anonymous")),
                     );
 
