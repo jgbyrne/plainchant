@@ -1,4 +1,5 @@
 use crate::db;
+use crate::Config;
 use crate::format;
 use crate::site;
 use crate::site::Post;
@@ -92,9 +93,18 @@ fn compute_fwd_links(thread: &db::Thread, posts: &HashSet<u64>) -> HashMap<u64, 
     links
 }
 
+fn should_show_post(config: &Config, approval: site::Approval) -> bool {
+    match approval {
+        site::Approval::Unapproved => if config.show_unapproved { true } else { false }
+        site::Approval::Approved => true,
+        site::Approval::Flagged => false,
+    }
+}
+
 impl Pages {
     pub fn render<DB: db::Database>(
         &self,
+        config: &Config,
         database: &DB,
         pr: &PageRef,
     ) -> Result<Page, util::PlainchantErr> {
@@ -156,7 +166,7 @@ impl Pages {
                 for orig in cat
                     .originals
                     .iter()
-                    .filter(|orig| matches!(orig.approval, site::Approval::Approved))
+                    .filter(|orig| should_show_post(config, orig.approval))
                 {
                     render_data.insert_collection_value(
                         "original",
@@ -226,7 +236,7 @@ impl Pages {
                 let board = database.get_board(*board_id)?;
                 let thread = database.get_thread(*board_id, *orig_num)?;
 
-                if !matches!(thread.original.approval, site::Approval::Approved) {
+                if !should_show_post(config, thread.original.approval) {
                     return Err(util::PlainchantErr {
                         origin: util::ErrOrigin::Web(401),
                         msg:    "Unapproved Post".to_string(),
@@ -332,7 +342,7 @@ impl Pages {
                 for reply in thread
                     .replies
                     .iter()
-                    .filter(|rep| matches!(rep.approval, site::Approval::Approved))
+                    .filter(|rep| should_show_post(config, rep.approval))
                 {
                     render_data.insert_collection_value(
                         "reply",

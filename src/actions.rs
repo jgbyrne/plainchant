@@ -1,4 +1,5 @@
 use crate::db;
+use crate::Config;
 use crate::fr;
 use crate::site;
 use crate::site::Post;
@@ -174,6 +175,7 @@ impl Actions {
     pub fn submit_original<DB: db::Database>(
         &self,
         database: &DB,
+        config: &Config,
         board_id: u64,
         ip: String,
         body: String,
@@ -185,7 +187,7 @@ impl Actions {
     ) -> Result<SubmissionResult, util::PlainchantErr> {
         let cur_time = util::timestamp();
 
-        if body.contains("https://") || body.contains("http://") {
+        if config.forbid_links && (body.contains("https://") || body.contains("http://")) {
             return Err(PlainchantErr {
                 origin: ErrOrigin::Web(451),
                 msg:    String::from("barred"),
@@ -239,6 +241,7 @@ impl Actions {
     pub fn submit_reply<DB: db::Database>(
         &self,
         database: &DB,
+        config: &Config,
         board_id: u64,
         ip: String,
         body: String,
@@ -250,7 +253,7 @@ impl Actions {
     ) -> Result<SubmissionResult, util::PlainchantErr> {
         let cur_time = util::timestamp();
 
-        if body.contains("https://") || body.contains("http://") {
+        if config.forbid_links && (body.contains("https://") || body.contains("http://")) {
             return Err(PlainchantErr {
                 origin: ErrOrigin::Web(451),
                 msg:    String::from("barred"),

@@ -3,6 +3,9 @@ ip = "0.0.0.0"
 port = 8088
 assets = "/etc/plainchant"
 
+show_unapproved = false
+forbid_links = true
+
 [db.sqlite]
 path = "/var/lib/plainchant/db.sqlite3"
 

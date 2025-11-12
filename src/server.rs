@@ -68,6 +68,7 @@ fn ok_page(page: &pages::Page) -> (StatusCode, Html<String>) {
 }
 
 fn render_page<DB: db::Database>(
+    config: Arc<Config>,
     sp: Arc<pages::StaticPages>,
     pages: Arc<RwLock<pages::Pages>>,
     db: Arc<DB>,
@@ -78,7 +79,7 @@ fn render_page<DB: db::Database>(
             internal_error(&sp, "Could not gain read access to Pages")
         });
 
-        match pg.render(db.as_ref(), &page_ref) {
+        match pg.render(config.as_ref(), db.as_ref(), &page_ref) {
             Ok(page) => page,
             Err(_) => {
                 return internal_error(&sp, "Failed to render page");
@@ -131,6 +132,7 @@ async fn static_dir(
 // thread: Handler to serve thread pages
 
 async fn thread<DB: db::Database>(
+    State(config): State<Arc<Config>>,
     State(sp): State<Arc<pages::StaticPages>>,
     State(pages): State<Arc<RwLock<pages::Pages>>>,
     State(actions): State<Arc<actions::Actions>>,
@@ -165,12 +167,13 @@ async fn thread<DB: db::Database>(
         }
     };
 
-    Ok(render_page(sp, pages, db, &page_ref))
+    Ok(render_page(config, sp, pages, db, &page_ref))
 }
 
 // homepage: Handler to serve homepage
 
 async fn homepage<DB: db::Database>(
+    State(config): State<Arc<Config>>,
     State(sp): State<Arc<pages::StaticPages>>,
     State(pages): State<Arc<RwLock<pages::Pages>>>,
     State(DbState { db }): State<DbState<DB>>,
@@ -190,12 +193,13 @@ async fn homepage<DB: db::Database>(
         }
     }
 
-    render_page(sp, pages, db, &page_ref)
+    render_page(config, sp, pages, db, &page_ref)
 }
 
 // catalog: Handler to serve catalog pages
 
 async fn catalog<DB: db::Database>(
+    State(config): State<Arc<Config>>,
     State(sp): State<Arc<pages::StaticPages>>,
     State(pages): State<Arc<RwLock<pages::Pages>>>,
     State(actions): State<Arc<actions::Actions>>,
@@ -223,12 +227,13 @@ async fn catalog<DB: db::Database>(
         }
     };
 
-    render_page(sp, pages, db, &page_ref)
+    render_page(config, sp, pages, db, &page_ref)
 }
 
 // create: Handler to serve original post creation page
 
 async fn create<DB: db::Database>(
+    State(config): State<Arc<Config>>,
     State(sp): State<Arc<pages::StaticPages>>,
     State(pages): State<Arc<RwLock<pages::Pages>>>,
     State(actions): State<Arc<actions::Actions>>,
@@ -256,7 +261,7 @@ async fn create<DB: db::Database>(
         }
     };
 
-    render_page(sp, pages, db, &page_ref)
+    render_page(config, sp, pages, db, &page_ref)
 }
 
 // Parse a multipart text field
@@ -364,6 +369,7 @@ type Submission = extract::Multipart;
 // create_submit: Handler for original post creation forms
 
 async fn create_submit<DB: db::Database, FR: fr::FileRack>(
+    State(config): State<Arc<Config>>,
     State(sp): State<Arc<pages::StaticPages>>,
     State(actions): State<Arc<actions::Actions>>,
     State(DbState { db }): State<DbState<DB>>,
@@ -419,6 +425,7 @@ async fn create_submit<DB: db::Database, FR: fr::FileRack>(
 
     let submission_result = actions.submit_original(
         db.as_ref(),
+        &config,
         board_id,
         poster_ip,
         body.unwrap_or_else(|| String::from("")),
@@ -453,6 +460,7 @@ async fn create_submit<DB: db::Database, FR: fr::FileRack>(
 // create_reply: Handler for reply post creation forms
 
 async fn create_reply<DB: db::Database, FR: fr::FileRack>(
+    State(config): State<Arc<Config>>,
     State(sp): State<Arc<pages::StaticPages>>,
     State(actions): State<Arc<actions::Actions>>,
     State(DbState { db }): State<DbState<DB>>,
@@ -503,6 +511,7 @@ async fn create_reply<DB: db::Database, FR: fr::FileRack>(
 
     let submission_result = actions.submit_reply(
         db.as_ref(),
+        &config,
         board_id,
         poster_ip,
         body.unwrap_or_else(|| String::from("")),
