@@ -46,10 +46,7 @@ pub struct Pages {
 }
 
 fn clone_option_string_or_empty(o_str: &Option<String>) -> String {
-    o_str
-        .as_deref()
-        .map(|s| s.to_string())
-        .unwrap_or_default()
+    o_str.as_deref().map(|s| s.to_string()).unwrap_or_default()
 }
 
 fn compute_fwd_links(thread: &db::Thread, posts: &HashSet<u64>) -> HashMap<u64, Vec<u64>> {
@@ -156,7 +153,11 @@ impl Pages {
 
                 let mut originals = vec![];
                 let cat = database.get_catalog(board.id)?;
-                for orig in cat.originals {
+                for orig in cat
+                    .originals
+                    .iter()
+                    .filter(|orig| matches!(orig.approval, site::Approval::Approved))
+                {
                     render_data.insert_collection_value(
                         "original",
                         orig.post_num(),
@@ -225,6 +226,13 @@ impl Pages {
                 let board = database.get_board(*board_id)?;
                 let thread = database.get_thread(*board_id, *orig_num)?;
 
+                if !matches!(thread.original.approval, site::Approval::Approved) {
+                    return Err(util::PlainchantErr {
+                        origin: util::ErrOrigin::Web(401),
+                        msg:    "Unapproved Post".to_string(),
+                    });
+                }
+
                 let mut render_data = template::Data::full();
 
                 // The set of post IDs in the current thread is used
@@ -269,10 +277,7 @@ impl Pages {
                     format!("/thumbnails/{}", thread.original.file_id().unwrap_or("")),
                 );
 
-                let title = thread
-                    .original
-                    .title()
-                    .map(format::html_escape_and_trim);
+                let title = thread.original.title().map(format::html_escape_and_trim);
 
                 render_data.set_flag("orig_has_title", title.is_some());
 
@@ -324,7 +329,11 @@ impl Pages {
                 );
 
                 let mut replies = vec![];
-                for reply in thread.replies {
+                for reply in thread
+                    .replies
+                    .iter()
+                    .filter(|rep| matches!(rep.approval, site::Approval::Approved))
+                {
                     render_data.insert_collection_value(
                         "reply",
                         reply.post_num(),

@@ -51,6 +51,23 @@ fn decode_feather(feather_type: Option<u16>, feather_text: Option<String>) -> si
     }
 }
 
+fn encode_approval(approval: site::Approval) -> u8 {
+    match approval {
+        site::Approval::Unapproved => 1,
+        site::Approval::Approved => 2,
+        site::Approval::Flagged => 3,
+    }
+}
+
+fn decode_approval(approval: Option<u16>) -> site::Approval {
+    match approval {
+        Some(1) => site::Approval::Unapproved,
+        Some(2) => site::Approval::Approved,
+        Some(3) => site::Approval::Flagged,
+        _ => site::Approval::Unapproved,
+    }
+}
+
 pub struct Sqlite3Database {
     #[allow(unused)]
     path: PathBuf,
@@ -129,6 +146,7 @@ impl Sqlite3Database {
                 FileId      TEXT             ,
                 FileName    TEXT             ,
                 OrigNum     INTEGER          ,
+                Approval    INTEGER  NOT NULL,
                 PRIMARY KEY(BoardId, PostNum)
             );
         "#,
@@ -177,6 +195,7 @@ fn row_to_board<'stmt>(row: &rusqlite::Row<'stmt>) -> rusqlite::Result<site::Boa
 
 fn row_to_reply<'stmt>(row: &rusqlite::Row<'stmt>) -> rusqlite::Result<site::Reply> {
     let feather = decode_feather(row.get::<usize, Option<u16>>(6)?, row.get(7)?);
+    let approval = decode_approval(row.get::<usize, Option<u16>>(10)?);
 
     Ok(site::Reply {
         board_id: row.get(0)?,
@@ -188,12 +207,14 @@ fn row_to_reply<'stmt>(row: &rusqlite::Row<'stmt>) -> rusqlite::Result<site::Rep
         feather,
         file_id: row.get(8)?,
         file_name: row.get(9)?,
-        orig_num: row.get::<usize, Option<u64>>(10)?.unwrap_or(0),
+        approval,
+        orig_num: row.get::<usize, Option<u64>>(11)?.unwrap_or(0),
     })
 }
 
 fn row_to_original<'stmt>(row: &rusqlite::Row<'stmt>) -> rusqlite::Result<site::Original> {
     let feather = decode_feather(row.get::<usize, Option<u16>>(6)?, row.get(7)?);
+    let approval = decode_approval(row.get::<usize, Option<u16>>(10)?);
 
     Ok(site::Original {
         board_id: row.get(0)?,
@@ -205,12 +226,13 @@ fn row_to_original<'stmt>(row: &rusqlite::Row<'stmt>) -> rusqlite::Result<site::
         feather,
         file_id: row.get(8)?,
         file_name: row.get(9)?,
-        title: row.get(10)?,
-        bump_time: row.get(11)?,
-        replies: row.get(12)?,
-        img_replies: row.get(13)?,
-        pinned: row.get(14)?,
-        archived: row.get(15)?,
+        approval,
+        title: row.get(11)?,
+        bump_time: row.get(12)?,
+        replies: row.get(13)?,
+        img_replies: row.get(14)?,
+        pinned: row.get(15)?,
+        archived: row.get(16)?,
     })
 }
 
@@ -238,7 +260,7 @@ fn query_original<T: Deref<Target = rusqlite::Connection>>(
     let mut query = conn.prepare(
         r#"
         SELECT p.BoardId, p.PostNum, p.Time, p.Ip, p.Poster, p.Body,
-               p.FeatherType, p.FeatherText, p.FileId, p.FileName,
+               p.FeatherType, p.FeatherText, p.FileId, p.FileName, p.Approval,
                o.Title, o.BumpTime, o.Replies, o.ImgReplies,
                o.Pinned, o.Archived
 
@@ -262,7 +284,7 @@ fn query_reply<T: Deref<Target = rusqlite::Connection>>(
     let mut query = conn.prepare(
         r#"
         SELECT BoardId, PostNum, Time, Ip, Poster, Body,
-               FeatherType, FeatherText, FileId, FileName, OrigNum FROM Posts 
+               FeatherType, FeatherText, FileId, FileName, Approval, OrigNum FROM Posts
             WHERE (BoardId, PostNum) = (?1, ?2);
     "#,
     )?;
@@ -364,7 +386,7 @@ impl db::Database for Sqlite3Database {
         let mut query = conn.prepare(
             r#"
             SELECT p.BoardId, p.PostNum, p.Time, p.Ip, p.Poster, p.Body,
-                   p.FeatherType, p.FeatherText, p.FileId, p.FileName,
+                   p.FeatherType, p.FeatherText, p.FileId, p.FileName, p.Approval,
                    o.Title, o.BumpTime, o.Replies, o.ImgReplies,
                    o.Pinned, o.Archived
 
@@ -403,7 +425,7 @@ impl db::Database for Sqlite3Database {
         let mut replies_query = conn.prepare(
             r#"
             SELECT BoardId, PostNum, Time, Ip, Poster, Body,
-                   FeatherType, FeatherText, FileId, FileName, OrigNum FROM Posts 
+                   FeatherType, FeatherText, FileId, FileName, Approval, OrigNum FROM Posts
                 WHERE (BoardId, OrigNum) = (?1, ?2);
         "#,
         )?;
@@ -426,7 +448,7 @@ impl db::Database for Sqlite3Database {
         let mut query = conn.prepare(
             r#"
             SELECT BoardId, PostNum, Time, Ip, Poster, Body,
-                   FeatherType, FeatherText, FileId, FileName, OrigNum FROM Posts 
+                   FeatherType, FeatherText, FileId, FileName, Approval, OrigNum FROM Posts
                 WHERE (Ip)=(?1);
         "#,
         )?;
@@ -455,7 +477,7 @@ impl db::Database for Sqlite3Database {
         let mut query = conn.prepare(
             r#"
             SELECT BoardId, PostNum, Time, Ip, Poster, Body,
-                   FeatherType, FeatherText, FileId, FileName, OrigNum FROM Posts 
+                   FeatherType, FeatherText, FileId, FileName, Approval, OrigNum FROM Posts
                 WHERE (BoardId, PostNum)=(?1, ?2);
         "#,
         )?;
@@ -470,6 +492,7 @@ impl db::Database for Sqlite3Database {
         let conn = self.pool.get()?;
 
         let (feather_type, feather_text) = encode_feather(post.feather());
+        let approval = encode_approval(*post.approval());
 
         // Forbid updating of board_id, post_num, orig_num
 
@@ -484,7 +507,8 @@ impl db::Database for Sqlite3Database {
                 FeatherType = ?7,
                 FeatherText = ?8,
                 FileId = ?9,
-                FileName = ?10
+                FileName = ?10,
+                Approval = ?11
             WHERE (BoardId, PostNum) = (?1, ?2) ;
             "#,
             (
@@ -498,6 +522,7 @@ impl db::Database for Sqlite3Database {
                 feather_text,
                 post.file_id(),
                 post.file_name(),
+                approval,
             ),
         )?;
 
@@ -534,11 +559,12 @@ impl db::Database for Sqlite3Database {
         increment_next_post_num(&tx, orig.board_id)?;
 
         let (feather_type, feather_text) = encode_feather(&orig.feather);
+        let approval = encode_approval(orig.approval);
 
         tx.execute(
             r#"
             INSERT INTO Posts
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, NULL);
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, NULL, ?11);
             "#,
             (
                 orig.board_id,
@@ -551,6 +577,7 @@ impl db::Database for Sqlite3Database {
                 feather_text,
                 &orig.file_id,
                 &orig.file_name,
+                approval,
             ),
         )?;
 
@@ -601,11 +628,12 @@ impl db::Database for Sqlite3Database {
         increment_next_post_num(&tx, reply.board_id)?;
 
         let (feather_type, feather_text) = encode_feather(&reply.feather);
+        let approval = encode_approval(reply.approval);
 
         tx.execute(
             r#"
             INSERT INTO Posts
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11);
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12);
             "#,
             (
                 reply.board_id,
@@ -619,6 +647,7 @@ impl db::Database for Sqlite3Database {
                 &reply.file_id,
                 &reply.file_name,
                 orig.post_num,
+                approval,
             ),
         )?;
 

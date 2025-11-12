@@ -185,6 +185,13 @@ impl Actions {
     ) -> Result<SubmissionResult, util::PlainchantErr> {
         let cur_time = util::timestamp();
 
+        if body.contains("https://") || body.contains("http://") {
+            return Err(PlainchantErr {
+                origin: ErrOrigin::Web(451),
+                msg:    String::from("barred"),
+            });
+        }
+
         if self.is_banned(&ip, cur_time)? {
             return Ok(SubmissionResult::Banned);
         }
@@ -212,6 +219,7 @@ impl Actions {
             feather,
             file_id: Some(file_id),
             file_name: Some(file_name),
+            approval: site::Approval::Approved,
             title,
             bump_time: cur_time,
             replies: 0,
@@ -242,6 +250,13 @@ impl Actions {
     ) -> Result<SubmissionResult, util::PlainchantErr> {
         let cur_time = util::timestamp();
 
+        if body.contains("https://") || body.contains("http://") {
+            return Err(PlainchantErr {
+                origin: ErrOrigin::Web(451),
+                msg:    String::from("barred"),
+            });
+        }
+
         if self.is_banned(&ip, cur_time)? {
             return Ok(SubmissionResult::Banned);
         }
@@ -269,6 +284,7 @@ impl Actions {
             feather,
             file_id: file_id.clone(),
             file_name,
+            approval: site::Approval::Approved,
             orig_num,
         };
 

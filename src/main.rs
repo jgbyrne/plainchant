@@ -81,7 +81,8 @@ fn main() {
         ip.parse::<IpAddr>()
             .unwrap_or_else(|_| init_die("site.ip could not be understood as an IP Address")),
         port,
-    ).into();
+    )
+        .into();
 
     let assets = PathBuf::from(
         val(val(&conf_data, "site"), "assets")

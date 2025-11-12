@@ -6,6 +6,13 @@ pub enum Feather {
     Admin,
 }
 
+#[derive(Copy, Clone, Debug)]
+pub enum Approval {
+    Unapproved,
+    Approved,
+    Flagged,
+}
+
 pub trait Post {
     fn board_id(&self) -> u64;
     fn set_post_num(&mut self, post_num: u64);
@@ -18,6 +25,8 @@ pub trait Post {
     fn feather(&self) -> &Feather;
     fn file_id(&self) -> Option<&str>;
     fn file_name(&self) -> Option<&str>;
+    fn set_approval(&mut self, approval: Approval);
+    fn approval(&self) -> &Approval;
 }
 
 #[derive(Debug)]
@@ -31,6 +40,7 @@ pub struct Original {
     pub feather:     Feather,
     pub file_id:     Option<String>,
     pub file_name:   Option<String>,
+    pub approval:    Approval,
     pub title:       Option<String>,
     pub bump_time:   u64,
     pub replies:     u16,
@@ -50,6 +60,7 @@ pub struct Reply {
     pub feather:   Feather,
     pub file_id:   Option<String>,
     pub file_name: Option<String>,
+    pub approval:  Approval,
     pub orig_num:  u64,
 }
 
@@ -141,6 +152,14 @@ macro_rules! impl_post {
 
             fn file_name(&self) -> Option<&str> {
                 self.file_name.as_deref()
+            }
+
+            fn approval(&self) -> &Approval {
+                &self.approval
+            }
+
+            fn set_approval(&mut self, approval: Approval) {
+                self.approval = approval
             }
         })+
     }
