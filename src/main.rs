@@ -101,7 +101,7 @@ fn main() {
         .get("approve_threads_by_default")
         .map(|val| {
             val.as_bool()
-                .unwrap_or_else(|| init_die("show_unapproved_threads is not a boolean"))
+                .unwrap_or_else(|| init_die("approve_threads_by_default is not a boolean"))
         })
         .unwrap_or(true);
 
@@ -109,7 +109,7 @@ fn main() {
         .get("approve_replies_by_default")
         .map(|val| {
             val.as_bool()
-                .unwrap_or_else(|| init_die("show_unapproved_replies is not a boolean"))
+                .unwrap_or_else(|| init_die("approve_replies_by_default is not a boolean"))
         })
         .unwrap_or(true);
 
