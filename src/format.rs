@@ -1,13 +1,16 @@
 use crate::site::Feather;
 use crate::util;
-use chrono::{TimeZone, Utc};
+use chrono::{MappedLocalTime, TimeZone, Utc};
 use lazy_static::lazy_static;
 use regex::{Captures, Regex};
 use std::collections::HashMap;
 use url::Url;
 
 pub fn utc_timestamp(ts: u64) -> String {
-    Utc.timestamp(ts.try_into().unwrap_or(0), 0).to_string()
+    match Utc.timestamp_opt(ts.try_into().unwrap_or(0), 0) {
+        MappedLocalTime::Single(ts) => ts.to_string(),
+        _ => "---".to_string(),
+    }
 }
 
 const SECS_IN_YEAR: u64 = 365 * 24 * 60 * 60;

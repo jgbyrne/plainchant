@@ -1,10 +1,10 @@
 use crate::db;
-use crate::Config;
 use crate::fr;
 use crate::site;
 use crate::site::Post;
 use crate::util;
 use crate::util::{unwrap_or_return, ErrOrigin, PlainchantErr};
+use crate::Config;
 use rand::Rng;
 use std::collections::HashMap;
 use std::iter;
@@ -221,7 +221,11 @@ impl Actions {
             feather,
             file_id: Some(file_id),
             file_name: Some(file_name),
-            approval: site::Approval::Approved,
+            approval: if config.approve_threads_by_default {
+                site::Approval::Approved
+            } else {
+                site::Approval::Unapproved
+            },
             title,
             bump_time: cur_time,
             replies: 0,
@@ -287,7 +291,11 @@ impl Actions {
             feather,
             file_id: file_id.clone(),
             file_name,
-            approval: site::Approval::Approved,
+            approval: if config.approve_replies_by_default {
+                site::Approval::Approved
+            } else {
+                site::Approval::Unapproved
+            },
             orig_num,
         };
 

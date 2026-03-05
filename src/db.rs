@@ -40,6 +40,18 @@ pub trait Database: Sync + Send + 'static {
 
     fn get_thread(&self, board_id: u64, post_num: u64) -> Result<Thread, util::PlainchantErr>;
 
+    fn get_originals_by_approval(
+        &self,
+        board_id: u64,
+        approval: site::Approval,
+    ) -> Result<Vec<site::Original>, util::PlainchantErr>;
+
+    fn get_replies_by_approval(
+        &self,
+        board_id: u64,
+        approval: site::Approval,
+    ) -> Result<Vec<site::Reply>, util::PlainchantErr>;
+
     fn get_all_posts_by_ip(
         &self,
         ip: String,

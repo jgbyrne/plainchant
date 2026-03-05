@@ -1,10 +1,10 @@
 use crate::db;
-use crate::Config;
 use crate::format;
 use crate::site;
 use crate::site::Post;
 use crate::template;
 use crate::util;
+use crate::Config;
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
@@ -93,18 +93,10 @@ fn compute_fwd_links(thread: &db::Thread, posts: &HashSet<u64>) -> HashMap<u64, 
     links
 }
 
-fn should_show_post(config: &Config, approval: site::Approval) -> bool {
-    match approval {
-        site::Approval::Unapproved => if config.show_unapproved { true } else { false }
-        site::Approval::Approved => true,
-        site::Approval::Flagged => false,
-    }
-}
-
 impl Pages {
     pub fn render<DB: db::Database>(
         &self,
-        config: &Config,
+        _config: &Config,
         database: &DB,
         pr: &PageRef,
     ) -> Result<Page, util::PlainchantErr> {
@@ -166,7 +158,7 @@ impl Pages {
                 for orig in cat
                     .originals
                     .iter()
-                    .filter(|orig| should_show_post(config, orig.approval))
+                    .filter(|orig| matches!(orig.approval(), site::Approval::Approved))
                 {
                     render_data.insert_collection_value(
                         "original",
@@ -236,7 +228,7 @@ impl Pages {
                 let board = database.get_board(*board_id)?;
                 let thread = database.get_thread(*board_id, *orig_num)?;
 
-                if !should_show_post(config, thread.original.approval) {
+                if !matches!(thread.original.approval(), site::Approval::Approved) {
                     return Err(util::PlainchantErr {
                         origin: util::ErrOrigin::Web(401),
                         msg:    "Unapproved Post".to_string(),
@@ -342,7 +334,7 @@ impl Pages {
                 for reply in thread
                     .replies
                     .iter()
-                    .filter(|rep| should_show_post(config, rep.approval))
+                    .filter(|rep| matches!(rep.approval, site::Approval::Approved))
                 {
                     render_data.insert_collection_value(
                         "reply",

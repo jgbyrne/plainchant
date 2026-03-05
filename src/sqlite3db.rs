@@ -291,7 +291,7 @@ fn query_reply<T: Deref<Target = rusqlite::Connection>>(
 
     let post = query.query_row((board_id, post_num), row_to_reply)?;
 
-    if post.orig_num == 1 {
+    if post.orig_num == 0 {
         Err(PlainchantErr {
             origin: util::ErrOrigin::Database,
             msg:    format!("Post ({}, {}) is an Original", board_id, post_num),
@@ -437,6 +437,62 @@ impl db::Database for Sqlite3Database {
         }
 
         Ok(db::Thread { original, replies })
+    }
+
+    fn get_originals_by_approval(
+        &self,
+        board_id: u64,
+        approval: site::Approval,
+    ) -> Result<Vec<site::Original>, util::PlainchantErr> {
+        let conn = self.pool.get()?;
+
+        let mut query = conn.prepare(
+            r#"
+                SELECT p.BoardId, p.PostNum, p.Time, p.Ip, p.Poster, p.Body,
+                       p.FeatherType, p.FeatherText, p.FileId, p.FileName, p.Approval,
+                       o.Title, o.BumpTime, o.Replies, o.ImgReplies,
+                       o.Pinned, o.Archived
+
+                FROM   Posts p INNER JOIN Originals o
+                            ON (p.BoardId, p.PostNum) = (o.BoardId, o.PostNum)
+
+                WHERE (p.BoardId, p.Approval) = (?1, ?2);
+        "#,
+        )?;
+
+        let orig_iter = query.query_map((board_id, encode_approval(approval)), row_to_original)?;
+        let mut originals = vec![];
+
+        for o in orig_iter {
+            originals.push(o?);
+        }
+
+        Ok(originals)
+    }
+
+    fn get_replies_by_approval(
+        &self,
+        board_id: u64,
+        approval: site::Approval,
+    ) -> Result<Vec<site::Reply>, PlainchantErr> {
+        let conn = self.pool.get()?;
+
+        let mut replies_query = conn.prepare(
+            r#"
+            SELECT BoardId, PostNum, Time, Ip, Poster, Body,
+                   FeatherType, FeatherText, FileId, FileName, Approval, OrigNum FROM Posts
+                WHERE (BoardId, Approval) = (?1, ?2) AND (OrigNum) != (NULL);
+        "#,
+        )?;
+
+        let replies_iter =
+            replies_query.query_map((board_id, encode_approval(approval)), row_to_reply)?;
+        let mut replies = vec![];
+        for r in replies_iter {
+            replies.push(r?);
+        }
+
+        Ok(replies)
     }
 
     fn get_all_posts_by_ip(

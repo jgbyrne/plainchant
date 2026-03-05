@@ -31,12 +31,13 @@ fn init_die(msg: &str) -> ! {
 }
 
 pub struct Config {
-    addr:          SocketAddr,
+    addr: SocketAddr,
     templates_dir: PathBuf,
-    static_dir:    PathBuf,
-    show_unapproved: bool,
+    static_dir: PathBuf,
+    approve_threads_by_default: bool,
+    approve_replies_by_default: bool,
     forbid_links: bool,
-    access_key:    Option<String>,
+    access_key: Option<String>,
 }
 
 fn val<'v_out, 'v_in: 'v_out>(v: &'v_in Value, k: &str) -> &'v_out Value {
@@ -96,15 +97,29 @@ fn main() {
     let static_dir = fs::canonicalize(assets.join("static"))
         .unwrap_or_else(|_| init_die("Could not comprehend static path"));
 
-    let show_unapproved = val(&conf_data, "site").get("show_unapproved").map(|val| {
+    let approve_threads_by_default = val(&conf_data, "site")
+        .get("approve_threads_by_default")
+        .map(|val| {
             val.as_bool()
-                .unwrap_or_else(|| init_die("show_unapproved is not a boolean"))
-        }).unwrap_or(true);
+                .unwrap_or_else(|| init_die("show_unapproved_threads is not a boolean"))
+        })
+        .unwrap_or(true);
 
-    let forbid_links = val(&conf_data, "site").get("forbid_links").map(|val| {
+    let approve_replies_by_default = val(&conf_data, "site")
+        .get("approve_replies_by_default")
+        .map(|val| {
+            val.as_bool()
+                .unwrap_or_else(|| init_die("show_unapproved_replies is not a boolean"))
+        })
+        .unwrap_or(true);
+
+    let forbid_links = val(&conf_data, "site")
+        .get("forbid_links")
+        .map(|val| {
             val.as_bool()
                 .unwrap_or_else(|| init_die("forbid_links is not a boolean"))
-        }).unwrap_or(false);
+        })
+        .unwrap_or(false);
 
     let access_key = conf_data
         .get("console")
@@ -119,7 +134,8 @@ fn main() {
         addr,
         templates_dir,
         static_dir,
-        show_unapproved,
+        approve_threads_by_default,
+        approve_replies_by_default,
         forbid_links,
         access_key,
     };
