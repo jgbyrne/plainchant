@@ -5,7 +5,7 @@ use crate::fr;
 use crate::pages;
 use crate::state::{DbState, FrState, PlainchantState};
 use crate::template::{Data, Template};
-use crate::util::unwrap_or_return;
+use crate::util::{unwrap_or_return, ErrOrigin};
 use crate::Config;
 
 use axum::extract::{Request, State};
@@ -47,6 +47,17 @@ fn message_page(sp: &pages::StaticPages, message: &str) -> Html<String> {
     Html::from(sp.message_tmpl.render(&render_data))
 }
 
+fn web_error(
+    sp: &pages::StaticPages,
+    status_code: u16,
+    message: &str,
+) -> (StatusCode, Html<String>) {
+    (
+        StatusCode::from_u16(status_code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
+        error_page(sp, message),
+    )
+}
+
 fn internal_error(sp: &pages::StaticPages, message: &str) -> (StatusCode, Html<String>) {
     (StatusCode::INTERNAL_SERVER_ERROR, error_page(sp, message))
 }
@@ -81,8 +92,13 @@ fn render_page<DB: db::Database>(
 
         match pg.render(config.as_ref(), db.as_ref(), &page_ref) {
             Ok(page) => page,
-            Err(_) => {
-                return internal_error(&sp, "Failed to render page");
+            Err(err) => match err.origin {
+                ErrOrigin::Web(code) => {
+                    return web_error(&sp, code, &err.msg);
+                },
+                _ => {
+                    return internal_error(&sp, "Failed to render page");
+                },
             },
         }
     };
