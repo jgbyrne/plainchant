@@ -24,12 +24,21 @@ body {
     width: 100%;
     max-width: 1300px;
     font-family: "Noto Serif", "Palatino Linotype", "serif";
+    position: relative;
 }
 
 .nav {
     display: inline-block;
     padding-left: 20px;
     padding-right: 20px;
+}
+
+.pending-icon {
+    padding-left: 10px;
+    padding-right: 10px;
+    font-size: 1.2rem;
+    position: absolute;
+    left: 0;
 }
 
 .centre-nav {

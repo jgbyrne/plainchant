@@ -154,12 +154,15 @@ impl Pages {
                 render_data.insert_value("board_title", board.title);
 
                 let mut originals = vec![];
-                let cat = database.get_catalog(board.id)?;
-                for orig in cat
-                    .originals
+                let cat_origs = database.get_catalog(board.id)?.originals;
+
+                let filtered = cat_origs
                     .iter()
-                    .filter(|orig| matches!(orig.approval(), site::Approval::Approved))
-                {
+                    .filter(|orig| matches!(orig.approval(), site::Approval::Approved));
+
+                let mut filtered_count = 0;
+
+                for orig in filtered.inspect(|_| filtered_count += 1) {
                     render_data.insert_collection_value(
                         "original",
                         orig.post_num(),
@@ -214,6 +217,8 @@ impl Pages {
 
                     originals.push(orig.post_num().to_string());
                 }
+
+                render_data.set_flag("pending_threads", filtered_count < cat_origs.len());
 
                 render_data.add_collection("original", originals);
 
