@@ -97,9 +97,9 @@ impl Actions {
 
         Ok(Actions {
             ban_cache: RwLock::new(ban_cache),
-            board_urls,
             orig_cooldown: RwLock::new(HashMap::new()),
             reply_cooldown: RwLock::new(HashMap::new()),
+            board_urls,
         })
     }
 
