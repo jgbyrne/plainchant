@@ -126,7 +126,8 @@ impl Sqlite3Database {
                 Title       TEXT     NOT NULL,
                 PostCap     INTEGER  NOT NULL,
                 BumpLimit   INTEGER  NOT NULL,
-                NextPostNum INTEGER  NOT NULL
+                NextPostNum INTEGER  NOT NULL,
+                ArchiveCap  INTEGER  NOT NULL
             );
         "#,
             (),
@@ -190,6 +191,7 @@ fn row_to_board<'stmt>(row: &rusqlite::Row<'stmt>) -> rusqlite::Result<site::Boa
         post_cap: row.get(3)?,
         bump_limit: row.get(4)?,
         next_post_num: row.get(5)?,
+        archive_cap: row.get(6)?,
     })
 }
 
@@ -242,7 +244,7 @@ fn query_board<T: Deref<Target = rusqlite::Connection>>(
 ) -> Result<site::Board, PlainchantErr> {
     let mut query = conn.prepare(
         r#"
-            SELECT BoardId, Url, Title, PostCap, BumpLimit, NextPostNum FROM Boards
+            SELECT BoardId, Url, Title, PostCap, BumpLimit, NextPostNum, ArchiveCap FROM Boards
                 WHERE BoardId=?1;
         "#,
     )?;
@@ -361,7 +363,7 @@ impl db::Database for Sqlite3Database {
         let conn = self.pool.get()?;
         let mut query = conn.prepare(
             r#"
-            SELECT BoardId, Url, Title, PostCap, BumpLimit, NextPostNum FROM Boards;
+            SELECT BoardId, Url, Title, PostCap, BumpLimit, NextPostNum, ArchiveCap FROM Boards;
         "#,
         )?;
 
@@ -809,13 +811,79 @@ impl db::Database for Sqlite3Database {
         Ok(())
     }
 
+    fn update_original(&self, orig: site::Original) -> Result<(), PlainchantErr> {
+        let mut conn = self.pool.get()?;
+        let tx = conn.transaction()?;
+
+        let (feather_type, feather_text) = encode_feather(&orig.feather);
+        let approval = encode_approval(orig.approval);
+
+        tx.execute(
+            r#"
+            UPDATE Posts
+            SET
+                Time = ?3,
+                Ip = ?4,
+                Poster = ?5,
+                Body = ?6,
+                FeatherType = ?7,
+                FeatherText = ?8,
+                FileId = ?9,
+                FileName = ?10,
+                Approval = ?11
+            WHERE (BoardId, PostNum) = (?1, ?2);
+            "#,
+            (
+                orig.board_id,
+                orig.post_num,
+                orig.time,
+                orig.ip,
+                orig.poster,
+                orig.body,
+                feather_type,
+                feather_text,
+                orig.file_id,
+                orig.file_name,
+                approval,
+            ),
+        )?;
+
+        tx.execute(
+            r#"
+            UPDATE Originals
+            SET
+                Title = ?3,
+                BumpTime = ?4,
+                Replies = ?5,
+                ImgReplies = ?6,
+                Pinned = ?7,
+                Archived = ?8
+            WHERE (BoardId, PostNum) = (?1, ?2);
+            "#,
+            (
+                orig.board_id,
+                orig.post_num,
+                &orig.title,
+                orig.bump_time,
+                orig.replies,
+                orig.img_replies,
+                orig.pinned,
+                orig.archived,
+            ),
+        )?;
+
+        tx.commit()?;
+
+        Ok(())
+    }
+
     fn create_board(&self, board: site::Board) -> Result<(), PlainchantErr> {
         let conn = self.pool.get()?;
 
         conn.execute(
             r#"
             INSERT INTO Boards
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6);
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);
             "#,
             (
                 board.id,
@@ -824,6 +892,7 @@ impl db::Database for Sqlite3Database {
                 board.post_cap,
                 board.bump_limit,
                 board.next_post_num,
+                board.archive_cap,
             ),
         )?;
 

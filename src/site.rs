@@ -105,6 +105,14 @@ impl Original {
     pub fn set_pinned(&mut self, pinned: bool) {
         self.pinned = pinned;
     }
+
+    pub fn archived(&self) -> bool {
+        self.archived
+    }
+
+    pub fn set_archived(&mut self, archived: bool) {
+        self.archived = archived;
+    }
 }
 
 macro_rules! impl_post {
@@ -173,6 +181,7 @@ pub struct Board {
     pub url: String,
     pub title: String,
     pub post_cap: u16,
+    pub archive_cap: u16,
     pub bump_limit: u16,
     pub next_post_num: u64,
 }

@@ -454,12 +454,15 @@ async fn create_submit<DB: db::Database, FR: fr::FileRack>(
 
     match submission_result {
         Ok(actions::SubmissionResult::Success(_)) => {
-            match actions.enforce_post_cap(db.as_ref(), fr.as_ref(), board_id) {
+            match actions.enforce_archive(db.as_ref(), fr.as_ref(), board_id) {
                 Ok(_) => Ok(response::Redirect::to(&format!("/{}/catalog", board))),
-                Err(_) => Err(internal_error(
-                    &sp,
-                    &format!("Server failure while enforcing post cap"),
-                )),
+                Err(err) => {
+                    println!("{:?}", err);
+                    Err(internal_error(
+                        &sp,
+                        &format!("Server failure while enforcing post cap"),
+                    ))
+                },
             }
         },
         Ok(actions::SubmissionResult::Banned) => Err(forbidden(&sp, "Your IP address is banned")),
@@ -469,7 +472,8 @@ async fn create_submit<DB: db::Database, FR: fr::FileRack>(
         Ok(actions::SubmissionResult::MayNotBeEmpty) => {
             Err(forbidden(&sp, "You must write something in your post"))
         },
-        Err(_) => Err(internal_error(&sp, "Failed to submit post")),
+        Ok(actions::SubmissionResult::BadContent) => Err(forbidden(&sp, "Post content disallowed")),
+        _ => Err(internal_error(&sp, "Failed to submit post")),
     }
 }
 
@@ -550,6 +554,10 @@ async fn create_reply<DB: db::Database, FR: fr::FileRack>(
         )),
         Ok(actions::SubmissionResult::MayNotBeEmpty) => {
             Err(forbidden(&sp, "You may not create empty posts"))
+        },
+        Ok(actions::SubmissionResult::BadContent) => Err(forbidden(&sp, "Post content disallowed")),
+        Ok(actions::SubmissionResult::NotAcceptingReplies) => {
+            Err(forbidden(&sp, "You cannot reply to this thread"))
         },
         Err(_) => Err(internal_error(&sp, "Failed to submit post")),
     }

@@ -38,6 +38,7 @@
             <div class="post orig">
                 <div class="info-line orig-info-line">
                     <a id="{{orig_post_num}}"></a>
+                    {:is_archived:}<span class="post-is-archived">[Thread Archived]</span>{:is_archived:}
                     {:orig_has_title:}<span class="post-title">{{orig_title}}</span> : {:orig_has_title:}
                     <span class="post-nick">{{orig_poster}}</span> <span class="post-feather">{{orig_feather}}</span> :
                     <span class="post-time" title="{{orig_timestamp}}">{{orig_time}}</span> :
@@ -84,6 +85,7 @@
         <hr class="minor-rule"/>
         <a id="thread-end"></a>
         <div class="reply-form">
+            {:can_reply:}
             <form class="post-form" action="/{{board_url}}/reply/{{orig_post_num}}" method="POST" enctype="multipart/form-data">
                 <h4>Reply to this thread</h4>
                 <div class="form-field">
@@ -108,6 +110,7 @@
                     <input type="submit" value="Post">
                 </div>
             </form>
+            {:can_reply:}
         </div>
         </div>
         <hr/>

@@ -6,7 +6,7 @@ use crate::util;
 use crate::util::{unwrap_or_return, ErrOrigin, PlainchantErr};
 use crate::Config;
 use rand::Rng;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::iter;
 use std::sync::RwLock;
 
@@ -37,6 +37,8 @@ pub enum SubmissionResult {
     Banned,
     Cooldown,
     MayNotBeEmpty,
+    BadContent,
+    NotAcceptingReplies,
 }
 
 fn is_within_cooldown(
@@ -188,10 +190,7 @@ impl Actions {
         let cur_time = util::timestamp();
 
         if config.forbid_links && (body.contains("https://") || body.contains("http://")) {
-            return Err(PlainchantErr {
-                origin: ErrOrigin::Web(451),
-                msg:    String::from("barred"),
-            });
+            return Ok(SubmissionResult::BadContent);
         }
 
         if self.is_banned(&ip, cur_time)? {
@@ -258,10 +257,16 @@ impl Actions {
         let cur_time = util::timestamp();
 
         if config.forbid_links && (body.contains("https://") || body.contains("http://")) {
-            return Err(PlainchantErr {
-                origin: ErrOrigin::Web(451),
-                msg:    String::from("barred"),
-            });
+            return Ok(SubmissionResult::BadContent);
+        }
+
+        let orig = database.get_original(board_id, orig_num)?;
+
+        match (orig.archived(), orig.approval()) {
+            (false, site::Approval::Approved) => (),
+            _ => {
+                return Ok(SubmissionResult::NotAcceptingReplies);
+            },
         }
 
         if self.is_banned(&ip, cur_time)? {
@@ -350,7 +355,7 @@ impl Actions {
         Ok(())
     }
 
-    pub fn delete_post<DB: db::Database, FR: fr::FileRack>(
+    fn delete_post_inner<DB: db::Database, FR: fr::FileRack>(
         &self,
         database: &DB,
         file_rack: &FR,
@@ -363,6 +368,17 @@ impl Actions {
         }
     }
 
+    pub fn delete_post<DB: db::Database, FR: fr::FileRack>(
+        &self,
+        database: &DB,
+        file_rack: &FR,
+        board_id: u64,
+        post_num: u64,
+    ) -> Result<(), util::PlainchantErr> {
+        self.delete_post_inner(database, file_rack, board_id, post_num)?;
+        self.enforce_archive(database, file_rack, board_id)
+    }
+
     pub fn delete_all_posts_by_ip<DB: db::Database, FR: fr::FileRack>(
         &self,
         database: &DB,
@@ -370,30 +386,52 @@ impl Actions {
         ip: String,
     ) -> Result<usize, util::PlainchantErr> {
         let posts = database.get_all_posts_by_ip(ip)?;
+
+        let mut board_ids = HashSet::new();
         for post in &posts {
             // Allow this to error (double deletions)
-            let _ = self.delete_post(database, file_rack, post.board_id(), post.post_num());
+            let _ = self.delete_post_inner(database, file_rack, post.board_id(), post.post_num());
+            board_ids.insert(post.board_id());
         }
+
+        for board_id in board_ids {
+            self.enforce_archive(database, file_rack, board_id)?;
+        }
+
         Ok(posts.len())
     }
 
-    pub fn enforce_post_cap<DB: db::Database, FR: fr::FileRack>(
+    pub fn enforce_archive<DB: db::Database, FR: fr::FileRack>(
         &self,
         database: &DB,
         file_rack: &FR,
         board_id: u64,
     ) -> Result<(), util::PlainchantErr> {
         let board = database.get_board(board_id)?;
-        let mut catalog = database.get_catalog(board_id)?;
+        let catalog = database.get_catalog(board_id)?;
 
         let post_cap: usize = board.post_cap.into();
+        let archive_cap: usize = board.archive_cap.into();
 
-        if catalog.originals.len() > post_cap {
-            let excess: Vec<site::Original> = catalog.originals.drain(post_cap..).collect();
-            for orig in excess.iter() {
+        for (idx, mut orig) in catalog.originals.into_iter().enumerate() {
+            if idx < post_cap {
+                // The first `post_cap` threads in the catalog should not be archived
+                if orig.archived {
+                    orig.set_archived(false);
+                    database.update_original(orig)?;
+                }
+            } else if post_cap <= idx && idx < (post_cap + archive_cap) {
+                // Allow up to `archive_cap` threads in the catalog to be archived
+                if !orig.archived {
+                    orig.set_archived(true);
+                    database.update_original(orig)?;
+                }
+            } else {
+                // Everything beyond that should be deleted
                 self.delete_thread(database, file_rack, board_id, orig.post_num)?;
             }
         }
+
         Ok(())
     }
 

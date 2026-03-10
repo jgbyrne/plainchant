@@ -86,6 +86,11 @@
     padding-left: 4px;
 }
 
+.post-is-archived {
+    font-weight: bold;
+    color: grey;
+}
+
 .post-title {
     font-weight: bold;
     color: black;

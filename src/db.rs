@@ -66,6 +66,7 @@ pub trait Database: Sync + Send + 'static {
     fn delete_original(&self, board_id: u64, post_num: u64) -> Result<(), util::PlainchantErr>;
     fn delete_reply(&self, board_id: u64, post_num: u64) -> Result<(), util::PlainchantErr>;
 
+    fn update_original(&self, orig: site::Original) -> Result<(), util::PlainchantErr>;
     fn update_post(&self, post: Box<dyn site::Post>) -> Result<(), util::PlainchantErr>;
 
     fn create_board(&self, board: site::Board) -> Result<(), util::PlainchantErr>;

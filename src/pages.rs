@@ -156,13 +156,20 @@ impl Pages {
                 let mut originals = vec![];
                 let cat_origs = database.get_catalog(board.id)?.originals;
 
-                let filtered = cat_origs
-                    .iter()
-                    .filter(|orig| matches!(orig.approval(), site::Approval::Approved));
+                let mut any_pending = false;
 
-                let mut filtered_count = 0;
+                let filtered =
+                    cat_origs
+                        .iter()
+                        .filter(|orig| match (orig.archived, orig.approval) {
+                            (archived @ _, site::Approval::Approved) => !archived,
+                            _ => {
+                                any_pending = true;
+                                false
+                            },
+                        });
 
-                for orig in filtered.inspect(|_| filtered_count += 1) {
+                for orig in filtered {
                     render_data.insert_collection_value(
                         "original",
                         orig.post_num(),
@@ -218,7 +225,7 @@ impl Pages {
                     originals.push(orig.post_num().to_string());
                 }
 
-                render_data.set_flag("pending_threads", filtered_count < cat_origs.len());
+                render_data.set_flag("pending_threads", any_pending);
 
                 render_data.add_collection("original", originals);
 
@@ -241,6 +248,9 @@ impl Pages {
                 }
 
                 let mut render_data = template::Data::full();
+
+                render_data.set_flag("can_reply", !thread.original.archived());
+                render_data.set_flag("is_archived", thread.original.archived());
 
                 // The set of post IDs in the current thread is used
                 // by the annotate_post function to decide how whether
