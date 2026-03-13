@@ -228,7 +228,7 @@ impl Template {
                         }
                     }
                 },
-                Chunk::Condition(ref name, ref obj) => {
+                Chunk::Condition(name, obj) => {
                     if let Some(ref flags) = data.flags {
                         if let Some(ref s) = skip {
                             if *s == format!("{}.{}", name, obj.as_ref().unwrap_or(&empty_str)) {

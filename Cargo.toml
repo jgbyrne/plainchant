@@ -2,7 +2,7 @@
 name = "plainchant"
 version = "0.7.1"
 authors = ["Jack Byrne <jgbyrne9@gmail.com>"]
-edition = "2021"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

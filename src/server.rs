@@ -631,7 +631,7 @@ async fn console<DB: db::Database, FR: fr::FileRack>(
 
 // Headers for filerack files (necessary to achieve display-in-browser)
 
-fn file_headers(file: &Bytes) -> impl IntoResponseParts {
+fn file_headers(file: &Bytes) -> impl IntoResponseParts + use<> {
     [
         (
             "Cache-Control",

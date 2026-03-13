@@ -30,7 +30,7 @@ impl From<r2d2::Error> for PlainchantErr {
 fn encode_feather(feather: &site::Feather) -> (Option<u8>, Option<&str>) {
     match feather {
         site::Feather::None => (None, None),
-        site::Feather::Trip(ref s) => (Some(1), Some(s)),
+        site::Feather::Trip(s) => (Some(1), Some(s)),
         site::Feather::Moderator => (Some(2), None),
         site::Feather::Admin => (Some(3), None),
     }
