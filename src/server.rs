@@ -90,7 +90,7 @@ fn render_page<DB: db::Database>(
             internal_error(&sp, "Could not gain read access to Pages")
         });
 
-        match pg.render(config.as_ref(), db.as_ref(), &page_ref) {
+        match pg.render(config.as_ref(), db.as_ref(), page_ref) {
             Ok(page) => page,
             Err(err) => match err.origin {
                 ErrOrigin::Web(code) => {
@@ -494,7 +494,7 @@ async fn create_submit<DB: db::Database, FR: fr::FileRack>(
                     println!("{:?}", err);
                     Err(internal_error(
                         &sp,
-                        &format!("Server failure while enforcing post cap"),
+                        &"Server failure while enforcing post cap".to_string(),
                     ))
                 },
             }
