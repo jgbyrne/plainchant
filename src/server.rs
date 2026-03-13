@@ -246,6 +246,40 @@ async fn catalog<DB: db::Database>(
     render_page(config, sp, pages, db, &page_ref)
 }
 
+// archive: Handler to serve archive pages
+
+async fn archive<DB: db::Database>(
+    State(config): State<Arc<Config>>,
+    State(sp): State<Arc<pages::StaticPages>>,
+    State(pages): State<Arc<RwLock<pages::Pages>>>,
+    State(actions): State<Arc<actions::Actions>>,
+    State(DbState { db }): State<DbState<DB>>,
+    extract::Path(board): extract::Path<String>,
+) -> (StatusCode, Html<String>) {
+    let page_ref = {
+        let board_id = unwrap_or_return!(actions.board_url_to_id(&board), {
+            not_found(&sp, "No such board")
+        });
+
+        let pg = unwrap_or_return!(pages.read(), {
+            internal_error(&sp, "Could not gain read access to Pages")
+        });
+
+        let page_ref = pages::PageRef::Archive(board_id);
+        match pg
+            .get_page(db.as_ref(), &page_ref)
+            .expect("Could not access archive for extant board")
+        {
+            Some(page) => {
+                return ok_page(page);
+            },
+            None => page_ref,
+        }
+    };
+
+    render_page(config, sp, pages, db, &page_ref)
+}
+
 // create: Handler to serve original post creation page
 
 async fn create<DB: db::Database>(
@@ -679,6 +713,7 @@ pub async fn serve<DB: db::Database, FR: fr::FileRack>(
         )
         .route("/{board}/thread/{post_num}", routing::get(thread))
         .route("/{board}/catalog", routing::get(catalog))
+        .route("/{board}/archive", routing::get(archive))
         .route("/{board}/create", routing::get(create))
         .route("/files/{file_id}", routing::get(files))
         .route("/thumbnails/{file_id}", routing::get(thumbnails))

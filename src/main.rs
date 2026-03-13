@@ -179,6 +179,10 @@ fn main() {
             config.templates_dir.join("catalog.html.tmpl").as_path(),
         )
         .unwrap_or_else(|err| err.die()),
+        archive_tmpl:  template::Template::from_file(
+            config.templates_dir.join("archive.html.tmpl").as_path(),
+        )
+        .unwrap_or_else(|err| err.die()),
         thread_tmpl:   template::Template::from_file(
             config.templates_dir.join("thread.html.tmpl").as_path(),
         )

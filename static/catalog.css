@@ -58,3 +58,7 @@
 .nav {
     padding-left: 0;
 }
+
+.archived {
+    color: #900000;
+}

@@ -22,6 +22,7 @@ pub struct StaticPages {
 pub enum PageRef {
     Homepage,
     Catalog(u64),
+    Archive(u64),
     Thread(u64, u64),
     Create(u64),
 }
@@ -35,6 +36,7 @@ pub struct Page {
 pub struct SiteTemplates {
     pub homepage_tmpl: template::Template,
     pub catalog_tmpl:  template::Template,
+    pub archive_tmpl:  template::Template,
     pub thread_tmpl:   template::Template,
     pub create_tmpl:   template::Template,
 }
@@ -93,6 +95,94 @@ fn compute_fwd_links(thread: &db::Thread, posts: &HashSet<u64>) -> HashMap<u64, 
     links
 }
 
+fn populate_site_data(data: &mut template::Data, site: &site::Site) {
+    data.insert_value("site_name", site.name.clone());
+    data.insert_value("site_description", site.description.clone());
+    data.insert_value("site_contact", clone_option_string_or_empty(&site.contact));
+}
+
+fn populate_board_data(data: &mut template::Data, board: site::Board) {
+    data.insert_value("board_url", board.url);
+    data.insert_value("board_title", board.title);
+}
+
+fn populate_preview<F>(data: &mut template::Data, originals: Vec<site::Original>, orig_filter: F)
+where
+    F: Fn(&site::Original) -> bool,
+{
+    let mut orig_idents = vec![];
+    let mut any_pending = false;
+
+    let filtered = originals.into_iter().filter(orig_filter);
+
+    for orig in filtered {
+        match orig.approval {
+            site::Approval::Approved => (),
+            _ => {
+                any_pending = true;
+                continue;
+            },
+        }
+
+        data.insert_collection_value(
+            "original",
+            orig.post_num(),
+            "file_url",
+            format!("/thumbnails/{}", orig.file_id().unwrap_or("")),
+        );
+
+        data.insert_collection_value(
+            "original",
+            orig.post_num(),
+            "replies",
+            orig.replies().to_string(),
+        );
+
+        data.insert_collection_value(
+            "original",
+            orig.post_num(),
+            "img_replies",
+            orig.img_replies().to_string(),
+        );
+
+        data.insert_collection_value(
+            "original",
+            orig.post_num(),
+            "post_num",
+            orig.post_num().to_string(),
+        );
+
+        let mut cat_title = orig.title().unwrap_or("").to_string();
+        if let Some((i, _)) = cat_title.char_indices().nth(64) {
+            cat_title.truncate(i);
+        }
+
+        data.insert_collection_value(
+            "original",
+            orig.post_num(),
+            "post_title",
+            format::html_escape_and_trim(&cat_title),
+        );
+
+        let mut cat_desc = orig.body().to_string();
+        if let Some((i, _)) = cat_desc.char_indices().nth(100) {
+            cat_desc.truncate(i);
+        }
+
+        data.insert_collection_value(
+            "original",
+            orig.post_num(),
+            "post_body",
+            format::html_escape_and_trim(&cat_desc),
+        );
+
+        orig_idents.push(orig.post_num().to_string());
+    }
+
+    data.set_flag("pending_threads", any_pending);
+    data.add_collection("original", orig_idents);
+}
+
 impl Pages {
     pub fn render<DB: db::Database>(
         &self,
@@ -103,13 +193,7 @@ impl Pages {
         match pr {
             PageRef::Homepage => {
                 let mut render_data = template::Data::full();
-
-                render_data.insert_value("site_name", self.site.name.clone());
-                render_data.insert_value("site_description", self.site.description.clone());
-                render_data.insert_value(
-                    "site_contact",
-                    clone_option_string_or_empty(&self.site.contact),
-                );
+                populate_site_data(&mut render_data, &self.site);
 
                 let mut board_ids = vec![];
                 let boards = database.get_boards()?;
@@ -140,94 +224,13 @@ impl Pages {
                 })
             },
             PageRef::Catalog(board_id) => {
-                let board = database.get_board(*board_id)?;
-
                 let mut render_data = template::Data::full();
+                populate_site_data(&mut render_data, &self.site);
+                populate_board_data(&mut render_data, database.get_board(*board_id)?);
 
-                render_data.insert_value("site_name", self.site.name.clone());
-                render_data.insert_value(
-                    "site_contact",
-                    clone_option_string_or_empty(&self.site.contact),
-                );
-
-                render_data.insert_value("board_url", board.url);
-                render_data.insert_value("board_title", board.title);
-
-                let mut originals = vec![];
-                let cat_origs = database.get_catalog(board.id)?.originals;
-
-                let mut any_pending = false;
-
-                let filtered =
-                    cat_origs
-                        .iter()
-                        .filter(|orig| match (orig.archived, orig.approval) {
-                            (archived @ _, site::Approval::Approved) => !archived,
-                            _ => {
-                                any_pending = true;
-                                false
-                            },
-                        });
-
-                for orig in filtered {
-                    render_data.insert_collection_value(
-                        "original",
-                        orig.post_num(),
-                        "file_url",
-                        format!("/thumbnails/{}", orig.file_id().unwrap_or("")),
-                    );
-
-                    render_data.insert_collection_value(
-                        "original",
-                        orig.post_num(),
-                        "replies",
-                        orig.replies().to_string(),
-                    );
-
-                    render_data.insert_collection_value(
-                        "original",
-                        orig.post_num(),
-                        "img_replies",
-                        orig.img_replies().to_string(),
-                    );
-
-                    render_data.insert_collection_value(
-                        "original",
-                        orig.post_num(),
-                        "post_num",
-                        orig.post_num().to_string(),
-                    );
-
-                    let mut cat_title = orig.title().unwrap_or("").to_string();
-                    if let Some((i, _)) = cat_title.char_indices().nth(64) {
-                        cat_title.truncate(i);
-                    }
-
-                    render_data.insert_collection_value(
-                        "original",
-                        orig.post_num(),
-                        "post_title",
-                        format::html_escape_and_trim(&cat_title),
-                    );
-
-                    let mut cat_desc = orig.body().to_string();
-                    if let Some((i, _)) = cat_desc.char_indices().nth(100) {
-                        cat_desc.truncate(i);
-                    }
-
-                    render_data.insert_collection_value(
-                        "original",
-                        orig.post_num(),
-                        "post_body",
-                        format::html_escape_and_trim(&cat_desc),
-                    );
-
-                    originals.push(orig.post_num().to_string());
-                }
-
-                render_data.set_flag("pending_threads", any_pending);
-
-                render_data.add_collection("original", originals);
+                let cat_origs = database.get_catalog(*board_id)?.originals;
+                let select_catalog = |orig: &site::Original| !orig.archived;
+                populate_preview(&mut render_data, cat_origs, select_catalog);
 
                 let page_text = self.templates.catalog_tmpl.render(&render_data);
                 Ok(Page {
@@ -236,8 +239,23 @@ impl Pages {
                     page_text,
                 })
             },
+            PageRef::Archive(board_id) => {
+                let mut render_data = template::Data::full();
+                populate_site_data(&mut render_data, &self.site);
+                populate_board_data(&mut render_data, database.get_board(*board_id)?);
+
+                let cat_origs = database.get_catalog(*board_id)?.originals;
+                let select_archive = |orig: &site::Original| orig.archived;
+                populate_preview(&mut render_data, cat_origs, select_archive);
+
+                let page_text = self.templates.archive_tmpl.render(&render_data);
+                Ok(Page {
+                    page_ref: *pr,
+                    render_time: util::timestamp(),
+                    page_text,
+                })
+            },
             PageRef::Thread(board_id, orig_num) => {
-                let board = database.get_board(*board_id)?;
                 let thread = database.get_thread(*board_id, *orig_num)?;
 
                 if !matches!(thread.original.approval(), site::Approval::Approved) {
@@ -248,6 +266,8 @@ impl Pages {
                 }
 
                 let mut render_data = template::Data::full();
+                populate_site_data(&mut render_data, &self.site);
+                populate_board_data(&mut render_data, database.get_board(*board_id)?);
 
                 render_data.set_flag("can_reply", !thread.original.archived());
                 render_data.set_flag("is_archived", thread.original.archived());
@@ -269,16 +289,6 @@ impl Pages {
                 let posts = posts;
 
                 let fwd_links = compute_fwd_links(&thread, &posts.keys().cloned().collect());
-
-                render_data.insert_value("site_name", self.site.name.clone());
-                render_data.insert_value(
-                    "site_contact",
-                    clone_option_string_or_empty(&self.site.contact),
-                );
-                render_data.insert_value("site_url", clone_option_string_or_empty(&self.site.url));
-
-                render_data.insert_value("board_url", board.url);
-                render_data.insert_value("board_title", board.title);
 
                 render_data.insert_value("replies", thread.original.replies().to_string());
 
@@ -446,18 +456,9 @@ impl Pages {
                 })
             },
             PageRef::Create(board_id) => {
-                let board = database.get_board(*board_id)?;
-
                 let mut render_data = template::Data::simple();
-
-                render_data.insert_value("site_name", self.site.name.clone());
-                render_data.insert_value(
-                    "site_contact",
-                    clone_option_string_or_empty(&self.site.contact),
-                );
-
-                render_data.insert_value("board_url", board.url);
-                render_data.insert_value("board_title", board.title);
+                populate_site_data(&mut render_data, &self.site);
+                populate_board_data(&mut render_data, database.get_board(*board_id)?);
 
                 let page_text = self.templates.create_tmpl.render(&render_data);
                 Ok(Page {
@@ -478,6 +479,7 @@ impl Pages {
         match pr {
             PageRef::Homepage => true,
             PageRef::Catalog(board_id) => database.get_board(*board_id).is_ok(),
+            PageRef::Archive(board_id) => database.get_board(*board_id).is_ok(),
             PageRef::Thread(board_id, orig_num) => {
                 database.get_thread(*board_id, *orig_num).is_ok()
             },

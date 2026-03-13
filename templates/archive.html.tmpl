@@ -6,7 +6,7 @@
         <link rel = "stylesheet" href="/static/global.css">
         <link rel = "stylesheet" href="/static/catalog.css">
         <link rel = "shortcut icon" href="/static/favicon.png">
-        <title>/{{board_url}}/ – {{site_name}}</title>
+        <title>/{{board_url}}/ - Archive – {{site_name}}</title>
     </head>
     <body>
         <div class="header">
@@ -21,13 +21,13 @@
         {:pending_threads:}
         <div class="centre-nav">
             <span class="nav-link">[<a href="/{{board_url}}/create">Create Thread</a>]</span>
-            <span class="nav-link">[<a href="/{{board_url}}/archive">View Archive</a>]</span>
+            <span class="nav-link">[<a href="/{{board_url}}/catalog">View Catalog</a>]</span>
         </div>
         </div>
         <hr/>
         <div class="content">
             {%original%}
-                <div class="preview">
+                <div class="preview archived">
                     <a href="/{{board_url}}/thread/{{original.post_num}}">
                         <div class="thumbnail-frame">
                             <img class="thumbnail" src="{{original.file_url}}"></img>
