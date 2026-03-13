@@ -3,7 +3,7 @@ use crate::fr;
 use crate::site;
 use crate::site::Post;
 use crate::util;
-use crate::util::{unwrap_or_return, ErrOrigin, PlainchantErr};
+use crate::util::{unwrap_or_return, ErrOrigin, PlainchantErr, URL};
 use crate::Config;
 use rand::Rng;
 use std::collections::{HashMap, HashSet};
@@ -26,10 +26,11 @@ fn actions_err(msg: &str) -> PlainchantErr {
 }
 
 pub struct Actions {
-    ban_cache:      RwLock<HashMap<String, site::Ban>>,
-    orig_cooldown:  RwLock<HashMap<String, u64>>,
-    reply_cooldown: RwLock<HashMap<String, u64>>,
-    board_urls:     HashMap<String, u64>,
+    ban_cache:        RwLock<HashMap<String, site::Ban>>,
+    orig_cooldown:    RwLock<HashMap<String, u64>>,
+    reply_cooldown:   RwLock<HashMap<String, u64>>,
+    board_urls:       HashMap<String, u64>,
+    domain_whitelist: HashSet<String>,
 }
 
 pub enum SubmissionResult {
@@ -81,7 +82,6 @@ fn none_or_empty(s: &Option<String>) -> bool {
 impl Actions {
     pub fn new<DB: db::Database>(database: &DB) -> Result<Actions, PlainchantErr> {
         let bans = database.get_bans()?;
-
         let mut ban_cache = HashMap::<String, site::Ban>::new();
 
         for ban in bans {
@@ -97,11 +97,19 @@ impl Actions {
             board_urls.insert(board.url.clone(), board.id);
         }
 
+        let domain_whitelist = HashSet::from_iter(
+            database
+                .get_domain_whitelist()?
+                .into_iter()
+                .map(|w| w.domain),
+        );
+
         Ok(Actions {
             ban_cache: RwLock::new(ban_cache),
             orig_cooldown: RwLock::new(HashMap::new()),
             reply_cooldown: RwLock::new(HashMap::new()),
             board_urls,
+            domain_whitelist,
         })
     }
 
@@ -174,6 +182,20 @@ impl Actions {
         Ok(file_id)
     }
 
+    fn contains_disallowed_domains(&self, body: &String) -> bool {
+        let urls = URL.captures_iter(body);
+        for url in urls {
+            if let Some(addr) = url.get(2) {
+                if let Some(domain) = addr.as_str().split('/').next() {
+                    if !self.domain_whitelist.contains(domain) {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+
     pub fn submit_original<DB: db::Database>(
         &self,
         database: &DB,
@@ -189,7 +211,7 @@ impl Actions {
     ) -> Result<SubmissionResult, util::PlainchantErr> {
         let cur_time = util::timestamp();
 
-        if config.forbid_links && (body.contains("https://") || body.contains("http://")) {
+        if config.whitelist_domains && self.contains_disallowed_domains(&body) {
             return Ok(SubmissionResult::BadContent);
         }
 
@@ -256,7 +278,7 @@ impl Actions {
     ) -> Result<SubmissionResult, util::PlainchantErr> {
         let cur_time = util::timestamp();
 
-        if config.forbid_links && (body.contains("https://") || body.contains("http://")) {
+        if config.whitelist_domains && self.contains_disallowed_domains(&body) {
             return Ok(SubmissionResult::BadContent);
         }
 

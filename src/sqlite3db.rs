@@ -120,6 +120,16 @@ impl Sqlite3Database {
 
         conn.execute(
             r#"
+            CREATE TABLE IF NOT EXISTS DomainWhitelist (
+                DomainId       INTEGER  PRIMARY KEY,
+                Domain         TEXT     NOT NULL
+            );
+        "#,
+            (),
+        )?;
+
+        conn.execute(
+            r#"
             CREATE TABLE IF NOT EXISTS Boards (
                 BoardId     INTEGER  PRIMARY KEY,
                 Url         TEXT     NOT NULL,
@@ -192,6 +202,13 @@ fn row_to_board<'stmt>(row: &rusqlite::Row<'stmt>) -> rusqlite::Result<site::Boa
         bump_limit: row.get(4)?,
         next_post_num: row.get(5)?,
         archive_cap: row.get(6)?,
+    })
+}
+
+fn row_to_domain<'stmt>(row: &rusqlite::Row<'stmt>) -> rusqlite::Result<site::Domain> {
+    Ok(site::Domain {
+        id:     row.get(0)?,
+        domain: row.get(1)?,
     })
 }
 
@@ -376,6 +393,23 @@ impl db::Database for Sqlite3Database {
         }
 
         Ok(boards)
+    }
+
+    fn get_domain_whitelist(&self) -> Result<Vec<site::Domain>, PlainchantErr> {
+        let conn = self.pool.get()?;
+        let mut query = conn.prepare(
+            r#"
+            SELECT DomainId, Domain FROM DomainWhitelist;
+            "#,
+        )?;
+
+        let domains_iter = query.query_map((), row_to_domain)?;
+
+        let mut domains = vec![];
+        for d in domains_iter {
+            domains.push(d?);
+        }
+        Ok(domains)
     }
 
     fn get_board(&self, board_id: u64) -> Result<site::Board, PlainchantErr> {
@@ -598,11 +632,9 @@ impl db::Database for Sqlite3Database {
         let bans_iter = query.query_map((), row_to_ban)?;
 
         let mut bans = vec![];
-
         for b in bans_iter {
             bans.push(b?);
         }
-
         Ok(bans)
     }
 

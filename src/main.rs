@@ -36,7 +36,7 @@ pub struct Config {
     static_dir: PathBuf,
     approve_threads_by_default: bool,
     approve_replies_by_default: bool,
-    forbid_links: bool,
+    whitelist_domains: bool,
     access_key: Option<String>,
 }
 
@@ -113,11 +113,11 @@ fn main() {
         })
         .unwrap_or(true);
 
-    let forbid_links = val(&conf_data, "site")
-        .get("forbid_links")
+    let whitelist_domains = val(&conf_data, "site")
+        .get("whitelist_domains")
         .map(|val| {
             val.as_bool()
-                .unwrap_or_else(|| init_die("forbid_links is not a boolean"))
+                .unwrap_or_else(|| init_die("whitelist_domains is not a boolean"))
         })
         .unwrap_or(false);
 
@@ -136,7 +136,7 @@ fn main() {
         static_dir,
         approve_threads_by_default,
         approve_replies_by_default,
-        forbid_links,
+        whitelist_domains,
         access_key,
     };
 

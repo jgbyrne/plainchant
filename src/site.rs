@@ -207,3 +207,9 @@ pub struct Ban {
     pub ip:           String,
     pub time_expires: u64,
 }
+
+#[derive(Debug, Clone)]
+pub struct Domain {
+    pub id:     u64,
+    pub domain: String,
+}

@@ -5,7 +5,7 @@ assets = "/etc/plainchant"
 
 approve_threads_by_default = false
 approve_replies_by_default = true
-forbid_links = true
+whitelist_domains = true
 
 [db.sqlite]
 path = "/var/lib/plainchant/db.sqlite3"

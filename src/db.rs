@@ -22,6 +22,8 @@ pub trait Database: Sync + Send + 'static {
     fn get_boards(&self) -> Result<Vec<site::Board>, util::PlainchantErr>;
     fn get_board(&self, board_id: u64) -> Result<site::Board, util::PlainchantErr>;
 
+    fn get_domain_whitelist(&self) -> Result<Vec<site::Domain>, util::PlainchantErr>;
+
     fn get_catalog(&self, board_id: u64) -> Result<site::Catalog, util::PlainchantErr>;
 
     fn get_original(

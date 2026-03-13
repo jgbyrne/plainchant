@@ -1,5 +1,6 @@
 use crate::site::Feather;
 use crate::util;
+use crate::util::URL;
 use chrono::{MappedLocalTime, TimeZone, Utc};
 use lazy_static::lazy_static;
 use regex::{Captures, Regex};
@@ -84,8 +85,6 @@ pub fn annotate_post(
         static ref QUOTED: Regex = Regex::new(r"^\s*>(?:$|[^>])").unwrap();
         // Capture replies of form >>390290 and >>>/blah/2939404
         static ref REPLY: Regex = Regex::new(r"(>>)(?:([\d]+)|>/(\w+)/([\d]+))(?:$|\W)").unwrap();
-        // Capture possible URLs
-        static ref URL: Regex = Regex::new(r"(http|https)://[A-Za-z0-9\-_~:/?.#@!$&'()*+,;%=]+").unwrap();
     }
 
     let mut out = String::new();

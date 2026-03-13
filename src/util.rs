@@ -1,5 +1,12 @@
+use lazy_static::lazy_static;
+use regex::Regex;
 use std::process::exit;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+lazy_static! {
+    // Capture possible URLs
+    pub static ref URL: Regex = Regex::new(r"(http|https)://([A-Za-z0-9\-_~:/?.#@!$&'()*+,;%=]+)").unwrap();
+}
 
 #[derive(Debug)]
 pub enum ErrOrigin {
