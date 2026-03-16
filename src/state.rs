@@ -2,11 +2,11 @@ use axum::extract::FromRef;
 
 use std::sync::{Arc, RwLock};
 
+use crate::Config;
 use crate::actions;
 use crate::db;
 use crate::fr;
 use crate::pages;
-use crate::Config;
 
 pub struct PlainchantState<DB: db::Database, FR: fr::FileRack> {
     pub config:  Arc<Config>,

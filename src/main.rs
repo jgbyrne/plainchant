@@ -5,6 +5,7 @@ mod db;
 mod fr;
 
 mod actions;
+mod api;
 mod console;
 mod format;
 mod fsfr;

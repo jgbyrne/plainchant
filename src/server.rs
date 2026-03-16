@@ -1,20 +1,21 @@
+use crate::Config;
 use crate::actions;
+use crate::api;
 use crate::console;
 use crate::db;
 use crate::fr;
 use crate::pages;
 use crate::state::{DbState, FrState, PlainchantState};
 use crate::template::{Data, Template};
-use crate::util::{unwrap_or_return, ErrOrigin};
-use crate::Config;
+use crate::util::{ErrOrigin, unwrap_or_return};
 
+use axum::ServiceExt;
 use axum::extract::{Request, State};
 use axum::http;
 use axum::http::header::HeaderMap;
 use axum::http::{StatusCode, Uri};
 use axum::response::{ErrorResponse, Html, IntoResponse, IntoResponseParts};
-use axum::ServiceExt;
-use axum::{body, extract, response, routing, Router};
+use axum::{Router, body, extract, response, routing};
 
 use tower::Layer;
 use tower_http::normalize_path::NormalizePathLayer;
@@ -719,8 +720,9 @@ pub async fn serve<DB: db::Database, FR: fr::FileRack>(
         .route("/thumbnails/{file_id}", routing::get(thumbnails))
         .route("/{board}/submit", routing::post(create_submit))
         .route("/{board}/reply/{orig_num}", routing::post(create_reply))
-        .route("/api/console", routing::post(console))
         .route("/static/{*path}", routing::get(static_dir))
+        .route("/api/console", routing::post(console))
+        .nest("/api", api::get_api_router())
         .layer(extract::DefaultBodyLimit::max(FORM_MAX_LENGTH))
         .fallback(route_not_found)
         .with_state(state);

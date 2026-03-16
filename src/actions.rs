@@ -1,10 +1,10 @@
+use crate::Config;
 use crate::db;
 use crate::fr;
 use crate::site;
 use crate::site::Post;
 use crate::util;
-use crate::util::{unwrap_or_return, ErrOrigin, PlainchantErr, URL};
-use crate::Config;
+use crate::util::{ErrOrigin, PlainchantErr, URL, unwrap_or_return};
 use rand::Rng;
 use std::collections::{HashMap, HashSet};
 use std::iter;

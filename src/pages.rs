@@ -1,10 +1,10 @@
+use crate::Config;
 use crate::db;
 use crate::format;
 use crate::site;
 use crate::site::Post;
 use crate::template;
 use crate::util;
-use crate::Config;
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
