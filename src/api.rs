@@ -1,12 +1,17 @@
+use crate::actions::Actions;
 use crate::db;
 use crate::fr;
+use crate::site;
 use crate::state::{DbState, PlainchantState};
 use crate::util::{ErrOrigin, PlainchantErr};
 
 use axum::Json;
+use axum::extract;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::{Router, routing};
+
+use std::sync::Arc;
 
 use serde::Serialize;
 
@@ -66,23 +71,39 @@ struct ApiBoard {
     pub next_post_num: u64,
 }
 
-async fn boards<DB: db::Database>(
-    State(DbState { db }): State<DbState<DB>>,
-) -> ApiResult<Vec<ApiBoard>> {
-    let api_boards = db
-        .get_boards()?
-        .into_iter()
-        .map(|board| ApiBoard {
+impl From<site::Board> for ApiBoard {
+    fn from(board: site::Board) -> Self {
+        ApiBoard {
             url:           board.url,
             title:         board.title,
             post_cap:      board.post_cap,
             archive_cap:   board.archive_cap,
             bump_limit:    board.bump_limit,
             next_post_num: board.next_post_num,
-        })
+        }
+    }
+}
+
+async fn boards<DB: db::Database>(
+    State(DbState { db }): State<DbState<DB>>,
+) -> ApiResult<Vec<ApiBoard>> {
+    let api_boards = db
+        .get_boards()?
+        .into_iter()
+        .map(|b| b.into())
         .collect::<Vec<ApiBoard>>();
 
     api_ok(api_boards)
+}
+
+async fn board<DB: db::Database>(
+    State(actions): State<Arc<Actions>>,
+    State(DbState { db }): State<DbState<DB>>,
+    extract::Path(board): extract::Path<String>,
+) -> ApiResult<ApiBoard> {
+    let board_id = actions.board_url_to_id(&board)?;
+    let board = db.get_board(board_id)?.into();
+    api_ok(board)
 }
 
 pub fn get_api_router<DB, FR>() -> Router<PlainchantState<DB, FR>>
@@ -93,4 +114,5 @@ where
     Router::new()
         .route("/site", routing::get(site))
         .route("/boards", routing::get(boards))
+        .route("/board/{board_url}", routing::get(board))
 }

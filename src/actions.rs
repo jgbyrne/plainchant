@@ -461,7 +461,7 @@ impl Actions {
         match self.board_urls.get(url) {
             Some(id) => Ok(*id),
             None => Err(util::PlainchantErr {
-                origin: util::ErrOrigin::Actions,
+                origin: util::ErrOrigin::Web(404),
                 msg:    format!("No board with url: {}", url),
             }),
         }
