@@ -38,6 +38,25 @@ impl From<PlainchantErr> for ApiErrorResponse {
 }
 
 #[derive(Serialize)]
+struct ApiSite {
+    pub name:        String,
+    pub description: String,
+    pub contact:     Option<String>,
+    pub url:         Option<String>,
+}
+
+async fn site<DB: db::Database>(State(DbState { db }): State<DbState<DB>>) -> ApiResult<ApiSite> {
+    let site = db.get_site()?;
+    let api_site = ApiSite {
+        name:        site.name,
+        description: site.description,
+        contact:     site.contact,
+        url:         site.url,
+    };
+    api_ok(api_site)
+}
+
+#[derive(Serialize)]
 struct ApiBoard {
     pub url:           String,
     pub title:         String,
@@ -71,5 +90,7 @@ where
     DB: db::Database,
     FR: fr::FileRack,
 {
-    Router::new().route("/boards", routing::get(boards))
+    Router::new()
+        .route("/site", routing::get(site))
+        .route("/boards", routing::get(boards))
 }
