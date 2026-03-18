@@ -40,9 +40,9 @@ The following steps describe a convenient way of setting up Plainchant for local
 
 4. To create the database at `/var/lib/plainchant/db.sqlite3`, run `plainchant`, either with `cargo run` or by invoking the binary directly. You need provide just one argument, the path to the site config file - if you have exactly followed the directions above, that's `/etc/plainchant/plainchant.toml`.
 
-5. Using a tool of your choice, add each board that you wish to serve into the `Boards` table of the sqlite3 database. The schema is (`BoardId`, `Url`, `Title`, `PostCap`, `BumpLimit`, `NextPostNum`). For example:
+5. Using a tool of your choice, add each board that you wish to serve into the `Boards` table of the sqlite3 database. The schema is (`BoardId`, `Url`, `Title`, `PostCap`, `BumpLimit`, `NextPostNum`, `ArchiveCap`). For example:
 
-    `INSERT INTO Boards VALUES (1234, 'mu', 'Music', 20, 100, 10000);`
+    `INSERT INTO Boards VALUES (1234, 'mu', 'Music', 20, 100, 10000, 10);`
 
 6. Using a tool of your choice, update the singleton row in the `Site` table of the database with a site name and description of your choice. For example:
 
