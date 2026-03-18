@@ -30,6 +30,7 @@ pub struct Actions {
     orig_cooldown:    RwLock<HashMap<String, u64>>,
     reply_cooldown:   RwLock<HashMap<String, u64>>,
     board_urls:       HashMap<String, u64>,
+    board_ids:        HashMap<u64, String>,
     domain_whitelist: HashSet<String>,
 }
 
@@ -93,8 +94,10 @@ impl Actions {
         }
 
         let mut board_urls = HashMap::new();
+        let mut board_ids = HashMap::new();
         for board in database.get_boards()? {
             board_urls.insert(board.url.clone(), board.id);
+            board_ids.insert(board.id, board.url.clone());
         }
 
         let domain_whitelist = HashSet::from_iter(
@@ -109,6 +112,7 @@ impl Actions {
             orig_cooldown: RwLock::new(HashMap::new()),
             reply_cooldown: RwLock::new(HashMap::new()),
             board_urls,
+            board_ids,
             domain_whitelist,
         })
     }
@@ -463,6 +467,16 @@ impl Actions {
             None => Err(util::PlainchantErr {
                 origin: util::ErrOrigin::Web(404),
                 msg:    format!("No board with url: {}", url),
+            }),
+        }
+    }
+
+    pub fn board_id_to_url<'a>(&self, id: u64) -> Result<String, util::PlainchantErr> {
+        match self.board_ids.get(&id) {
+            Some(url) => Ok(url.to_string()),
+            None => Err(util::PlainchantErr {
+                origin: util::ErrOrigin::Web(404),
+                msg:    format!("No board with id: {}", id),
             }),
         }
     }

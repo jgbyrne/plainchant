@@ -106,6 +106,126 @@ async fn board<DB: db::Database>(
     api_ok(board)
 }
 
+#[derive(Serialize)]
+struct ApiOriginal {
+    board_url:    String,
+    post_num:     u64,
+    time:         u64,
+    poster:       Option<String>,
+    title:        Option<String>,
+    body:         String,
+    is_moderator: bool,
+    is_admin:     bool,
+    trip:         Option<String>,
+    file_id:      Option<String>,
+    is_approved:  bool,
+    is_flagged:   bool,
+    bump_time:    u64,
+    replies:      u16,
+    img_replies:  u16,
+    archived:     bool,
+}
+
+fn original_to_api(
+    actions: &Arc<Actions>,
+    orig: site::Original,
+) -> Result<ApiOriginal, PlainchantErr> {
+    Ok(ApiOriginal {
+        board_url:    actions.board_id_to_url(orig.board_id)?,
+        post_num:     orig.post_num,
+        time:         orig.time,
+        poster:       orig.poster,
+        title:        orig.title,
+        body:         orig.body,
+        is_moderator: matches!(orig.feather, site::Feather::Moderator),
+        is_admin:     matches!(orig.feather, site::Feather::Admin),
+        trip:         match orig.feather {
+            site::Feather::Trip(s) => Some(s),
+            _ => None,
+        },
+        file_id:      orig.file_id,
+        is_approved:  matches!(orig.approval, site::Approval::Approved),
+        is_flagged:   matches!(orig.approval, site::Approval::Flagged),
+        bump_time:    orig.bump_time,
+        replies:      orig.replies,
+        img_replies:  orig.img_replies,
+        archived:     orig.archived,
+    })
+}
+
+async fn threads<DB: db::Database>(
+    State(actions): State<Arc<Actions>>,
+    State(DbState { db }): State<DbState<DB>>,
+    extract::Path(board_url): extract::Path<String>,
+) -> ApiResult<Vec<ApiOriginal>> {
+    let board_id = actions.board_url_to_id(&board_url)?;
+    let threads = db
+        .get_catalog(board_id)?
+        .originals
+        .into_iter()
+        .map(|orig| original_to_api(&actions, orig))
+        .collect::<Result<Vec<ApiOriginal>, PlainchantErr>>()?;
+    api_ok(threads)
+}
+
+#[derive(Serialize)]
+struct ApiReply {
+    board_url:    String,
+    orig_num:     u64,
+    post_num:     u64,
+    time:         u64,
+    poster:       Option<String>,
+    body:         String,
+    is_moderator: bool,
+    is_admin:     bool,
+    trip:         Option<String>,
+    file_id:      Option<String>,
+    is_approved:  bool,
+    is_flagged:   bool,
+}
+
+fn reply_to_api(actions: &Arc<Actions>, reply: site::Reply) -> Result<ApiReply, PlainchantErr> {
+    Ok(ApiReply {
+        board_url:    actions.board_id_to_url(reply.board_id)?,
+        orig_num:     reply.orig_num,
+        post_num:     reply.post_num,
+        time:         reply.time,
+        poster:       reply.poster,
+        body:         reply.body,
+        is_moderator: matches!(reply.feather, site::Feather::Moderator),
+        is_admin:     matches!(reply.feather, site::Feather::Admin),
+        trip:         match reply.feather {
+            site::Feather::Trip(s) => Some(s),
+            _ => None,
+        },
+        file_id:      reply.file_id,
+        is_approved:  matches!(reply.approval, site::Approval::Approved),
+        is_flagged:   matches!(reply.approval, site::Approval::Flagged),
+    })
+}
+
+#[derive(Serialize)]
+struct ApiThread {
+    original: ApiOriginal,
+    replies:  Vec<ApiReply>,
+}
+
+async fn thread<DB: db::Database>(
+    State(actions): State<Arc<Actions>>,
+    State(DbState { db }): State<DbState<DB>>,
+    extract::Path((board_url, post_num)): extract::Path<(String, u64)>,
+) -> ApiResult<ApiThread> {
+    let thread = db.get_thread(actions.board_url_to_id(&board_url)?, post_num)?;
+    api_ok(ApiThread {
+        original: original_to_api(&actions, thread.original)?,
+        replies:  thread
+            .replies
+            .into_iter()
+            .map(|reply| reply_to_api(&actions, reply))
+            .collect::<Result<Vec<ApiReply>, PlainchantErr>>()?,
+    })
+}
+
 pub fn get_api_router<DB, FR>() -> Router<PlainchantState<DB, FR>>
 where
     DB: db::Database,
@@ -115,4 +235,6 @@ where
         .route("/site", routing::get(site))
         .route("/boards", routing::get(boards))
         .route("/board/{board_url}", routing::get(board))
+        .route("/board/{board_url}/threads", routing::get(threads))
+        .route("/board/{board_url}/thread/{post_num}", routing::get(thread))
 }
