@@ -12,7 +12,7 @@
         <meta property="twitter:image" content="{{site_url}}{{orig_file_url}}"/>
 
         <link rel = "stylesheet" href="/static/global.css">
-        <link rel = "stylesheet" href="/static/thread.css">
+        <link rel = "stylesheet" href="/static/thread.css?cacheinvalid=120526">
         <link rel = "shortcut icon" href="/static/favicon.png">
         <title>{:orig_has_title:}{{orig_title}} – {:orig_has_title:}/{{board_url}}/ – {{site_name}}</title>
     </head>
@@ -111,6 +111,15 @@
                 </div>
             </form>
             {:can_reply:}
+            {:is_archived:}
+            <div class="coda"><div class="bard">
+                Our revels now are ended. These our actors,
+                As I foretold you, were all spirits and
+                Are melted into air, into thin air.
+            </div>
+            <span class="post-is-archived">This thread is archived and you may no longer reply.</span>
+            </div>
+            {:is_archived:}
         </div>
         </div>
         <hr/>

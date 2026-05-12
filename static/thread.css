@@ -155,6 +155,16 @@
     padding-bottom: 17px;
 }
 
+.coda {
+    white-space: pre-line;
+    width: 100%;
+    text-align: center;
+}
+
+.bard {
+    font-style: italic;
+}
+
 .floating-preview {
     z-index: 9;
     padding: 15px;
