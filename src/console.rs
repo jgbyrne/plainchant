@@ -134,7 +134,7 @@ where
         },
 
         "purge" => {
-            if parts.len() < 3 {
+            if parts.len() < 4 {
                 return String::from("purge (dry|exec) <board_id> <post_num>\n");
             }
 
