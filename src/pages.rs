@@ -99,6 +99,7 @@ fn populate_site_data(data: &mut template::Data, site: &site::Site) {
     data.insert_value("site_name", site.name.clone());
     data.insert_value("site_description", site.description.clone());
     data.insert_value("site_contact", clone_option_string_or_empty(&site.contact));
+    data.insert_value("site_url", clone_option_string_or_empty(&site.url));
 }
 
 fn populate_board_data(data: &mut template::Data, board: site::Board) {
