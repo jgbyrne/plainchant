@@ -5,7 +5,7 @@ html {
 body {
     background-color: #f7efef;
     @media (prefers-color-scheme: dark) {
-        background-color: #141440;
+        background-color: #0A0A2E;
         color: #eeeeee;
     }
 
@@ -13,6 +13,16 @@ body {
     font-size: 1.2rem;
     display: flex;
     flex-direction: column;
+}
+
+@media (prefers-color-scheme: dark) {
+    a {
+        color: #ff79c6;
+    }
+
+    a:visited {
+        color: #ffaaee;
+    }
 }
 
 .page-title {

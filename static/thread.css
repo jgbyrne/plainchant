@@ -30,7 +30,7 @@
     margin: 0px 5px 5px 5px;
     background-color: #f7efef;
     @media (prefers-color-scheme: dark) {
-        background-color: #141440;
+        background-color: #0A0A2E;
     }
     border: none;
     display: flex;
@@ -234,16 +234,6 @@
     transform: translateX(-50%);
 }
 
-
-@media (prefers-color-scheme: dark) {
-    a {
-        color: #ff79c6;
-    }
-
-    a:visited {
-        color: #ffaaee;
-    }
-}
 
 /* Only offer post previews on PCs */
 
