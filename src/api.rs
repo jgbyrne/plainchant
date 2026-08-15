@@ -3,7 +3,7 @@ use crate::db;
 use crate::fr;
 use crate::site;
 use crate::state::{DbState, PlainchantState};
-use crate::util::{ErrOrigin, PlainchantErr};
+use crate::util::PlainchantErr;
 
 use axum::Json;
 use axum::extract;
@@ -31,14 +31,17 @@ fn api_ok<T>(inner: T) -> ApiResult<T> {
 
 impl From<PlainchantErr> for ApiErrorResponse {
     fn from(err: PlainchantErr) -> Self {
-        let code = match err.origin {
-            ErrOrigin::Web(c) => {
-                StatusCode::from_u16(c).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR)
-            },
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
-        };
-
-        (code, Json(ApiError { message: err.msg }))
+        let code = StatusCode::from_u16(err.code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+        (
+            code,
+            Json(ApiError {
+                message: if cfg!(debug_assertions) {
+                    format!("[{:?}] ({:?}) '{}'", err.origin, err.code, err.msg)
+                } else {
+                    code.canonical_reason().unwrap_or("").to_string()
+                },
+            }),
+        )
     }
 }
 
@@ -226,6 +229,30 @@ async fn thread<DB: db::Database>(
     })
 }
 
+#[derive(Serialize)]
+#[serde(tag = "post_type")]
+enum ApiPost {
+    #[serde(rename = "original")]
+    Original(ApiOriginal),
+    #[serde(rename = "reply")]
+    Reply(ApiReply),
+}
+
+async fn post<DB: db::Database>(
+    State(actions): State<Arc<Actions>>,
+    State(DbState { db }): State<DbState<DB>>,
+    extract::Path((board_url, post_num)): extract::Path<(String, u64)>,
+) -> ApiResult<ApiPost> {
+    let post = db.get_differentiated_post(actions.board_url_to_id(&board_url)?, post_num)?;
+
+    api_ok(match post {
+        site::DifferentiatedPost::Original(orig) => {
+            ApiPost::Original(original_to_api(&actions, orig)?)
+        },
+        site::DifferentiatedPost::Reply(reply) => ApiPost::Reply(reply_to_api(&actions, reply)?),
+    })
+}
+
 pub fn get_api_router<DB, FR>() -> Router<PlainchantState<DB, FR>>
 where
     DB: db::Database,
@@ -237,4 +264,5 @@ where
         .route("/board/{board_url}", routing::get(board))
         .route("/board/{board_url}/threads", routing::get(threads))
         .route("/board/{board_url}/thread/{post_num}", routing::get(thread))
+        .route("/board/{board_url}/post/{post_num}", routing::get(post))
 }

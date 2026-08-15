@@ -14,12 +14,13 @@ pub enum ErrOrigin {
     FileRack,
     Actions,
     Template,
-    Web(u16),
+    Web,
 }
 
 #[derive(Debug)]
 pub struct PlainchantErr {
     pub origin: ErrOrigin,
+    pub code:   u16,
     pub msg:    String,
 }
 

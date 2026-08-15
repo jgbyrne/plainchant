@@ -7,14 +7,6 @@ pub struct Thread {
     pub replies:  Vec<site::Reply>,
 }
 
-#[allow(unused)]
-pub fn static_err(msg: &'static str) -> util::PlainchantErr {
-    util::PlainchantErr {
-        origin: util::ErrOrigin::Database,
-        msg:    String::from(msg),
-    }
-}
-
 pub trait Database: Sync + Send + 'static {
     fn get_site(&self) -> Result<site::Site, util::PlainchantErr>;
     fn set_site(&self, site: site::Site) -> Result<(), util::PlainchantErr>;
@@ -39,6 +31,12 @@ pub trait Database: Sync + Send + 'static {
         board_id: u64,
         post_num: u64,
     ) -> Result<Box<dyn site::Post>, util::PlainchantErr>;
+
+    fn get_differentiated_post(
+        &self,
+        board_id: u64,
+        post_num: u64,
+    ) -> Result<site::DifferentiatedPost, util::PlainchantErr>;
 
     fn get_thread(&self, board_id: u64, post_num: u64) -> Result<Thread, util::PlainchantErr>;
 

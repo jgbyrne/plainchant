@@ -13,6 +13,10 @@ impl From<rusqlite::Error> for PlainchantErr {
     fn from(err: rusqlite::Error) -> Self {
         PlainchantErr {
             msg:    format!("{}", err),
+            code:   match err {
+                rusqlite::Error::QueryReturnedNoRows => 404,
+                _ => 500,
+            },
             origin: util::ErrOrigin::Database,
         }
     }
@@ -22,6 +26,7 @@ impl From<r2d2::Error> for PlainchantErr {
     fn from(err: r2d2::Error) -> Self {
         PlainchantErr {
             msg:    format!("{}", err),
+            code:   500,
             origin: util::ErrOrigin::Database,
         }
     }
@@ -246,13 +251,23 @@ fn row_to_original<'stmt>(row: &rusqlite::Row<'stmt>) -> rusqlite::Result<site::
         file_id: row.get(8)?,
         file_name: row.get(9)?,
         approval,
-        title: row.get(11)?,
-        bump_time: row.get(12)?,
-        replies: row.get(13)?,
-        img_replies: row.get(14)?,
-        pinned: row.get(15)?,
-        archived: row.get(16)?,
+        title: row.get(12)?,
+        bump_time: row.get(13)?,
+        replies: row.get(14)?,
+        img_replies: row.get(15)?,
+        pinned: row.get(16)?,
+        archived: row.get(17)?,
     })
+}
+
+fn row_to_differentiated_post<'stmt>(
+    row: &rusqlite::Row<'stmt>,
+) -> rusqlite::Result<site::DifferentiatedPost> {
+    let orig_board_id: Option<usize> = row.get(18)?;
+    match orig_board_id {
+        Some(_) => row_to_original(row).map(|orig| site::DifferentiatedPost::Original(orig)),
+        None => row_to_reply(row).map(|reply| site::DifferentiatedPost::Reply(reply)),
+    }
 }
 
 fn query_board<T: Deref<Target = rusqlite::Connection>>(
@@ -279,7 +294,7 @@ fn query_original<T: Deref<Target = rusqlite::Connection>>(
     let mut query = conn.prepare(
         r#"
         SELECT p.BoardId, p.PostNum, p.Time, p.Ip, p.Poster, p.Body,
-               p.FeatherType, p.FeatherText, p.FileId, p.FileName, p.Approval,
+               p.FeatherType, p.FeatherText, p.FileId, p.FileName, p.Approval, p.OrigNum,
                o.Title, o.BumpTime, o.Replies, o.ImgReplies,
                o.Pinned, o.Archived
 
@@ -313,11 +328,38 @@ fn query_reply<T: Deref<Target = rusqlite::Connection>>(
     if post.orig_num == 0 {
         Err(PlainchantErr {
             origin: util::ErrOrigin::Database,
+            code:   422,
             msg:    format!("Post ({}, {}) is an Original", board_id, post_num),
         })
     } else {
         Ok(post)
     }
+}
+
+fn query_differentiated_post<T: Deref<Target = rusqlite::Connection>>(
+    conn: &T,
+    board_id: u64,
+    post_num: u64,
+) -> Result<site::DifferentiatedPost, PlainchantErr> {
+    let mut query = conn.prepare(
+        r#"
+        SELECT p.BoardId, p.PostNum, p.Time, p.Ip, p.Poster, p.Body,
+               p.FeatherType, p.FeatherText, p.FileId, p.FileName, p.Approval, p.OrigNum,
+               o.Title, o.BumpTime, o.Replies, o.ImgReplies,
+               o.Pinned, o.Archived,
+
+               o.BoardId -- sentinel value to see if orig or reply
+
+        FROM   Posts p LEFT JOIN Originals o
+                    ON (p.BoardId, p.PostNum) = (o.BoardId, o.PostNum)
+
+        WHERE (p.BoardId, p.PostNum) = (?1, ?2);
+    "#,
+    )?;
+
+    query
+        .query_row((board_id, post_num), row_to_differentiated_post)
+        .map_err(|e| e.into())
 }
 
 fn increment_next_post_num<T: Deref<Target = rusqlite::Connection>>(
@@ -422,7 +464,7 @@ impl db::Database for Sqlite3Database {
         let mut query = conn.prepare(
             r#"
             SELECT p.BoardId, p.PostNum, p.Time, p.Ip, p.Poster, p.Body,
-                   p.FeatherType, p.FeatherText, p.FileId, p.FileName, p.Approval,
+                   p.FeatherType, p.FeatherText, p.FileId, p.FileName, p.Approval, p.OrigNum,
                    o.Title, o.BumpTime, o.Replies, o.ImgReplies,
                    o.Pinned, o.Archived
 
@@ -485,7 +527,7 @@ impl db::Database for Sqlite3Database {
         let mut query = conn.prepare(
             r#"
                 SELECT p.BoardId, p.PostNum, p.Time, p.Ip, p.Poster, p.Body,
-                       p.FeatherType, p.FeatherText, p.FileId, p.FileName, p.Approval,
+                       p.FeatherType, p.FeatherText, p.FileId, p.FileName, p.Approval, p.OrigNum
                        o.Title, o.BumpTime, o.Replies, o.ImgReplies,
                        o.Pinned, o.Archived
 
@@ -562,6 +604,15 @@ impl db::Database for Sqlite3Database {
     fn get_reply(&self, board_id: u64, post_num: u64) -> Result<site::Reply, PlainchantErr> {
         let conn = self.pool.get()?;
         query_reply(&conn, board_id, post_num)
+    }
+
+    fn get_differentiated_post(
+        &self,
+        board_id: u64,
+        post_num: u64,
+    ) -> Result<site::DifferentiatedPost, PlainchantErr> {
+        let conn = self.pool.get()?;
+        query_differentiated_post(&conn, board_id, post_num)
     }
 
     fn get_post(&self, board_id: u64, post_num: u64) -> Result<Box<dyn site::Post>, PlainchantErr> {

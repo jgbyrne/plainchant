@@ -82,6 +82,7 @@ pub struct Template {
 pub fn static_err(msg: &'static str) -> util::PlainchantErr {
     util::PlainchantErr {
         origin: util::ErrOrigin::Template,
+        code:   500,
         msg:    msg.to_string(),
     }
 }

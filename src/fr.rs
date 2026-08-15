@@ -5,6 +5,8 @@ use bytes::Bytes;
 pub fn static_err(msg: &'static str) -> util::PlainchantErr {
     util::PlainchantErr {
         origin: util::ErrOrigin::FileRack,
+        // TODO may want to emit different codes in the future
+        code:   500,
         msg:    String::from(msg),
     }
 }

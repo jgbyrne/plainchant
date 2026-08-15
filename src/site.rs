@@ -176,6 +176,12 @@ macro_rules! impl_post {
 impl_post!(Original, Reply);
 
 #[derive(Debug)]
+pub enum DifferentiatedPost {
+    Original(Original),
+    Reply(Reply),
+}
+
+#[derive(Debug)]
 pub struct Board {
     pub id: u64,
     pub url: String,

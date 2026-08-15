@@ -21,6 +21,7 @@ fn compute_tripcode(trip: String) -> String {
 fn actions_err(msg: &str) -> PlainchantErr {
     PlainchantErr {
         origin: ErrOrigin::Actions,
+        code:   500,
         msg:    String::from(msg),
     }
 }
@@ -465,7 +466,8 @@ impl Actions {
         match self.board_urls.get(url) {
             Some(id) => Ok(*id),
             None => Err(util::PlainchantErr {
-                origin: util::ErrOrigin::Web(404),
+                origin: util::ErrOrigin::Web,
+                code:   404,
                 msg:    format!("No board with url: {}", url),
             }),
         }
@@ -475,7 +477,8 @@ impl Actions {
         match self.board_ids.get(&id) {
             Some(url) => Ok(url.to_string()),
             None => Err(util::PlainchantErr {
-                origin: util::ErrOrigin::Web(404),
+                origin: util::ErrOrigin::Web,
+                code:   404,
                 msg:    format!("No board with id: {}", id),
             }),
         }

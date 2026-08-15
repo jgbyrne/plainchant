@@ -94,8 +94,8 @@ fn render_page<DB: db::Database>(
         match pg.render(config.as_ref(), db.as_ref(), page_ref) {
             Ok(page) => page,
             Err(err) => match err.origin {
-                ErrOrigin::Web(code) => {
-                    return web_error(&sp, code, &err.msg);
+                ErrOrigin::Web => {
+                    return web_error(&sp, err.code, &err.msg);
                 },
                 _ => {
                     return internal_error(&sp, "Failed to render page");
@@ -176,6 +176,7 @@ async fn thread<DB: db::Database>(
                 // The board exists but the original post does not
                 // Let's try and fetch it as a reply
                 let reply = unwrap_or_return!(db.get_reply(board_id, post_num), {
+                    // TODO this should check the error code now we have it
                     Ok(not_found(&sp, "No such thread"))
                 });
                 let uri = format!("/{}/thread/{}#{}", &board, reply.orig_num, post_num);

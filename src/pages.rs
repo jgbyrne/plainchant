@@ -261,7 +261,8 @@ impl Pages {
 
                 if !matches!(thread.original.approval(), site::Approval::Approved) {
                     return Err(util::PlainchantErr {
-                        origin: util::ErrOrigin::Web(401),
+                        origin: util::ErrOrigin::Web,
+                        code:   401,
                         msg:    "Unapproved Post".to_string(),
                     });
                 }
@@ -505,7 +506,8 @@ impl Pages {
                     return Ok(None);
                 } else {
                     return Err(util::PlainchantErr {
-                        origin: util::ErrOrigin::Web(404),
+                        origin: util::ErrOrigin::Web,
+                        code:   404,
                         msg:    "No such page".to_string(),
                     });
                 }
