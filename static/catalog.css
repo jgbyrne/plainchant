@@ -61,4 +61,7 @@
 
 .archived {
     color: #900000;
+    @media (prefers-color-scheme: dark) {
+       color: #FF79C6;
+    }
 }

@@ -18,6 +18,9 @@
     margin: 13px 17px 13px 17px;
     padding: 10px;
     background-color: #ddddee;
+    @media (prefers-color-scheme: dark) {
+        background-color: #222255;
+    }
     display: flex;
     min-width: 400px;
     width: fit-content;
@@ -26,6 +29,9 @@
 .orig {
     margin: 0px 5px 5px 5px;
     background-color: #f7efef;
+    @media (prefers-color-scheme: dark) {
+        background-color: #222240;
+    }
     border: none;
     display: flex;
     flex-direction: column;
@@ -89,22 +95,34 @@
 .post-is-archived {
     font-weight: bold;
     color: #900000;
+    @media (prefers-color-scheme: dark) {
+        color: #FF79C6;
+    }
 }
 
 .post-title {
     font-weight: bold;
     color: black;
+    @media (prefers-color-scheme: dark) {
+        color: #8be9fd;
+    }
 }
 
 .post-nick {
     display: inline-block;
     font-weight: bold;
     color: rgb(30, 70, 30);
+    @media (prefers-color-scheme: dark) {
+        color: #ffb86c;
+    }
 }
 
 .post-feather {
     font-weight: bold;
     color: rgb(180, 30, 30);
+    @media (prefers-color-scheme: dark) {
+        color: #ff5555;
+    }
 }
 
 .post-time {
@@ -172,6 +190,9 @@
     max-width: min(1000px, 60vw);
 
     background-color: #EDCFCF;
+    @media (prefers-color-scheme: dark) {
+        background-color: #44475a;
+    }
 
     position: absolute;
     margin-top: 5px;
@@ -192,6 +213,17 @@
     transform: translateX(-50%);
 }
 
+
+@media (prefers-color-scheme: dark) {
+    a {
+        color: #ff79c6;
+    }
+
+    a:visited {
+        color: #ffaaee;
+    }
+}
+
 /* Only offer post previews on PCs */
 
 @media (hover: hover) and (pointer: fine) {
@@ -201,10 +233,16 @@
 
     .link-with-preview:hover .preview-link {
         color: darkred;
+        @media (prefers-color-scheme: dark) {
+           color: #bd93f9;
+        }
     }
 
     .link-with-preview :visited :hover .preview-link {
         color: darkred;
+        @media (prefers-color-scheme: dark) {
+           color: #bd93f9;
+        }
     }
 }
 

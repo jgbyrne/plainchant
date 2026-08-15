@@ -4,6 +4,11 @@ html {
 
 body {
     background-color: #f7efef;
+    @media (prefers-color-scheme: dark) {
+        background-color: #141440;
+        color: #eeeeee;
+    }
+
     font-family: "Liberation Sans", "Arial", "sans-serif";
     font-size: 1.2rem;
     display: flex;
@@ -52,6 +57,9 @@ body {
 
 .nav-link > a, .nav-link > a:visited {
     color: #0000EE;
+    @media (prefers-color-scheme: dark) {
+        color: #AAAAFF;
+    }
 }
 
 .form-field {
@@ -86,14 +94,23 @@ body {
 
 .quote {
     color: #00820D;
+    @media (prefers-color-scheme: dark) {
+        color: #50fa7b;
+    }
 }
 
 .quote a:link {
     color: #44CC55;
+    @media (prefers-color-scheme: dark) {
+        color: #88feaa
+    }
 }
 
 .quote a:visited {
     color: darkgreen;
+    @media (prefers-color-scheme: dark) {
+        color: #aaffdd
+    }
 }
 
 .subtle-link:link, .subtle-link:visited {
@@ -103,6 +120,9 @@ body {
 
 .subtle-link:hover {
     color: #111188;
+    @media (prefers-color-scheme: dark) {
+        color: #bd93f9;
+    }
     text-decoration: underline;
 }
 
@@ -123,12 +143,18 @@ hr {
     width: 100%;
     max-width: 1300px;
     margin: 7px;
+    @media (prefers-color-scheme: dark) {
+        background-color: #666;
+    }
 }
 
 .minor-rule {
     border: none;
     height: 0.11em;
     background-color: #888;
+    @media (prefers-color-scheme: dark) {
+        background-color: #666;
+    }
 }
 
 .footer {
