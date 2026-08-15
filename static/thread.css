@@ -30,7 +30,7 @@
     margin: 0px 5px 5px 5px;
     background-color: #f7efef;
     @media (prefers-color-scheme: dark) {
-        background-color: #222240;
+        background-color: #141440;
     }
     border: none;
     display: flex;
