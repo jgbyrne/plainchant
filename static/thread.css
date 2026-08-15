@@ -92,6 +92,27 @@
     padding-left: 4px;
 }
 
+.quote {
+    color: #00820D;
+    @media (prefers-color-scheme: dark) {
+        color: #50fa7b;
+    }
+}
+
+.quote a:link {
+    color: #44CC55;
+    @media (prefers-color-scheme: dark) {
+        color: #88feaa
+    }
+}
+
+.quote a:visited {
+    color: darkgreen;
+    @media (prefers-color-scheme: dark) {
+        color: #aaffdd
+    }
+}
+
 .post-is-archived {
     font-weight: bold;
     color: #900000;
