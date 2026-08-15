@@ -19,7 +19,7 @@
     padding: 10px;
     background-color: #ddddee;
     @media (prefers-color-scheme: dark) {
-        background-color: #222255;
+        background-color: #141440;
     }
     display: flex;
     min-width: 400px;
