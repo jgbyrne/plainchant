@@ -527,7 +527,7 @@ impl db::Database for Sqlite3Database {
         let mut query = conn.prepare(
             r#"
                 SELECT p.BoardId, p.PostNum, p.Time, p.Ip, p.Poster, p.Body,
-                       p.FeatherType, p.FeatherText, p.FileId, p.FileName, p.Approval, p.OrigNum
+                       p.FeatherType, p.FeatherText, p.FileId, p.FileName, p.Approval, p.OrigNum,
                        o.Title, o.BumpTime, o.Replies, o.ImgReplies,
                        o.Pinned, o.Archived
 

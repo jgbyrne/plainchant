@@ -262,48 +262,40 @@ where
                 str_out.push_str(&format!("{}\n\n", reply.body()));
             };
 
+            let print_err = |str_out: &mut String, err: &util::PlainchantErr| {
+                str_out.push_str(&format!("[{:?}] ({:?}) '{}'\n", err.origin, err.code, err.msg))
+            };
+
             str_out.push_str("=-=-= Originals, Unapproved =-=-=\n");
-            if let Ok(orig_unapproved) =
-                database.get_originals_by_approval(board_id, site::Approval::Unapproved)
-            {
-                orig_unapproved
+            match database.get_originals_by_approval(board_id, site::Approval::Unapproved) {
+                Ok(orig_unapproved) => orig_unapproved
                     .iter()
-                    .for_each(|orig: &site::Original| print_orig(&mut str_out, orig))
-            } else {
-                str_out.push_str("Fetch Failed\n");
+                    .for_each(|orig: &site::Original| print_orig(&mut str_out, orig)),
+                Err(err) => print_err(&mut str_out, &err),
             }
 
             str_out.push_str("=-=-= Originals, Flagged =-=-=\n");
-            if let Ok(orig_flagged) =
-                database.get_originals_by_approval(board_id, site::Approval::Flagged)
-            {
-                orig_flagged
+            match database.get_originals_by_approval(board_id, site::Approval::Flagged) {
+                Ok(orig_flagged) => orig_flagged
                     .iter()
-                    .for_each(|orig: &site::Original| print_orig(&mut str_out, orig))
-            } else {
-                str_out.push_str("Fetch Failed\n");
+                    .for_each(|orig: &site::Original| print_orig(&mut str_out, orig)),
+                Err(err) => print_err(&mut str_out, &err),
             }
 
             str_out.push_str("=-=-= Replies, Unapproved =-=-=\n");
-            if let Ok(replies_unapproved) =
-                database.get_replies_by_approval(board_id, site::Approval::Unapproved)
-            {
-                replies_unapproved
+            match database.get_replies_by_approval(board_id, site::Approval::Unapproved) {
+                Ok(replies_unapproved) => replies_unapproved
                     .iter()
-                    .for_each(|reply: &site::Reply| print_reply(&mut str_out, reply))
-            } else {
-                str_out.push_str("Fetch Failed\n");
+                    .for_each(|reply: &site::Reply| print_reply(&mut str_out, reply)),
+                Err(err) => print_err(&mut str_out, &err),
             }
 
             str_out.push_str("=-=-= Replies, Flagged =-=-=\n");
-            if let Ok(replies_flagged) =
-                database.get_replies_by_approval(board_id, site::Approval::Flagged)
-            {
-                replies_flagged
+            match database.get_replies_by_approval(board_id, site::Approval::Flagged) {
+                Ok(replies_flagged) => replies_flagged
                     .iter()
-                    .for_each(|reply: &site::Reply| print_reply(&mut str_out, reply))
-            } else {
-                str_out.push_str("Fetch Failed\n");
+                    .for_each(|reply: &site::Reply| print_reply(&mut str_out, reply)),
+                Err(err) => print_err(&mut str_out, &err),
             }
 
             str_out.push_str("-------\n");
