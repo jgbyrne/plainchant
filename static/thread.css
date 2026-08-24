@@ -255,7 +255,7 @@
     }
 }
 
-@media (hover: none) or (not (pointer: fine)) {
+@media not all and (hover: hover) and (pointer: fine) {
     .floating-preview {
         display: none;
     }
