@@ -235,25 +235,23 @@
 }
 
 
-/* Only offer post previews on PCs */
+/* Post previews require a hoverable pointer */
 
 @media (hover: hover) and (pointer: fine) {
     .link-with-preview:not(:hover) .floating-preview {
       display: none;
     }
 
-    .link-with-preview:hover .preview-link {
+    .link-with-preview:hover .preview-link,
+    .link-with-preview:hover .preview-link:visited {
         color: darkred;
-        @media (prefers-color-scheme: dark) {
-           color: #bd93f9;
-        }
     }
+}
 
-    .link-with-preview :visited :hover .preview-link {
-        color: darkred;
-        @media (prefers-color-scheme: dark) {
-           color: #bd93f9;
-        }
+@media (hover: hover) and (pointer: fine) and (prefers-color-scheme: dark) {
+    .link-with-preview:hover .preview-link,
+    .link-with-preview:hover .preview-link:visited {
+        color: #bd93f9;
     }
 }
 
