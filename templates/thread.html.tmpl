@@ -49,7 +49,7 @@
                 </div>
                 <div class="post-text">
                     <div class="post-image-frame orig-post-image-frame">
-                        <a href="{{orig_file_url}}"><img class="post-image orig-post-image" title="{{orig_file_name}}" src="{{orig_thumbnail_url}}"></img></a>
+                        <a href="{{orig_file_url}}"><img class="post-image orig-post-image" src="{{orig_thumbnail_url}}"></img></a>
                     </div>
                     <p class="post-body">{{orig_post_body}}</p>
                 </div>
@@ -59,7 +59,7 @@
                     <div class="post-text">
                         {:reply.has_image:}
                             <div class="post-image-frame">
-                                 <a href="{{reply.file_url}}"><img class="post-image" title="{{reply.file_name}}" src="{{reply.thumbnail_url}}"></img></a>
+                                 <a href="{{reply.file_url}}"><img class="post-image" src="{{reply.thumbnail_url}}"></img></a>
                             </div>
                         {:reply.has_image:}
                         <div class="info-line">
