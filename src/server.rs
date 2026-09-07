@@ -15,18 +15,16 @@ use axum::http;
 use axum::http::header::HeaderMap;
 use axum::http::{StatusCode, Uri};
 use axum::response::{ErrorResponse, Html, IntoResponse, IntoResponseParts};
-use axum::{Router, body, extract, response, routing};
+use axum::{Router, extract, response, routing};
 
 use tower::Layer;
 use tower_http::normalize_path::NormalizePathLayer;
-
-use tokio_util::io::ReaderStream;
+use tower_http::services::ServeDir;
 
 use bytes::{BufMut, Bytes, BytesMut};
 
 use std::net::{IpAddr, SocketAddr};
 use std::ops::DerefMut;
-use std::path;
 use std::sync::{Arc, RwLock};
 
 // This value is equivalent to 64 MiB in bytes;
@@ -113,37 +111,6 @@ fn render_page<DB: db::Database>(
     let pages = pg.deref_mut();
     let page = pages.update(page_ref, page);
     ok_page(page)
-}
-
-// static_dir: Handler to serve static resources
-
-async fn static_dir(
-    State(config): State<Arc<Config>>,
-    extract::Path(path): extract::Path<path::PathBuf>,
-) -> impl IntoResponse {
-    let full_path = config.static_dir.join(&path);
-
-    match tokio::fs::File::open(&full_path).await {
-        Ok(file) => {
-            let mime = mime_guess::from_path(&full_path).first_or_octet_stream();
-            let headers = response::AppendHeaders([
-                ("Content-Type", mime.to_string()),
-                (
-                    "Cache-Control",
-                    "Cache-Control: public, max-age=604800".to_string(),
-                ),
-            ]);
-
-            let stream = ReaderStream::new(file);
-            let body = body::Body::from_stream(stream);
-
-            Ok((headers, body))
-        },
-        Err(_err) => Err((
-            StatusCode::NOT_FOUND,
-            format!("Could not retrieve static file: {}", path.to_string_lossy()),
-        )),
-    }
 }
 
 // thread: Handler to serve thread pages
@@ -721,9 +688,9 @@ pub async fn serve<DB: db::Database, FR: fr::FileRack>(
         .route("/thumbnails/{file_id}", routing::get(thumbnails))
         .route("/{board}/submit", routing::post(create_submit))
         .route("/{board}/reply/{orig_num}", routing::post(create_reply))
-        .route("/static/{*path}", routing::get(static_dir))
         .route("/api/console", routing::post(console))
         .nest("/api", api::get_api_router())
+        .nest_service("/static", ServeDir::new(state.config.static_dir.clone()))
         .layer(extract::DefaultBodyLimit::max(FORM_MAX_LENGTH))
         .fallback(route_not_found)
         .with_state(state);

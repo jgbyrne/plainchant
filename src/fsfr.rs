@@ -39,6 +39,13 @@ impl Cache {
     }
 }
 
+fn validate_file_id(file_id: &str) -> Result<(), util::PlainchantErr> {
+    match file_id.chars().all(char::is_alphanumeric) {
+        true => Ok(()),
+        false => Err(fr::static_err_with_code("Invalid File ID", 400)),
+    }
+}
+
 pub struct FSFileRack {
     file_dir: PathBuf,
     cache:    Cache,
@@ -93,6 +100,8 @@ impl FSFileRack {
 
 impl fr::FileRack for FSFileRack {
     fn store_file(&self, file_id: &str, file: Bytes) -> Result<(), util::PlainchantErr> {
+        validate_file_id(file_id)?;
+
         let img = image::load_from_memory(file.as_ref())
             .map_err(|_| fr::static_err("Could not handle file"))?;
 
@@ -126,14 +135,18 @@ impl fr::FileRack for FSFileRack {
     }
 
     fn get_file(&self, file_id: &str) -> Result<Bytes, util::PlainchantErr> {
+        validate_file_id(file_id)?;
         self.retrieve_file(file_id)
     }
 
     fn get_file_thumbnail(&self, file_id: &str) -> Result<Bytes, util::PlainchantErr> {
+        validate_file_id(file_id)?;
         self.retrieve_file(&FSFileRack::thumb_id(file_id))
     }
 
     fn delete_file(&self, file_id: &str) -> Result<(), util::PlainchantErr> {
+        validate_file_id(file_id)?;
+
         let thumb_id = FSFileRack::thumb_id(file_id);
         self.cache.delete(file_id)?;
         self.cache.delete(&thumb_id)?;

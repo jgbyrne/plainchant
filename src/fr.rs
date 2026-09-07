@@ -2,13 +2,16 @@ use crate::util;
 
 use bytes::Bytes;
 
-pub fn static_err(msg: &'static str) -> util::PlainchantErr {
+pub fn static_err_with_code(msg: &'static str, code: u16) -> util::PlainchantErr {
     util::PlainchantErr {
         origin: util::ErrOrigin::FileRack,
-        // TODO may want to emit different codes in the future
-        code:   500,
+        code,
         msg:    String::from(msg),
     }
+}
+
+pub fn static_err(msg: &'static str) -> util::PlainchantErr {
+    static_err_with_code(msg, 500)
 }
 
 pub trait FileRack: Sync + Send + 'static {
