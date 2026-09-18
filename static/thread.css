@@ -171,6 +171,9 @@
 
 .reply-form {
     display: flex;
+}
+
+.post-form {
     padding-left: 25px;
 }
 
