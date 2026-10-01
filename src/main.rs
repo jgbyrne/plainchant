@@ -50,7 +50,16 @@ fn main() {
     let mut args = std::env::args();
     let _bin = args.next();
 
-    let conf_path = fs::canonicalize(args.next().unwrap_or(String::from("./plainchant.toml")))
+    let conf_path_raw = args.next()
+        .unwrap_or_else(|| init_die("plainchant <config_path> [--init-only]"));
+
+    let init_only = match args.next().as_deref() {
+        Some("--init-only") => { true },
+        Some(_) => init_die("Unrecognised option"),
+        _ => { false },
+    };
+
+    let conf_path = fs::canonicalize(conf_path_raw)
         .unwrap_or_else(|_| init_die("Config file does not exist."));
 
     let conf_string = fs::read_to_string(&conf_path)
@@ -200,6 +209,11 @@ fn main() {
         .unwrap_or_else(|_| init_die("No site configured in database"));
     let pages = pages::Pages::new(site, templates, 1).unwrap_or_else(|err| err.die());
     let actions = actions::Actions::new(&db).unwrap_or_else(|err| err.die());
+
+    if init_only {
+        eprintln!("Initialisation complete");
+        exit(0);
+    }
 
     // Serve the site using the pages, actions, and database
     server::serve(config, pages, actions, db, fr);
