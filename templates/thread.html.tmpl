@@ -13,6 +13,16 @@
 
         <link rel = "stylesheet" href="/static/global.css?ratherthanwords=comesthethoughtofhighwindows">
         <link rel = "stylesheet" href="/static/thread.css?icaughtthismorning=morningsminion">
+        <style>
+        {%reply%}
+            .content:has([href="#{{reply.post_num}}"]:hover) #p-{{reply.post_num}} {
+                background-color: #EDCFCF;
+                @media (prefers-color-scheme: dark) {
+                    background-color: #44475a;
+                }
+            }
+        {%reply%}
+        </style>
         <link rel = "shortcut icon" href="/static/favicon.png">
         <title>{:orig_has_title:}{{orig_title}} – {:orig_has_title:}/{{board_url}}/ – {{site_name}}</title>
     </head>
@@ -55,7 +65,7 @@
                 </div>
             </div>
             {%reply%}
-                <div class="post reply">
+                <div id="p-{{reply.post_num}}" class="post reply">
                     <div class="post-text">
                         {:reply.has_image:}
                             <div class="post-image-frame">
