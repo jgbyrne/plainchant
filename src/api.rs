@@ -1,8 +1,7 @@
 use crate::actions::Actions;
-use crate::db;
-use crate::fr;
+use crate::db; use crate::fr;
 use crate::site;
-use crate::state::{DbState, PlainchantState};
+use crate::state::{DbState, FrState, PlainchantState};
 use crate::util::PlainchantErr;
 
 use axum::Json;
@@ -14,19 +13,32 @@ use axum::{Router, routing};
 use std::sync::Arc;
 
 use serde::Serialize;
+use bytes::Bytes;
 
 #[derive(Serialize)]
 struct ApiError {
     message: String,
 }
 
-type ApiResponse<T> = (StatusCode, Json<T>);
+type ApiResponse<T> = (StatusCode, T);
 type ApiErrorResponse = (StatusCode, Json<ApiError>);
 
 type ApiResult<T> = Result<ApiResponse<T>, ApiErrorResponse>;
+type ApiJsonResult<T> = Result<ApiResponse<Json<T>>, ApiErrorResponse>;
+type ApiBytesResult = Result<ApiResponse<Bytes>, ApiErrorResponse>;
 
-fn api_ok<T>(inner: T) -> ApiResult<T> {
+fn api_ok<T>(inner: T) -> ApiJsonResult<T> {
     Ok((StatusCode::OK, Json(inner)))
+}
+
+fn api_ok_bytes(bytes: Bytes) -> ApiBytesResult {
+    Ok((StatusCode::OK, bytes))
+}
+
+fn api_not_found<T>() -> ApiResult<T> {
+    Err(
+        (StatusCode::NOT_FOUND, Json(ApiError { message: String::from("Not Found") }))
+    )
 }
 
 impl From<PlainchantErr> for ApiErrorResponse {
@@ -53,7 +65,7 @@ struct ApiSite {
     pub url:         Option<String>,
 }
 
-async fn site<DB: db::Database>(State(DbState { db }): State<DbState<DB>>) -> ApiResult<ApiSite> {
+async fn site<DB: db::Database>(State(DbState { db }): State<DbState<DB>>) -> ApiJsonResult<ApiSite> {
     let site = db.get_site()?;
     let api_site = ApiSite {
         name:        site.name,
@@ -89,7 +101,7 @@ impl From<site::Board> for ApiBoard {
 
 async fn boards<DB: db::Database>(
     State(DbState { db }): State<DbState<DB>>,
-) -> ApiResult<Vec<ApiBoard>> {
+) -> ApiJsonResult<Vec<ApiBoard>> {
     let api_boards = db
         .get_boards()?
         .into_iter()
@@ -103,7 +115,7 @@ async fn board<DB: db::Database>(
     State(actions): State<Arc<Actions>>,
     State(DbState { db }): State<DbState<DB>>,
     extract::Path(board): extract::Path<String>,
-) -> ApiResult<ApiBoard> {
+) -> ApiJsonResult<ApiBoard> {
     let board_id = actions.board_url_to_id(&board)?;
     let board = db.get_board(board_id)?.into();
     api_ok(board)
@@ -160,7 +172,7 @@ async fn threads<DB: db::Database>(
     State(actions): State<Arc<Actions>>,
     State(DbState { db }): State<DbState<DB>>,
     extract::Path(board_url): extract::Path<String>,
-) -> ApiResult<Vec<ApiOriginal>> {
+) -> ApiJsonResult<Vec<ApiOriginal>> {
     let board_id = actions.board_url_to_id(&board_url)?;
     let threads = db
         .get_catalog(board_id)?
@@ -217,7 +229,7 @@ async fn thread<DB: db::Database>(
     State(actions): State<Arc<Actions>>,
     State(DbState { db }): State<DbState<DB>>,
     extract::Path((board_url, post_num)): extract::Path<(String, u64)>,
-) -> ApiResult<ApiThread> {
+) -> ApiJsonResult<ApiThread> {
     let thread = db.get_thread(actions.board_url_to_id(&board_url)?, post_num)?;
     api_ok(ApiThread {
         original: original_to_api(&actions, thread.original)?,
@@ -242,7 +254,7 @@ async fn post<DB: db::Database>(
     State(actions): State<Arc<Actions>>,
     State(DbState { db }): State<DbState<DB>>,
     extract::Path((board_url, post_num)): extract::Path<(String, u64)>,
-) -> ApiResult<ApiPost> {
+) -> ApiJsonResult<ApiPost> {
     let post = db.get_differentiated_post(actions.board_url_to_id(&board_url)?, post_num)?;
 
     api_ok(match post {
@@ -251,6 +263,31 @@ async fn post<DB: db::Database>(
         },
         site::DifferentiatedPost::Reply(reply) => ApiPost::Reply(reply_to_api(&actions, reply)?),
     })
+}
+
+async fn post_file<DB: db::Database, FR: fr::FileRack>(
+    State(actions): State<Arc<Actions>>,
+    State(DbState { db }): State<DbState<DB>>,
+    State(FrState { fr }): State<FrState<FR>>,
+    extract::Path((board_url, post_num)): extract::Path<(String, u64)>,
+) -> ApiBytesResult {
+    let post = db.get_post(actions.board_url_to_id(&board_url)?, post_num)?;
+
+    match post.file_id() {
+        Some(file_id) => api_ok_bytes(fr.get_file(file_id)?),
+        None => api_not_found(),
+    }
+}
+
+async fn flag_post<DB: db::Database>(
+    State(actions): State<Arc<Actions>>,
+    State(DbState { db }): State<DbState<DB>>,
+    extract::Path((board_url, post_num)): extract::Path<(String, u64)>,
+) -> ApiJsonResult<&'static str> {
+    let mut post = db.get_post(actions.board_url_to_id(&board_url)?, post_num)?;
+    post.set_approval(site::Approval::Flagged);
+    db.update_post(post)?;
+    api_ok("Flagged Post")
 }
 
 pub fn get_api_router<DB, FR>() -> Router<PlainchantState<DB, FR>>
@@ -265,4 +302,6 @@ where
         .route("/board/{board_url}/threads", routing::get(threads))
         .route("/board/{board_url}/thread/{post_num}", routing::get(thread))
         .route("/board/{board_url}/post/{post_num}", routing::get(post))
+        .route("/board/{board_url}/post/{post_num}/file", routing::get(post_file))
+        .route("/board/{board_url}/post/{post_num}/flag", routing::put(flag_post))
 }

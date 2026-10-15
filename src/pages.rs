@@ -267,6 +267,11 @@ impl Pages {
                     });
                 }
 
+                let approved_replies = thread
+                    .replies
+                    .iter()
+                    .filter(|rep| matches!(rep.approval, site::Approval::Approved));
+
                 let mut render_data = template::Data::full();
                 populate_site_data(&mut render_data, &self.site);
                 populate_board_data(&mut render_data, database.get_board(*board_id)?);
@@ -284,7 +289,7 @@ impl Pages {
                     format::html_escape_and_trim(thread.original.body()),
                 );
 
-                for reply in &thread.replies {
+                for reply in approved_replies.clone() {
                     posts.insert(reply.post_num(), format::html_escape_and_trim(reply.body()));
                 }
 
@@ -358,10 +363,7 @@ impl Pages {
                 );
 
                 let mut replies = vec![];
-                for reply in thread
-                    .replies
-                    .iter()
-                    .filter(|rep| matches!(rep.approval, site::Approval::Approved))
+                for reply in approved_replies
                 {
                     render_data.insert_collection_value(
                         "reply",

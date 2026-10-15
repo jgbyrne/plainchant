@@ -559,7 +559,7 @@ impl db::Database for Sqlite3Database {
             r#"
             SELECT BoardId, PostNum, Time, Ip, Poster, Body,
                    FeatherType, FeatherText, FileId, FileName, Approval, OrigNum FROM Posts
-                WHERE (BoardId, Approval) = (?1, ?2) AND (OrigNum) != (NULL);
+                WHERE (BoardId, Approval) = (?1, ?2) AND (OrigNum) IS NOT (NULL);
         "#,
         )?;
 
