@@ -35,7 +35,14 @@
       plainchant = profile:
         let
           craneArgs = {
-            src = craneLibStable.cleanCargoSource ./.;
+            src = pkgs.lib.fileset.toSource {
+              root = ./.;
+              fileset = pkgs.lib.fileset.unions [
+                (craneLibStable.fileset.commonCargoSources ./.)
+                ./templates
+                ./static
+              ];
+            };
             strictDeps = true;
             CARGO_PROFILE = profile;
           };
