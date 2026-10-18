@@ -57,6 +57,8 @@
             cp -r static/ $out/etc/plainchant/
             cp -r templates/ $out/etc/plainchant/
           '';
+
+          meta.mainProgram = "plainchant";
         });
     in
     {
