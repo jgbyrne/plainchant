@@ -4,31 +4,44 @@
   inputs = {
     nixpkgs.url = "https://channels.nixos.org/nixpkgs-unstable/nixexprs.tar.zst";
     systems.url = "github:nix-systems/x86_64-linux";
-    crane.url = "github:ipetkov/crane";
     flake-parts.url = "github:hercules-ci/flake-parts";
+    crane.url = "github:ipetkov/crane";
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs@{
     nixpkgs,
     crane,
+    rust-overlay,
     flake-parts,
     ...
   }: flake-parts.lib.mkFlake { inherit inputs; } {
     systems = [ "x86_64-linux" ];
-    perSystem = { pkgs, ... }: let
+    perSystem = { system, ... }: let
 
-      craneLib = crane.mkLib pkgs;
+      pkgs = import nixpkgs {
+        inherit system;
+        overlays = [ rust-overlay.overlays.default ];
+      };
+
+      _craneLib = crane.mkLib pkgs;
+
+      craneLibStable = _craneLib.overrideToolchain
+        (p: p.rust-bin.stable.latest.default);
 
       plainchant = profile:
         let
           craneArgs = {
-            src = craneLib.cleanCargoSource ./.;
+            src = craneLibStable.cleanCargoSource ./.;
             strictDeps = true;
             CARGO_PROFILE = profile;
           };
         in
-        craneLib.buildPackage (craneArgs // {
-          cargoArtifacts = craneLib.buildDepsOnly craneArgs;
+        craneLibStable.buildPackage (craneArgs // {
+          cargoArtifacts = craneLibStable.buildDepsOnly craneArgs;
 
           buildInputs = [ pkgs.sqlite ];
 
@@ -44,9 +57,10 @@
       packages.debug = plainchant "dev";
       packages.release = plainchant "release";
 
-      devShells.default = craneLib.devShell {
+      devShells.default = craneLibStable.devShell {
         packages = [
           pkgs.rust-analyzer
+          pkgs.rust-bin.nightly.latest.rustfmt
         ];
       };
     };
