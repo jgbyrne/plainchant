@@ -24,7 +24,7 @@ use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::process::exit;
 
-use toml::Value;
+use toml::{Value, Table};
 
 fn init_die(msg: &str) -> ! {
     eprintln!("Initialisation Error: {}", msg);
@@ -43,6 +43,11 @@ pub struct Config {
 
 fn val<'v_out, 'v_in: 'v_out>(v: &'v_in Value, k: &str) -> &'v_out Value {
     v.get(k)
+        .unwrap_or_else(|| init_die(&format!("Could not get config key: {}", k)))
+}
+
+fn table_val<'v_out, 'table: 'v_out>(table: &'table Table, k: &str) -> &'v_out Value {
+    table.get(k)
         .unwrap_or_else(|| init_die(&format!("Could not get config key: {}", k)))
 }
 
@@ -66,8 +71,8 @@ fn main() {
         .unwrap_or_else(|_| init_die("Could not read from config file."));
 
     let conf_data = conf_string
-        .parse::<Value>()
-        .unwrap_or_else(|_| init_die("Could not parse config file as toml."));
+        .parse::<Table>()
+        .unwrap_or_else(|err| init_die(&format!("Could not parse config file as toml.\n{}", err)));
 
     let conf_dir = conf_path
         .parent()
@@ -79,12 +84,12 @@ fn main() {
     });
 
     let ip = String::from(
-        val(val(&conf_data, "site"), "ip")
+        val(table_val(&conf_data, "site"), "ip")
             .as_str()
             .unwrap_or_else(|| init_die("site.ip is not a string")),
     );
 
-    let port: u16 = val(val(&conf_data, "site"), "port")
+    let port: u16 = val(table_val(&conf_data, "site"), "port")
         .as_integer()
         .unwrap_or_else(|| init_die("site.port is not an integer"))
         .try_into()
@@ -98,7 +103,7 @@ fn main() {
         .into();
 
     let assets = PathBuf::from(
-        val(val(&conf_data, "site"), "assets")
+        val(table_val(&conf_data, "site"), "assets")
             .as_str()
             .unwrap_or_else(|| init_die("site.assets path is not a string")),
     );
@@ -107,7 +112,7 @@ fn main() {
     let static_dir = fs::canonicalize(assets.join("static"))
         .unwrap_or_else(|_| init_die("Could not comprehend static path"));
 
-    let approve_threads_by_default = val(&conf_data, "site")
+    let approve_threads_by_default = table_val(&conf_data, "site")
         .get("approve_threads_by_default")
         .map(|val| {
             val.as_bool()
@@ -115,7 +120,7 @@ fn main() {
         })
         .unwrap_or(true);
 
-    let approve_replies_by_default = val(&conf_data, "site")
+    let approve_replies_by_default = table_val(&conf_data, "site")
         .get("approve_replies_by_default")
         .map(|val| {
             val.as_bool()
@@ -123,7 +128,7 @@ fn main() {
         })
         .unwrap_or(true);
 
-    let whitelist_domains = val(&conf_data, "site")
+    let whitelist_domains = table_val(&conf_data, "site")
         .get("whitelist_domains")
         .map(|val| {
             val.as_bool()
@@ -151,7 +156,7 @@ fn main() {
     };
 
     // Load database - this needs to be db::Database
-    let db = if let Some(path) = val(val(val(&conf_data, "db"), "sqlite"), "path").as_str() {
+    let db = if let Some(path) = val(val(table_val(&conf_data, "db"), "sqlite"), "path").as_str() {
         let path = PathBuf::from(path);
         let parent = path
             .parent()
@@ -170,7 +175,7 @@ fn main() {
     };
 
     // Load file rack - this needs to be fr::FileRack
-    let fr = if let Some(path) = val(val(val(&conf_data, "fr"), "fs"), "path").as_str() {
+    let fr = if let Some(path) = val(val(table_val(&conf_data, "fr"), "fs"), "path").as_str() {
         match fs::canonicalize(path) {
             Ok(path) => fsfr::FSFileRack::from_dir(&path).unwrap_or_else(|err| err.die()),
             Err(_) => init_die("Could not comprehend fsfr path"),

@@ -3,3 +3,6 @@
 **/*.rs.bk
 static/yellow-loveless.jpg
 console.py
+
+result
+.direnv/

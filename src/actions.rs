@@ -5,10 +5,10 @@ use crate::site;
 use crate::site::Post;
 use crate::util;
 use crate::util::{ErrOrigin, PlainchantErr, URL, unwrap_or_return};
-use rand::Rng;
 use std::collections::{HashMap, HashSet};
 use std::iter;
 use std::sync::RwLock;
+use rand::RngExt;
 
 const TRIPCODE_LEN: usize = 10;
 const ORIG_COOLDOWN: u64 = 600;
@@ -177,9 +177,9 @@ impl Actions {
         file_rack: &FR,
         file: bytes::Bytes,
     ) -> Result<String, util::PlainchantErr> {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let file_id: String = iter::repeat(())
-            .map(|()| rng.sample(rand::distributions::Alphanumeric) as char)
+            .map(|()| rng.sample(rand::distr::Alphanumeric) as char)
             .take(12)
             .collect();
 
