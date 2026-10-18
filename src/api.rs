@@ -1,5 +1,6 @@
 use crate::actions::Actions;
-use crate::db; use crate::fr;
+use crate::db;
+use crate::fr;
 use crate::site;
 use crate::state::{DbState, FrState, PlainchantState};
 use crate::util::PlainchantErr;
@@ -12,8 +13,8 @@ use axum::{Router, routing};
 
 use std::sync::Arc;
 
-use serde::Serialize;
 use bytes::Bytes;
+use serde::Serialize;
 
 #[derive(Serialize)]
 struct ApiError {
@@ -36,9 +37,12 @@ fn api_ok_bytes(bytes: Bytes) -> ApiBytesResult {
 }
 
 fn api_not_found<T>() -> ApiResult<T> {
-    Err(
-        (StatusCode::NOT_FOUND, Json(ApiError { message: String::from("Not Found") }))
-    )
+    Err((
+        StatusCode::NOT_FOUND,
+        Json(ApiError {
+            message: String::from("Not Found"),
+        }),
+    ))
 }
 
 impl From<PlainchantErr> for ApiErrorResponse {
@@ -65,7 +69,9 @@ struct ApiSite {
     pub url:         Option<String>,
 }
 
-async fn site<DB: db::Database>(State(DbState { db }): State<DbState<DB>>) -> ApiJsonResult<ApiSite> {
+async fn site<DB: db::Database>(
+    State(DbState { db }): State<DbState<DB>>,
+) -> ApiJsonResult<ApiSite> {
     let site = db.get_site()?;
     let api_site = ApiSite {
         name:        site.name,
@@ -302,6 +308,12 @@ where
         .route("/board/{board_url}/threads", routing::get(threads))
         .route("/board/{board_url}/thread/{post_num}", routing::get(thread))
         .route("/board/{board_url}/post/{post_num}", routing::get(post))
-        .route("/board/{board_url}/post/{post_num}/file", routing::get(post_file))
-        .route("/board/{board_url}/post/{post_num}/flag", routing::put(flag_post))
+        .route(
+            "/board/{board_url}/post/{post_num}/file",
+            routing::get(post_file),
+        )
+        .route(
+            "/board/{board_url}/post/{post_num}/flag",
+            routing::put(flag_post),
+        )
 }

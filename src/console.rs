@@ -263,7 +263,10 @@ where
             };
 
             let print_err = |str_out: &mut String, err: &util::PlainchantErr| {
-                str_out.push_str(&format!("[{:?}] ({:?}) '{}'\n", err.origin, err.code, err.msg))
+                str_out.push_str(&format!(
+                    "[{:?}] ({:?}) '{}'\n",
+                    err.origin, err.code, err.msg
+                ))
             };
 
             str_out.push_str("=-=-= Originals, Unapproved =-=-=\n");

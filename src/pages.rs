@@ -363,8 +363,7 @@ impl Pages {
                 );
 
                 let mut replies = vec![];
-                for reply in approved_replies
-                {
+                for reply in approved_replies {
                     render_data.insert_collection_value(
                         "reply",
                         reply.post_num(),

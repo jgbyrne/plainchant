@@ -60,8 +60,11 @@
       devShells.default = craneLibStable.devShell {
         packages = [
           pkgs.rust-analyzer
-          pkgs.rust-bin.nightly.latest.rustfmt
         ];
+        shellHook = ''
+          # Use rustfmt from nightly
+          export PATH="${pkgs.rust-bin.nightly.latest.rustfmt}/bin:$PATH"
+        '';
       };
     };
   };

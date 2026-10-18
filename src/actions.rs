@@ -5,10 +5,10 @@ use crate::site;
 use crate::site::Post;
 use crate::util;
 use crate::util::{ErrOrigin, PlainchantErr, URL, unwrap_or_return};
+use rand::RngExt;
 use std::collections::{HashMap, HashSet};
 use std::iter;
 use std::sync::RwLock;
-use rand::RngExt;
 
 const TRIPCODE_LEN: usize = 10;
 const ORIG_COOLDOWN: u64 = 600;

@@ -6,7 +6,7 @@ pub fn static_err_with_code(msg: &'static str, code: u16) -> util::PlainchantErr
     util::PlainchantErr {
         origin: util::ErrOrigin::FileRack,
         code,
-        msg:    String::from(msg),
+        msg: String::from(msg),
     }
 }
 

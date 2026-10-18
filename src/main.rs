@@ -24,7 +24,7 @@ use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::process::exit;
 
-use toml::{Value, Table};
+use toml::{Table, Value};
 
 fn init_die(msg: &str) -> ! {
     eprintln!("Initialisation Error: {}", msg);
@@ -47,7 +47,8 @@ fn val<'v_out, 'v_in: 'v_out>(v: &'v_in Value, k: &str) -> &'v_out Value {
 }
 
 fn table_val<'v_out, 'table: 'v_out>(table: &'table Table, k: &str) -> &'v_out Value {
-    table.get(k)
+    table
+        .get(k)
         .unwrap_or_else(|| init_die(&format!("Could not get config key: {}", k)))
 }
 
@@ -55,17 +56,18 @@ fn main() {
     let mut args = std::env::args();
     let _bin = args.next();
 
-    let conf_path_raw = args.next()
+    let conf_path_raw = args
+        .next()
         .unwrap_or_else(|| init_die("plainchant <config_path> [--init-only]"));
 
     let init_only = match args.next().as_deref() {
-        Some("--init-only") => { true },
+        Some("--init-only") => true,
         Some(_) => init_die("Unrecognised option"),
-        _ => { false },
+        _ => false,
     };
 
-    let conf_path = fs::canonicalize(conf_path_raw)
-        .unwrap_or_else(|_| init_die("Config file does not exist."));
+    let conf_path =
+        fs::canonicalize(conf_path_raw).unwrap_or_else(|_| init_die("Config file does not exist."));
 
     let conf_string = fs::read_to_string(&conf_path)
         .unwrap_or_else(|_| init_die("Could not read from config file."));
