@@ -52,7 +52,7 @@ fn clone_option_string_or_empty(o_str: &Option<String>) -> String {
     o_str.as_deref().map(|s| s.to_string()).unwrap_or_default()
 }
 
-fn compute_fwd_links(thread: &db::Thread, posts: &HashSet<u64>) -> HashMap<u64, Vec<u64>> {
+fn compute_fwd_links(approved_replies: &Vec<&site::Reply>, posts: &HashSet<u64>) -> HashMap<u64, Vec<u64>> {
     lazy_static! {
         // Capture replies of form >>390290
         static ref REPLY: Regex = Regex::new(r"(>>)([\d]+)(?:$|\W)").unwrap();
@@ -60,7 +60,7 @@ fn compute_fwd_links(thread: &db::Thread, posts: &HashSet<u64>) -> HashMap<u64, 
 
     let mut links = HashMap::new();
 
-    for reply in &thread.replies {
+    for reply in approved_replies {
         let referenced_posts = REPLY.captures_iter(&reply.body).take(MAX_INLINE_REPLIES);
         for ref_post in referenced_posts {
             let ref_post_num = ref_post.get(2).unwrap();
@@ -270,7 +270,8 @@ impl Pages {
                 let approved_replies = thread
                     .replies
                     .iter()
-                    .filter(|rep| matches!(rep.approval, site::Approval::Approved));
+                    .filter(|rep| matches!(rep.approval, site::Approval::Approved))
+                    .collect::<Vec<&site::Reply>>();
 
                 let mut render_data = template::Data::full();
                 populate_site_data(&mut render_data, &self.site);
@@ -289,13 +290,13 @@ impl Pages {
                     format::html_escape_and_trim(thread.original.body()),
                 );
 
-                for reply in approved_replies.clone() {
+                for reply in approved_replies.iter() {
                     posts.insert(reply.post_num(), format::html_escape_and_trim(reply.body()));
                 }
 
                 let posts = posts;
 
-                let fwd_links = compute_fwd_links(&thread, &posts.keys().cloned().collect());
+                let fwd_links = compute_fwd_links(&approved_replies, &posts.keys().cloned().collect());
 
                 render_data.insert_value("replies", thread.original.replies().to_string());
 

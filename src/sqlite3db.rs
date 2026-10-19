@@ -844,9 +844,10 @@ impl db::Database for Sqlite3Database {
 
     fn delete_reply(&self, board_id: u64, post_num: u64) -> Result<(), PlainchantErr> {
         let mut conn = self.pool.get()?;
+        let tx = conn.transaction()?;
 
-        let reply = query_reply(&conn, board_id, post_num)?;
-        let orig = query_original(&conn, board_id, reply.orig_num)?;
+        let reply = query_reply(&tx, board_id, post_num)?;
+        let orig = query_original(&tx, board_id, reply.orig_num)?;
 
         let new_reply_count = orig.replies - 1;
         let new_img_reply_count = if reply.file_id.is_some() {
@@ -854,8 +855,6 @@ impl db::Database for Sqlite3Database {
         } else {
             orig.img_replies
         };
-
-        let tx = conn.transaction()?;
 
         tx.execute(
             r#"
