@@ -450,33 +450,34 @@ async fn create_submit<DB: db::Database, FR: fr::FileRack>(
         body.unwrap_or_else(|| String::from("")),
         name,
         trip,
-        file_id,
+        file_id.clone(),
         file_name.unwrap_or_else(|| String::from("")),
         title,
     );
 
     match submission_result {
         Ok(actions::SubmissionResult::Success(_)) => {
-            match actions.enforce_archive(db.as_ref(), fr.as_ref(), board_id) {
-                Ok(_) => Ok(response::Redirect::to(&format!("/{}/catalog", board))),
-                Err(err) => {
-                    println!("{:?}", err);
-                    Err(internal_error(
-                        &sp,
-                        &"Server failure while enforcing post cap".to_string(),
-                    ))
+            if let Err(err) = actions.enforce_archive(db.as_ref(), fr.as_ref(), board_id) {
+                eprintln!("Server failure while enforcing post cap: {:?}", err);
+            }
+            Ok(response::Redirect::to(&format!("/{}/catalog", board)))
+        },
+        failure @ _ => {
+            if let Err(err) = fr.delete_file(&file_id) {
+                eprintln!("Error deleting file [{}]: {:?}", &file_id, err);
+            }
+            match failure {
+                Ok(actions::SubmissionResult::Banned) => Err(forbidden(&sp, "Your IP address is banned")),
+                Ok(actions::SubmissionResult::Cooldown) => {
+                    Err(forbidden(&sp, "Please wait before creating another thread"))
                 },
+                Ok(actions::SubmissionResult::MayNotBeEmpty) => {
+                    Err(forbidden(&sp, "You must write something in your post"))
+                },
+                Ok(actions::SubmissionResult::BadContent) => Err(forbidden(&sp, "Post content disallowed")),
+                _ => Err(internal_error(&sp, "Failed to submit post")),
             }
         },
-        Ok(actions::SubmissionResult::Banned) => Err(forbidden(&sp, "Your IP address is banned")),
-        Ok(actions::SubmissionResult::Cooldown) => {
-            Err(forbidden(&sp, "Please wait before creating another thread"))
-        },
-        Ok(actions::SubmissionResult::MayNotBeEmpty) => {
-            Err(forbidden(&sp, "You must write something in your post"))
-        },
-        Ok(actions::SubmissionResult::BadContent) => Err(forbidden(&sp, "Post content disallowed")),
-        _ => Err(internal_error(&sp, "Failed to submit post")),
     }
 }
 
@@ -540,7 +541,7 @@ async fn create_reply<DB: db::Database, FR: fr::FileRack>(
         body.unwrap_or_else(|| String::from("")),
         name,
         trip,
-        file_id,
+        file_id.clone(),
         file_name,
         orig_num,
     );
@@ -550,19 +551,26 @@ async fn create_reply<DB: db::Database, FR: fr::FileRack>(
             "/{}/thread/{}",
             board, orig_num
         ))),
-        Ok(actions::SubmissionResult::Banned) => Err(forbidden(&sp, "Your IP address is banned")),
-        Ok(actions::SubmissionResult::Cooldown) => Err(forbidden(
-            &sp,
-            "Please wait a brief time before posting again",
-        )),
-        Ok(actions::SubmissionResult::MayNotBeEmpty) => {
-            Err(forbidden(&sp, "You may not create empty posts"))
+        failure @ _ => {
+            if let Some(file_id) = file_id && let Err(err) = fr.delete_file(&file_id) {
+                eprintln!("Error deleting file [{}]: {:?}", &file_id, err);
+            }
+            match failure {
+                Ok(actions::SubmissionResult::Banned) => Err(forbidden(&sp, "Your IP address is banned")),
+                Ok(actions::SubmissionResult::Cooldown) => Err(forbidden(
+                    &sp,
+                    "Please wait a brief time before posting again",
+                )),
+                Ok(actions::SubmissionResult::MayNotBeEmpty) => {
+                    Err(forbidden(&sp, "You may not create empty posts"))
+                },
+                Ok(actions::SubmissionResult::BadContent) => Err(forbidden(&sp, "Post content disallowed")),
+                Ok(actions::SubmissionResult::NotAcceptingReplies) => {
+                    Err(forbidden(&sp, "You cannot reply to this thread"))
+                },
+                _ => Err(internal_error(&sp, "Failed to submit post")),
+            }
         },
-        Ok(actions::SubmissionResult::BadContent) => Err(forbidden(&sp, "Post content disallowed")),
-        Ok(actions::SubmissionResult::NotAcceptingReplies) => {
-            Err(forbidden(&sp, "You cannot reply to this thread"))
-        },
-        Err(_) => Err(internal_error(&sp, "Failed to submit post")),
     }
 }
 
