@@ -692,11 +692,12 @@ impl db::Database for Sqlite3Database {
     fn create_original(&self, mut orig: site::Original) -> Result<u64, PlainchantErr> {
         let mut conn = self.pool.get()?;
 
-        let mut board = query_board(&conn, orig.board_id)?;
+        let tx = conn.transaction()?;
+
+        let mut board = query_board(&tx, orig.board_id)?;
         orig.post_num = board.next_post_num;
         board.next_post_num += 1;
 
-        let tx = conn.transaction()?;
         increment_next_post_num(&tx, orig.board_id)?;
 
         let (feather_type, feather_text) = encode_feather(&orig.feather);
@@ -745,12 +746,13 @@ impl db::Database for Sqlite3Database {
 
     fn create_reply(&self, mut reply: site::Reply) -> Result<u64, PlainchantErr> {
         let mut conn = self.pool.get()?;
+        let tx = conn.transaction()?;
 
-        let mut board = query_board(&conn, reply.board_id)?;
+        let mut board = query_board(&tx, reply.board_id)?;
         reply.post_num = board.next_post_num;
         board.next_post_num += 1;
 
-        let orig = query_original(&conn, reply.board_id, reply.orig_num)?;
+        let orig = query_original(&tx, reply.board_id, reply.orig_num)?;
 
         let new_reply_count = orig.replies + 1;
         let new_img_reply_count = if reply.file_id.is_some() {
@@ -765,7 +767,6 @@ impl db::Database for Sqlite3Database {
             orig.bump_time
         };
 
-        let tx = conn.transaction()?;
         increment_next_post_num(&tx, reply.board_id)?;
 
         let (feather_type, feather_text) = encode_feather(&reply.feather);
