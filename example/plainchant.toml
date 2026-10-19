@@ -5,7 +5,11 @@ assets = "/etc/plainchant"
 
 approve_threads_by_default = false
 approve_replies_by_default = true
-whitelist_domains = true
+
+whitelist_domains = false
+
+[console]
+access_key = "placeholder_key_change_me"
 
 [db.sqlite]
 path = "/var/lib/plainchant/db.sqlite3"
