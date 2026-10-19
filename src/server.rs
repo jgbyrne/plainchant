@@ -467,14 +467,18 @@ async fn create_submit<DB: db::Database, FR: fr::FileRack>(
                 eprintln!("Error deleting file [{}]: {:?}", &file_id, err);
             }
             match failure {
-                Ok(actions::SubmissionResult::Banned) => Err(forbidden(&sp, "Your IP address is banned")),
+                Ok(actions::SubmissionResult::Banned) => {
+                    Err(forbidden(&sp, "Your IP address is banned"))
+                },
                 Ok(actions::SubmissionResult::Cooldown) => {
                     Err(forbidden(&sp, "Please wait before creating another thread"))
                 },
                 Ok(actions::SubmissionResult::MayNotBeEmpty) => {
                     Err(forbidden(&sp, "You must write something in your post"))
                 },
-                Ok(actions::SubmissionResult::BadContent) => Err(forbidden(&sp, "Post content disallowed")),
+                Ok(actions::SubmissionResult::BadContent) => {
+                    Err(forbidden(&sp, "Post content disallowed"))
+                },
                 _ => Err(internal_error(&sp, "Failed to submit post")),
             }
         },
@@ -552,11 +556,15 @@ async fn create_reply<DB: db::Database, FR: fr::FileRack>(
             board, orig_num
         ))),
         failure @ _ => {
-            if let Some(file_id) = file_id && let Err(err) = fr.delete_file(&file_id) {
+            if let Some(file_id) = file_id
+                && let Err(err) = fr.delete_file(&file_id)
+            {
                 eprintln!("Error deleting file [{}]: {:?}", &file_id, err);
             }
             match failure {
-                Ok(actions::SubmissionResult::Banned) => Err(forbidden(&sp, "Your IP address is banned")),
+                Ok(actions::SubmissionResult::Banned) => {
+                    Err(forbidden(&sp, "Your IP address is banned"))
+                },
                 Ok(actions::SubmissionResult::Cooldown) => Err(forbidden(
                     &sp,
                     "Please wait a brief time before posting again",
@@ -564,7 +572,9 @@ async fn create_reply<DB: db::Database, FR: fr::FileRack>(
                 Ok(actions::SubmissionResult::MayNotBeEmpty) => {
                     Err(forbidden(&sp, "You may not create empty posts"))
                 },
-                Ok(actions::SubmissionResult::BadContent) => Err(forbidden(&sp, "Post content disallowed")),
+                Ok(actions::SubmissionResult::BadContent) => {
+                    Err(forbidden(&sp, "Post content disallowed"))
+                },
                 Ok(actions::SubmissionResult::NotAcceptingReplies) => {
                     Err(forbidden(&sp, "You cannot reply to this thread"))
                 },
