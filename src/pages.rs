@@ -52,7 +52,10 @@ fn clone_option_string_or_empty(o_str: &Option<String>) -> String {
     o_str.as_deref().map(|s| s.to_string()).unwrap_or_default()
 }
 
-fn compute_fwd_links(approved_replies: &Vec<&site::Reply>, posts: &HashSet<u64>) -> HashMap<u64, Vec<u64>> {
+fn compute_fwd_links(
+    approved_replies: &Vec<&site::Reply>,
+    posts: &HashSet<u64>,
+) -> HashMap<u64, Vec<u64>> {
     lazy_static! {
         // Capture replies of form >>390290
         static ref REPLY: Regex = Regex::new(r"(>>)([\d]+)(?:$|\W)").unwrap();
@@ -296,7 +299,8 @@ impl Pages {
 
                 let posts = posts;
 
-                let fwd_links = compute_fwd_links(&approved_replies, &posts.keys().cloned().collect());
+                let fwd_links =
+                    compute_fwd_links(&approved_replies, &posts.keys().cloned().collect());
 
                 render_data.insert_value("replies", thread.original.replies().to_string());
 
