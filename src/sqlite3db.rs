@@ -5,6 +5,7 @@ use crate::util::PlainchantErr;
 
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
+use rusqlite::TransactionBehavior;
 
 use core::ops::Deref;
 use std::path::PathBuf;
@@ -691,7 +692,7 @@ impl db::Database for Sqlite3Database {
 
     fn create_original(&self, mut orig: site::Original) -> Result<u64, PlainchantErr> {
         let mut conn = self.pool.get()?;
-
+        conn.set_transaction_behavior(TransactionBehavior::Immediate);
         let tx = conn.transaction()?;
 
         let mut board = query_board(&tx, orig.board_id)?;
@@ -746,6 +747,7 @@ impl db::Database for Sqlite3Database {
 
     fn create_reply(&self, mut reply: site::Reply) -> Result<u64, PlainchantErr> {
         let mut conn = self.pool.get()?;
+        conn.set_transaction_behavior(TransactionBehavior::Immediate);
         let tx = conn.transaction()?;
 
         let mut board = query_board(&tx, reply.board_id)?;
@@ -814,6 +816,7 @@ impl db::Database for Sqlite3Database {
 
     fn delete_original(&self, board_id: u64, post_num: u64) -> Result<(), PlainchantErr> {
         let mut conn = self.pool.get()?;
+        conn.set_transaction_behavior(TransactionBehavior::Immediate);
         let tx = conn.transaction()?;
 
         tx.execute(
@@ -844,6 +847,7 @@ impl db::Database for Sqlite3Database {
 
     fn delete_reply(&self, board_id: u64, post_num: u64) -> Result<(), PlainchantErr> {
         let mut conn = self.pool.get()?;
+        conn.set_transaction_behavior(TransactionBehavior::Immediate);
         let tx = conn.transaction()?;
 
         let reply = query_reply(&tx, board_id, post_num)?;
@@ -896,6 +900,7 @@ impl db::Database for Sqlite3Database {
 
     fn update_original(&self, orig: site::Original) -> Result<(), PlainchantErr> {
         let mut conn = self.pool.get()?;
+        conn.set_transaction_behavior(TransactionBehavior::Immediate);
         let tx = conn.transaction()?;
 
         let (feather_type, feather_text) = encode_feather(&orig.feather);
@@ -984,7 +989,7 @@ impl db::Database for Sqlite3Database {
 
     fn delete_board(&self, board_id: u64) -> Result<(), PlainchantErr> {
         let mut conn = self.pool.get()?;
-
+        conn.set_transaction_behavior(TransactionBehavior::Immediate);
         let tx = conn.transaction()?;
 
         tx.execute("DELETE FROM Posts WHERE BoardId = ?1;", (board_id,))?;
