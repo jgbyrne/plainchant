@@ -78,20 +78,11 @@ impl FSFileRack {
             return Ok(buf);
         }
 
-        let f_res = File::open(self.file_dir.join(file_id));
-        match f_res {
-            Ok(f) => {
-                let bytes_res = f.bytes().collect::<Result<Vec<u8>, std::io::Error>>();
-                match bytes_res {
-                    Ok(bytes) => {
-                        let bytes = Bytes::from(bytes);
-                        self.cache.store(file_id, bytes.clone())?;
-                        Ok(bytes)
-                    },
-                    Err(_read_err) => {
-                        Err(fr::static_err("Could not read bytes from requested file"))
-                    },
-                }
+        match fs::read(self.file_dir.join(file_id)) {
+            Ok(buf) => {
+                let bytes = Bytes::from(buf);
+                self.cache.store(file_id, bytes.clone())?;
+                Ok(bytes)
             },
             Err(_read_err) => Err(fr::static_err("Could not open requested file")),
         }
