@@ -4,7 +4,7 @@ use bytes::Bytes;
 use dashmap::DashMap;
 use std::fs;
 use std::fs::File;
-use std::io::{Cursor, Read, Write};
+use std::io::{Cursor, Write};
 use std::path::{Path, PathBuf};
 
 // TODO: Implement memory cap (currently grows arbitrarily large)

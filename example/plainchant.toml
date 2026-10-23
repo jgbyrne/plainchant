@@ -1,6 +1,5 @@
 [site]
-ip = "0.0.0.0"
-port = 8088
+addr = "0.0.0.0:8088"
 assets = "/etc/plainchant"
 
 approve_threads_by_default = false

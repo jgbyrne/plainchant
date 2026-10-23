@@ -17,14 +17,66 @@ mod template;
 
 use crate::db::Database;
 
-use std::convert::TryInto;
 use std::env;
 use std::fs;
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::process::exit;
 
-use toml::{Table, Value};
+use serde::Deserialize;
+
+fn is_true() -> bool {
+    true
+}
+
+fn is_false() -> bool {
+    false
+}
+
+#[derive(Deserialize)]
+struct ConfigSite {
+    addr: SocketAddr,
+    assets: PathBuf,
+    #[serde(default = "is_true")]
+    approve_threads_by_default: bool,
+    #[serde(default = "is_true")]
+    approve_replies_by_default: bool,
+    #[serde(default = "is_false")]
+    whitelist_domains: bool,
+}
+
+#[derive(Deserialize)]
+struct ConfigConsole {
+    access_key: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct ConfigSqlite {
+    path: PathBuf,
+}
+
+#[derive(Deserialize)]
+struct ConfigDb {
+    sqlite: ConfigSqlite,
+}
+
+#[derive(Deserialize)]
+struct ConfigFsfr {
+    path: PathBuf,
+}
+
+#[derive(Deserialize)]
+struct ConfigFr {
+    fs: ConfigFsfr,
+}
+
+#[derive(Deserialize)]
+struct ConfigFile {
+    site:    ConfigSite,
+    console: ConfigConsole,
+    db:      ConfigDb,
+    fr:      ConfigFr,
+}
 
 fn init_die(msg: &str) -> ! {
     eprintln!("Initialisation Error: {}", msg);
@@ -39,17 +91,6 @@ pub struct Config {
     approve_replies_by_default: bool,
     whitelist_domains: bool,
     access_key: Option<String>,
-}
-
-fn val<'v_out, 'v_in: 'v_out>(v: &'v_in Value, k: &str) -> &'v_out Value {
-    v.get(k)
-        .unwrap_or_else(|| init_die(&format!("Could not get config key: {}", k)))
-}
-
-fn table_val<'v_out, 'table: 'v_out>(table: &'table Table, k: &str) -> &'v_out Value {
-    table
-        .get(k)
-        .unwrap_or_else(|| init_die(&format!("Could not get config key: {}", k)))
 }
 
 fn main() {
@@ -72,9 +113,8 @@ fn main() {
     let conf_string = fs::read_to_string(&conf_path)
         .unwrap_or_else(|_| init_die("Could not read from config file."));
 
-    let conf_data = conf_string
-        .parse::<Table>()
-        .unwrap_or_else(|err| init_die(&format!("Could not parse config file as toml.\n{}", err)));
+    let raw_config: ConfigFile = toml::from_str(&conf_string)
+        .unwrap_or_else(|err| init_die(&format!("Could not parse config file.\n{}", err)));
 
     let conf_dir = conf_path
         .parent()
@@ -85,105 +125,47 @@ fn main() {
         exit(1);
     });
 
-    let ip = String::from(
-        val(table_val(&conf_data, "site"), "ip")
-            .as_str()
-            .unwrap_or_else(|| init_die("site.ip is not a string")),
-    );
-
-    let port: u16 = val(table_val(&conf_data, "site"), "port")
-        .as_integer()
-        .unwrap_or_else(|| init_die("site.port is not an integer"))
-        .try_into()
-        .unwrap_or_else(|_| init_die("site.port is not a sensibly sized positive integer"));
-
-    let addr = (
-        ip.parse::<IpAddr>()
-            .unwrap_or_else(|_| init_die("site.ip could not be understood as an IP Address")),
-        port,
-    )
-        .into();
-
-    let assets = PathBuf::from(
-        val(table_val(&conf_data, "site"), "assets")
-            .as_str()
-            .unwrap_or_else(|| init_die("site.assets path is not a string")),
-    );
-    let templates_dir = fs::canonicalize(assets.join("templates"))
+    let templates_dir = fs::canonicalize(raw_config.site.assets.join("templates"))
         .unwrap_or_else(|_| init_die("Could not comprehend templates path"));
-    let static_dir = fs::canonicalize(assets.join("static"))
+
+    let static_dir = fs::canonicalize(raw_config.site.assets.join("static"))
         .unwrap_or_else(|_| init_die("Could not comprehend static path"));
 
-    let approve_threads_by_default = table_val(&conf_data, "site")
-        .get("approve_threads_by_default")
-        .map(|val| {
-            val.as_bool()
-                .unwrap_or_else(|| init_die("approve_threads_by_default is not a boolean"))
-        })
-        .unwrap_or(true);
-
-    let approve_replies_by_default = table_val(&conf_data, "site")
-        .get("approve_replies_by_default")
-        .map(|val| {
-            val.as_bool()
-                .unwrap_or_else(|| init_die("approve_replies_by_default is not a boolean"))
-        })
-        .unwrap_or(true);
-
-    let whitelist_domains = table_val(&conf_data, "site")
-        .get("whitelist_domains")
-        .map(|val| {
-            val.as_bool()
-                .unwrap_or_else(|| init_die("whitelist_domains is not a boolean"))
-        })
-        .unwrap_or(false);
-
-    let access_key = conf_data
-        .get("console")
-        .and_then(|c| c.get("access_key"))
-        .map(|val| {
-            val.as_str()
-                .unwrap_or_else(|| init_die("access_key is not a string"))
-        })
-        .map(String::from);
-
     let config = Config {
-        addr,
+        addr: raw_config.site.addr,
         templates_dir,
         static_dir,
-        approve_threads_by_default,
-        approve_replies_by_default,
-        whitelist_domains,
-        access_key,
+        approve_threads_by_default: raw_config.site.approve_threads_by_default,
+        approve_replies_by_default: raw_config.site.approve_replies_by_default,
+        whitelist_domains: raw_config.site.whitelist_domains,
+        access_key: raw_config.console.access_key,
     };
 
     // Load database - this needs to be db::Database
-    let db = if let Some(path) = val(val(table_val(&conf_data, "db"), "sqlite"), "path").as_str() {
-        let path = PathBuf::from(path);
-        let parent = path
-            .parent()
-            .unwrap_or_else(|| init_die("Database path has no parent"));
-        let file_name = path
-            .file_name()
-            .unwrap_or_else(|| init_die("Database path has no file name"));
+    let parent = raw_config
+        .db
+        .sqlite
+        .path
+        .parent()
+        .unwrap_or_else(|| init_die("Database path has no parent"));
 
-        match fs::canonicalize(parent) {
-            Ok(pp) => sqlite3db::Sqlite3Database::from_path(pp.join(file_name))
-                .unwrap_or_else(|err| err.die()),
-            Err(_) => init_die("Could not comprehend sqlite3db path"),
-        }
-    } else {
-        init_die("No database specified in config")
+    let file_name = raw_config
+        .db
+        .sqlite
+        .path
+        .file_name()
+        .unwrap_or_else(|| init_die("Database path has no file name"));
+
+    let db = match fs::canonicalize(parent) {
+        Ok(pp) => sqlite3db::Sqlite3Database::from_path(pp.join(file_name))
+            .unwrap_or_else(|err| err.die()),
+        Err(_) => init_die("Could not comprehend sqlite3db path"),
     };
 
     // Load file rack - this needs to be fr::FileRack
-    let fr = if let Some(path) = val(val(table_val(&conf_data, "fr"), "fs"), "path").as_str() {
-        match fs::canonicalize(path) {
-            Ok(path) => fsfr::FSFileRack::from_dir(&path).unwrap_or_else(|err| err.die()),
-            Err(_) => init_die("Could not comprehend fsfr path"),
-        }
-    } else {
-        init_die("No file rack specified in config")
+    let fr = match fs::canonicalize(raw_config.fr.fs.path) {
+        Ok(path) => fsfr::FSFileRack::from_dir(&path).unwrap_or_else(|err| err.die()),
+        Err(_) => init_die("Could not comprehend fsfr path"),
     };
 
     // Load templates from template files
@@ -214,6 +196,7 @@ fn main() {
     let site = db
         .get_site()
         .unwrap_or_else(|_| init_die("No site configured in database"));
+
     let pages = pages::Pages::new(site, templates, 1).unwrap_or_else(|err| err.die());
     let actions = actions::Actions::new(&db).unwrap_or_else(|err| err.die());
 
